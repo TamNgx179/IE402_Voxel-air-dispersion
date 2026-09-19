@@ -1,0 +1,65 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1000 350" width="1000" height="350" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif">
+  <rect width="1000" height="350" fill="#ffffff"/>
+  <text x="500" y="26" text-anchor="middle" font-size="17" font-weight="700" fill="#1f2328">Mô hình đã chọn — hai mô hình ghép lại trên cùng một lưới voxel</text>
+
+  <!-- INPUT -->
+  <rect x="18" y="58" width="160" height="120" rx="8" fill="#f6f8fa" stroke="#8b949e" stroke-width="1.5" stroke-dasharray="5 3"/>
+  <text x="98" y="80" text-anchor="middle" font-size="12" font-weight="700" fill="#57606a">ĐẦU VÀO</text>
+  <text x="98" y="104" text-anchor="middle" font-size="11" fill="#1f2328">B[k,j,i] — mask nhà</text>
+  <text x="98" y="126" text-anchor="middle" font-size="11" fill="#1f2328">u(z) — profile gió</text>
+  <text x="98" y="148" text-anchor="middle" font-size="11" fill="#1f2328">S[k,j,i] — phát thải</text>
+  <text x="98" y="168" text-anchor="middle" font-size="9.5" fill="#6b7480">OSM · Open-Meteo · EF xe máy</text>
+
+  <line x1="184" y1="118" x2="208" y2="118" stroke="#8b949e" stroke-width="2"/>
+  <polygon points="216,118 206,113 206,123" fill="#8b949e"/>
+
+  <!-- MODEL 1 -->
+  <rect x="220" y="58" width="255" height="120" rx="8" fill="#eef4fb" stroke="#0969da" stroke-width="2"/>
+  <text x="347" y="80" text-anchor="middle" font-size="12.5" font-weight="700" fill="#0969da">MÔ HÌNH 1 — TRƯỜNG GIÓ</text>
+  <text x="347" y="100" text-anchor="middle" font-size="10.5" fill="#4a5560">mass-consistent diagnostic wind model</text>
+  <text x="347" y="116" text-anchor="middle" font-size="10.5" fill="#4a5560">biến phân Sasaki (1970)</text>
+  <rect x="244" y="126" width="207" height="24" rx="4" fill="#ffffff" stroke="#c3d9f0"/>
+  <text x="347" y="142" text-anchor="middle" font-size="11" fill="#1f2328">giải Poisson cho λ bằng SOR (ω = 1,78)</text>
+  <text x="347" y="168" text-anchor="middle" font-size="10.5" font-weight="700" fill="#0969da">⟹ hỏi: gió thổi thế nào quanh nhà?</text>
+
+  <line x1="481" y1="118" x2="505" y2="118" stroke="#0969da" stroke-width="2.4"/>
+  <polygon points="513,118 503,113 503,123" fill="#0969da"/>
+  <text x="497" y="106" text-anchor="middle" font-size="10.5" font-weight="700" fill="#0969da">(u,v,w)</text>
+
+  <!-- MODEL 2 -->
+  <rect x="517" y="58" width="255" height="120" rx="8" fill="#eef7f1" stroke="#2f6f46" stroke-width="2"/>
+  <text x="644" y="80" text-anchor="middle" font-size="12.5" font-weight="700" fill="#2f6f46">MÔ HÌNH 2 — PHÁT TÁN</text>
+  <text x="644" y="100" text-anchor="middle" font-size="10.5" fill="#4a5560">phương trình tải – khuếch tán</text>
+  <rect x="533" y="108" width="223" height="26" rx="4" fill="#ffffff" stroke="#bcdcc8"/>
+  <text x="644" y="126" text-anchor="middle" font-size="12" fill="#1f2328">∂C/∂t + ∇·(uC) − ∇·(K∇C) = S</text>
+  <text x="644" y="150" text-anchor="middle" font-size="10.5" fill="#4a5560">thể tích hữu hạn · upwind bậc 1 · Cr ≤ 0,5</text>
+  <text x="644" y="168" text-anchor="middle" font-size="10.5" font-weight="700" fill="#2f6f46">⟹ hỏi: chất ô nhiễm đi đâu?</text>
+
+  <line x1="778" y1="118" x2="802" y2="118" stroke="#2f6f46" stroke-width="2.4"/>
+  <polygon points="810,118 800,113 800,123" fill="#2f6f46"/>
+
+  <!-- OUTPUT -->
+  <rect x="814" y="58" width="168" height="120" rx="8" fill="#fdf3e7" stroke="#d68c2e" stroke-width="2"/>
+  <text x="898" y="82" text-anchor="middle" font-size="12.5" font-weight="700" fill="#9a5f12">KẾT QUẢ</text>
+  <text x="898" y="108" text-anchor="middle" font-size="15" font-weight="700" fill="#1f2328">C[k,j,i]</text>
+  <text x="898" y="130" text-anchor="middle" font-size="10.5" fill="#4a5560">nồng độ tại MỌI voxel</text>
+  <text x="898" y="150" text-anchor="middle" font-size="10.5" fill="#4a5560">500.000 ô · netCDF-4</text>
+  <text x="898" y="168" text-anchor="middle" font-size="10.5" font-weight="700" fill="#9a5f12">→ phân tích + web 3D</text>
+
+  <!-- BASELINE -->
+  <rect x="220" y="235" width="380" height="72" rx="8" fill="#f8f4fb" stroke="#8b72c9" stroke-width="1.5" stroke-dasharray="6 3"/>
+  <text x="410" y="257" text-anchor="middle" font-size="12" font-weight="700" fill="#6b4fa8">BASELINE — Gaussian giải tích</text>
+  <text x="410" y="277" text-anchor="middle" font-size="10.5" fill="#4a5560">C(x,y,z) dạng đóng · hệ số phát tán Briggs ĐÔ THỊ</text>
+  <text x="410" y="295" text-anchor="middle" font-size="10.5" fill="#4a5560">không có toà nhà · chạy trong vài giây</text>
+
+  <line x1="410" y1="231" x2="410" y2="186" stroke="#8b72c9" stroke-width="2" stroke-dasharray="5 3"/>
+  <polygon points="410,178 405,190 415,190" fill="#8b72c9"/>
+
+  <path d="M 604 271 L 700 271 L 700 186" fill="none" stroke="#8b72c9" stroke-width="2" stroke-dasharray="5 3"/>
+  <polygon points="700,178 695,190 705,190" fill="#8b72c9"/>
+  <text x="790" y="258" text-anchor="middle" font-size="11" font-weight="700" fill="#6b4fa8">Dùng để KIỂM CHỨNG</text>
+  <text x="790" y="276" text-anchor="middle" font-size="10.5" fill="#4a5560">so nghiệm số với nghiệm giải tích</text>
+  <text x="790" y="294" text-anchor="middle" font-size="10.5" font-weight="700" fill="#6b4fa8">mục tiêu sai số &lt; 6%</text>
+
+  <text x="500" y="332" text-anchor="middle" font-size="11.5" fill="#4a5560">Mọi biến — mask nhà, gió, λ, nồng độ — <tspan font-weight="700" fill="#1f2328">sống trên cùng một mảng 3D, cùng shape</tspan></text>
+</svg>

@@ -1,194 +1,332 @@
-# ROADMAP — Lộ trình 8 tuần, 2 người
+# ROADMAP — 8 tuần, 2 người, sản phẩm cuối là **ứng dụng web 3D**
 
-> **Ràng buộc:** 2 người · numpy mức cơ bản · 8 tuần lịch · **bán thời gian** (làm song song đồ án môn khác)
-> **Ngân sách:** ~15–20 giờ/tuần/người → **~4 người-ngày/tuần** → **~32 người-ngày tổng**
-> **Phạm vi đã cắt:** xem [`DECISION.md`](./DECISION.md) §0
-> **Giả định về seminar:** gói seminar sẵn sàng **cuối tuần 4**. Nếu seminar rơi sớm/muộn hơn, dịch toàn bộ Giai đoạn 1 cho khớp — nhưng **giữ nguyên thứ tự** và **giữ nguyên cổng quyết định W4**.
+> **Ràng buộc:** 2 người · numpy mức cơ bản · 8 tuần lịch · **bán thời gian**
+> **Ngân sách:** ~4 người-ngày/tuần → **~32 người-ngày tổng**
+> **Giả định:** gói seminar sẵn sàng **cuối tuần 4**. Nếu seminar rơi sớm/muộn hơn, dịch Giai đoạn 1 cho khớp nhưng **giữ nguyên thứ tự** và **giữ cổng quyết định M3**.
 
 ---
 
-## 0. Bản đồ tổng thể
+## 0. SẢN PHẨM CUỐI CÙNG
 
-```
- T1        T2        T3        T4        T5        T6        T7        T8
- │         │         │         │         │         │         │         │
- ├─ Dữ liệu─┼─ Voxel ─┼─ FV 2D ─┼─ FV 3D ─┼─ Gió ───┼─ Ghép ──┼─ Phân ──┼─ Viết ──┤
- │  + địa   │  + Gauss│  + nguồn│  + SEMI │  SOR    │  + kịch │  tích + │  + bảo  │
- │  bàn     │         │  phát   │  NAR    │  Poisson│  bản    │  trực   │  vệ     │
- │          │         │  thải   │         │         │         │  quan   │         │
- │        🏁M1      🏁M2      🏁M3      🏁M4      🏁M5      🏁M6      🏁M7
- │                             ▲
- │                             └── 🚦 CỔNG QUYẾT ĐỊNH (§4)
-```
+> ### 🎯 Một **ứng dụng web 3D** chạy được trên trình duyệt, hiển thị trường nồng độ ô nhiễm trên mô hình thành phố voxel.
+
+### 0.1 Web phải có gì
+
+| # | Tính năng | Bắt buộc? | Vì sao |
+|---|---|---|---|
+| **W1** | Bản đồ nền + **toà nhà 3D** (extrude từ footprint + chiều cao) | ✅ | Bối cảnh không gian |
+| **W2** | **Trường nồng độ 3D** hiển thị dưới dạng lớp voxel theo độ cao | ✅ | Sản phẩm chính |
+| **W3** | ⭐ **Thanh trượt chọn độ cao z** (1,5 m → 100 m) | ✅ **Quan trọng nhất** | Kéo thanh trượt là **thấy ngay nồng độ đổi theo độ cao** — chứng minh trực tiếp luận điểm "phải 3D" |
+| **W4** | **Chuyển kịch bản** (gió ĐB mùa đông ↔ gió ĐN mùa hè) | ✅ | Cho thấy mô hình phản ứng với đầu vào |
+| **W5** | **Bật/tắt ngưỡng** QCVN 50 và WHO 15 µg/m³ (tô màu vùng vượt) | ✅ | Nối kết quả với tiêu chuẩn |
+| **W6** | **Click một điểm → hiện profile đứng** (đồ thị nồng độ theo z) | 🟡 nên có | Tính năng "ăn tiền" thứ hai |
+| **W7** | Panel số liệu: thể tích vượt ngưỡng, nồng độ trung bình theo tầng | 🟡 nên có | |
+| **W8** | Isosurface 3D (glTF) | ⬜ nếu dư | Đẹp nhưng không thiết yếu |
+
+### 0.2 Công nghệ web — chọn đường rẻ nhất
+
+**Chốt: `deck.gl` + `MapLibre`, một file HTML, load qua CDN, KHÔNG có bước build.**
+
+| Phương án | Chi phí | Quyết định |
+|---|---|---|
+| ⭐ **deck.gl + MapLibre, 1 file HTML, CDN** | ~5 người-ngày | ✅ **CHỌN** — không npm, không webpack, không Node. Có sẵn bản đồ nền, `PolygonLayer` extrude toà nhà, `GridCellLayer`/`PointCloudLayer` cho voxel |
+| CesiumJS + 3D Tiles + glTF | ~8 người-ngày | ❌ Phải tự tạo tileset; `VoxelPrimitive` là **extension draft, experimental** |
+| Three.js thuần | ~6 người-ngày | ❌ Phải tự làm camera, bản đồ nền, định vị địa lý |
+| Qgis2threejs export | ~2 người-ngày | 🟡 **Dự phòng** nếu deck.gl vỡ — xuất trang web tĩnh thẳng từ QGIS, xấu hơn nhưng vẫn là web |
+
+**Luồng dữ liệu ra web:**
+
+![Luồng dữ liệu ra web](./img/data-flow-web.svg)
+
+### 0.3 Ngân sách đã phải cắt gì để có web
+
+Web tốn ~6 người-ngày. Ngân sách vốn đã khít, nên **cắt thẳng**:
+
+| ✂️ Cắt | Người-ngày thu về | Lý do |
+|---|---|---|
+| **URock** (trường gió có cavity/wake) | 5 | Rủi ro cài đặt Java/H2GIS cao, nằm ngoài đường găng |
+| **Phơi nhiễm dân số WorldPop** | 2 | Web quan trọng hơn |
+| **Isosurface glTF cho web** | 1 | Giữ isosurface cho hình báo cáo, không đưa lên web |
+
+---
+
+## 1. Bản đồ tổng thể
+
+![Bản đồ tổng thể 8 tuần](./img/roadmap-overview.svg)
 
 | Mốc | Cuối tuần | Có gì trong tay |
 |---|---|---|
 | 🏁 **M1** | T2 | Mảng chiếm chỗ 3D `B[k,j,i]` + **trường nồng độ 3D đầu tiên** (Gaussian) |
 | 🏁 **M2** | T3 | Bộ giải FV chạy đúng **ở 2D**, đã verify |
-| 🏁 **M3** | T4 | Bộ giải FV **3D** đã verify + **GÓI SEMINAR SẴN SÀNG** |
-| 🏁 **M4** | T5 | Trường gió mass-consistent (nhà làm lệch dòng, div = 0) |
-| 🏁 **M5** | T6 | Pipeline hoàn chỉnh, 3 kịch bản đã chạy |
-| 🏁 **M6** | T7 | 5 sản phẩm phân tích không gian + hình trực quan |
-| 🏁 **M7** | T8 | Báo cáo + slide bảo vệ |
+| 🏁 **M3** | T4 | Bộ giải FV **3D** đã verify + **GÓI SEMINAR SẴN SÀNG** + 🚦 cổng |
+| 🏁 **M4** | T5 | Trường gió mass-consistent (nhà làm lệch dòng, div ≈ 0) |
+| 🏁 **M5** | T6 | 3 kịch bản đã chạy + **dữ liệu đã export sang JSON cho web** |
+| 🏁 **M6** | T7 | **Web chạy được** với W1–W5 |
+| 🏁 **M7** | T8 | Web hoàn thiện + báo cáo + slide bảo vệ |
 
 ---
 
-## 1. Phân vai
+## 2. Phân vai hai người
 
-| | **Người A — "GIS & Dữ liệu"** | **Người B — "Mô hình & Số trị"** |
+| | 👤 **NGƯỜI A — "GIS, Dữ liệu & Web"** | 👤 **NGƯỜI B — "Mô hình & Số trị"** |
 |---|---|---|
-| **Sở trường cần** | QGIS, geopandas/rasterio, bản đồ, trình bày | numpy, vòng lặp số, debug |
-| **Sở hữu** | Tầng 0 (voxel hoá), nguồn phát thải, phân tích không gian, trực quan hoá, báo cáo | Tầng 1 (gió), Tầng 2 (vận chuyển), kiểm chứng, tối ưu tốc độ |
-| **File chính** | `01_voxelize.py`, `04_analysis.py`, `05_viz.py` | `02_wind.py`, `03_transport.py`, `tests/` |
+| **Kỹ năng cần** | QGIS, geopandas/rasterio, một chút HTML/JS, thẩm mỹ trình bày | numpy, vòng lặp số, debug, toán |
+| **Sở hữu toàn bộ** | Tầng 0 (voxel hoá) · nguồn phát thải · phân tích không gian · **ỨNG DỤNG WEB** · báo cáo phần dữ liệu & kết quả | Tầng 1 (trường gió) · Tầng 2 (vận chuyển) · kiểm chứng · tối ưu tốc độ · báo cáo phần mô hình & hạn chế |
+| **File chính** | `01_voxelize.py`<br>`emissions.py`<br>`04_analysis.py`<br>`05_viz.py`<br>`06_export_web.py`<br>`web/index.html` | `gaussian.py`<br>`02_wind.py`<br>`03_transport.py`<br>`tests/test_verification.py` |
+| **Đầu ra cho người kia** | `B[k,j,i]` (mask nhà) · `S[k,j,i]` (nguồn) | `wind_field.nc` · `C[k,j,i]` (nồng độ) |
+| **Giao diện giữa hai người** | **File netCDF.** Không ai gọi hàm của ai. A đưa B hai mảng, B trả A một mảng. | |
 
-> 📌 **Quy tắc bất di bất dịch:** ở **mỗi mốc M**, cả hai người phải **chạy được toàn bộ pipeline trên máy mình**. Nếu chỉ một người chạy được, đồ án có một điểm chết. Dành 30 phút cuối mỗi mốc để người kia clone về chạy thử.
+> 📌 **Quy tắc bất di bất dịch:** ở **mỗi mốc M**, cả hai phải **chạy được toàn bộ pipeline trên máy mình**. Dành 30 phút cuối mỗi mốc để người kia clone về chạy thử. Nếu chỉ một người chạy được, đồ án có một điểm chết.
 
 ---
 
-## 2. GIAI ĐOẠN 1 — Tới seminar (T1–T4)
+## 3. GIAI ĐOẠN 1 — Tới seminar (T1–T4)
 
 ### 🗓️ TUẦN 1 — Dữ liệu và chọn địa bàn
 
-> ⭐ **Tuần này quyết định một thứ không sửa lại được: CHỌN ĐỊA BÀN.** Chọn sai (OSM thưa thẻ chiều cao) thì tới tuần 3 mới phát hiện và mất cả tuần.
+> ⭐ **Tuần này quyết định một thứ KHÔNG SỬA LẠI ĐƯỢC: chọn địa bàn.** Chọn sai (OSM thưa thẻ chiều cao) thì tới tuần 3 mới phát hiện và mất cả tuần.
 
-| | Người A | Người B |
-|---|---|---|
-| **Việc** | 1. Chọn **3 địa bàn ứng viên** ở Hà Nội / TP.HCM — tiêu chí: có hẻm phố rõ, gần trạm quan trắc, giao thông đông<br>2. ⭐ **Chạy Overpass** đếm cho từng ứng viên: tổng `building` vs `building["building:levels"]` vs `building["height"]`<br>3. **Chốt địa bàn có tỉ lệ gắn thẻ chiều cao cao nhất**<br>4. Tải: OSM extract (Geofabrik VN), footprint + đường, DEM GLO-30 | 1. Dựng repo + môi trường: `numpy, scipy, xarray, netCDF4, rasterio, geopandas, matplotlib, pyvista`<br>2. Kéo **Open-Meteo**: profile gió theo 19 mực áp suất + PBL height cho địa bàn<br>3. Vẽ **hoa gió theo mùa** → chốt 2 hướng gió đại diện (ĐB mùa đông, ĐN mùa hè)<br>4. Lấy **API key OpenAQ**, chạy `?iso=VN` đếm trạm thật |
-| **Xong tuần** | 1 file `study_area.geojson` + bảng thống kê 3 ứng viên | `wind_profile.csv` + hoa gió + repo chạy được |
+**👤 NGƯỜI A**
+1. Chọn **3 địa bàn ứng viên** ở Hà Nội / TP.HCM — tiêu chí: có hẻm phố rõ, gần trạm quan trắc, giao thông đông
+2. ⭐ **Chạy Overpass** đếm cho từng ứng viên: tổng `building` vs `building["building:levels"]` vs `building["height"]`
+3. **Chốt địa bàn có tỉ lệ gắn thẻ chiều cao cao nhất** → lưu `study_area.geojson`
+4. Tải: OSM extract (Geofabrik VN), footprint + mạng đường, DEM GLO-30
 
-**Nếu cả 3 địa bàn đều thưa thẻ chiều cao:** dùng **Google Open Buildings 2.5D Temporal** làm nguồn chính (qua Earth Engine), và **số hoá tay ~50 toà nhà** ở lõi miền để đối chứng. Cộng 2 người-ngày.
+**👤 NGƯỜI B**
+1. Dựng repo + môi trường: `numpy scipy xarray netCDF4 rasterio geopandas matplotlib pyvista`
+2. Kéo **Open-Meteo**: profile gió 19 mực áp suất + PBL height cho địa bàn
+3. Vẽ **hoa gió theo mùa** → chốt 2 hướng gió đại diện (ĐB mùa đông, ĐN mùa hè)
+4. Lấy **API key OpenAQ**, chạy `?iso=VN` đếm trạm thật
+
+**Nếu cả 3 địa bàn đều thưa thẻ chiều cao:** dùng **Google Open Buildings 2.5D Temporal** làm nguồn chính + **số hoá tay ~50 toà nhà** ở lõi miền. Cộng 2 người-ngày.
 
 ---
 
 ### 🗓️ TUẦN 2 — Voxel hoá + Gaussian → 🏁 M1
 
-| | Người A | Người B |
-|---|---|---|
-| **Việc** | **Tầng 0 — voxel hoá.** `01_voxelize.py`:<br>• rasterize footprint → `H[y,x]` ở Δ = 5 m<br>• `B = Z[:,None,None] < H[None,:,:]` → mask 3D<br>• **kiểm bằng mắt**: cắt 3 mặt phẳng, chồng lên ảnh vệ tinh, xem nhà có đúng chỗ<br>• lưu netCDF | **Gaussian giải tích trên lưới voxel.** `gaussian.py`:<br>• C(x,y,z) với **σ Briggs ĐÔ THỊ** (không phải bảng nông thôn)<br>• profile gió luỹ thừa với p đô thị<br>• nguồn đường = chồng chập nguồn điểm<br>• **làm 2D trước, rồi mở 3D** |
-| **Xong tuần** | `B[50,100,100]` bool + hình kiểm tra | `C_gauss[50,100,100]` + hình lát cắt |
+**👤 NGƯỜI A — Tầng 0, voxel hoá.** `01_voxelize.py`:
+- rasterize footprint → `H[y,x]` ở Δ = 5 m
+- `B = Z[:,None,None] < H[None,:,:]` → mask 3D bool
+- ⚠️ **kiểm bằng mắt**: cắt 3 mặt phẳng, chồng lên ảnh vệ tinh, xem nhà có đúng chỗ không
+- lưu netCDF → **đây là đầu vào cho người B**
 
-> 🏁 **M1 — QUAN TRỌNG VỀ MẶT TÂM LÝ:** từ đây trở đi **đồ án LUÔN có kết quả để nộp**. Mọi thứ sau là nâng cấp.
+**👤 NGƯỜI B — Gaussian giải tích trên voxel.** `gaussian.py`:
+- `C(x,y,z)` với **σ Briggs ĐÔ THỊ** (không phải bảng nông thôn)
+- profile gió luỹ thừa với p đô thị
+- nguồn đường = chồng chập nguồn điểm
+- **làm 2D trước, rồi mở 3D**
+
+> 🏁 **M1 — mốc quan trọng về tâm lý:** từ đây **đồ án LUÔN có kết quả để nộp**. Mọi thứ sau là nâng cấp.
 
 ---
 
 ### 🗓️ TUẦN 3 — Bộ giải FV ở 2D + nguồn phát thải → 🏁 M2
 
-> ⭐ **Tuần này là tuần rủi ro nhất của cả đồ án.** Đây là lý do phải làm 2D trước.
+> ⭐ **Tuần rủi ro nhất của cả đồ án.** Đây là lý do phải làm 2D trước.
 
-| | Người A | Người B |
-|---|---|---|
-| **Việc** | **Nguồn phát thải.** `emissions.py`:<br>• lấy mạng đường OSM trong miền, phân theo `highway=`<br>• nhân **EF xe máy Hà Nội** (Tran et al. 2024): PM 0,053 g/km<br>• raster hoá vào voxel ở z ≈ 1 m → `S[k,j,i]`<br>• chuẩn hoá tổng theo EDGAR, ghi lại giả định | ⭐ **Bộ giải FV trên mặt cắt 2D (x–z), lưới 100 × 50:**<br>• upwind bậc 1 + khuếch tán trung tâm<br>• CFL: `Cr ≤ 0,5`<br>• biên: tường = flux 0, đất = phản xạ, ra = mở<br>• **verify**: so với Gaussian 2D trong dòng đều → sai số < 6%<br>• **verify**: kiểm bảo toàn khối lượng |
-| **Xong tuần** | `S[50,100,100]` + bảng giả định phát thải | `transport_2d.py` chạy đúng + 2 đồ thị verify |
+**👤 NGƯỜI A — Nguồn phát thải.** `emissions.py`:
+- lấy mạng đường OSM trong miền, phân theo `highway=`
+- nhân **EF xe máy Hà Nội** (Tran et al. 2024): PM 0,053 g/km
+- raster hoá vào voxel ở z ≈ 1 m → `S[k,j,i]`
+- chuẩn hoá tổng theo EDGAR, **ghi lại mọi giả định vào file** (sẽ cần cho chương Hạn chế)
 
-**Mẹo debug 2D:** in thẳng mảng ra `matplotlib.imshow` sau mỗi 50 bước. Lỗi dấu upwind hay lỗi biên **nhìn phát ra ngay** — chùm khói đi ngược, hoặc nồng độ âm, hoặc vệt sọc ở biên.
+**👤 NGƯỜI B — ⭐ Bộ giải FV trên mặt cắt 2D (x–z), lưới 100 × 50:**
+- upwind bậc 1 + khuếch tán trung tâm
+- CFL: `Cr ≤ 0,5`
+- biên: tường = flux 0 · đất = phản xạ · ra = mở
+- **verify 1**: so Gaussian 2D trong dòng đều → sai số < 6%
+- **verify 2**: kiểm bảo toàn khối lượng
+
+**Mẹo debug 2D:** `matplotlib.imshow` sau mỗi 50 bước. Lỗi dấu upwind hay lỗi biên **nhìn ra ngay** — chùm khói đi ngược, nồng độ âm, hoặc vệt sọc ở biên.
 
 ---
 
 ### 🗓️ TUẦN 4 — FV lên 3D + gói seminar → 🏁 M3 + 🚦 CỔNG
 
-| | Người A | Người B |
-|---|---|---|
-| **Việc** | **Gói seminar** (chi tiết ở [`SEMINAR.md`](./SEMINAR.md)):<br>• làm hình: lát cắt ngang 1,5 m, mặt cắt đứng qua hẻm phố, 1 isosurface<br>• dựng slide 13 trang<br>• viết báo cáo seminar theo 5 mục bắt buộc<br>• **tập dượt bấm giờ ít nhất 2 lần** | **Mở FV lên 3D.** `03_transport.py`:<br>• thêm trục y — code gần như y hệt 2D<br>• dùng trường gió **đồng nhất** (chưa có nhà làm lệch dòng)<br>• **Kiểm định Bậc 1**: so nghiệm Gaussian giải tích 3D, mục tiêu **sai số < 6%**<br>• đo thời gian chạy, tối ưu bằng slicing nếu chậm |
-| **Xong tuần** | Slide + báo cáo + hình | `transport_3d.py` đã verify + báo cáo sai số |
+**👤 NGƯỜI A — Gói seminar** (chi tiết ở [`SEMINAR.md`](./SEMINAR.md)):
+- làm hình H1–H4: voxel city, hai lát cắt 1,5 m vs 15 m, mặt cắt đứng, isosurface
+- dựng slide 13 trang
+- viết báo cáo seminar theo 5 mục bắt buộc
+- **tập dượt bấm giờ ít nhất 2 lần**
+
+**👤 NGƯỜI B — Mở FV lên 3D.** `03_transport.py`:
+- thêm trục y — code gần như y hệt 2D
+- dùng trường gió **đồng nhất** (chưa có nhà làm lệch dòng)
+- **Kiểm định Bậc 1**: so nghiệm Gaussian giải tích 3D, mục tiêu **sai số < 6%**
+- đo thời gian chạy; nếu chậm thì tối ưu bằng slicing
 
 > ## 🚦 CỔNG QUYẾT ĐỊNH — cuối tuần 4
 >
-> **Câu hỏi:** bộ giải FV 3D có đạt sai số < 6% so với nghiệm giải tích không?
+> **Bộ giải FV 3D có đạt sai số < 6% so với nghiệm giải tích không?**
 >
-> | Trả lời | Làm gì |
+> | | Làm gì |
 > |---|---|
-> | ✅ **CÓ** | Đi tiếp theo kế hoạch → Tuần 5 làm trường gió |
-> | ❌ **KHÔNG** | **DỪNG phần số trị.** Chuyển sang phương án Gaussian-only: dùng `C_gauss` làm kết quả chính, mask toà nhà để che vùng trong nhà, và dồn toàn bộ T5–T8 vào **phân tích không gian + trực quan hoá + báo cáo**. Ghi rõ trong Hạn chế: *"bộ giải số trị chưa đạt kiểm chứng, đây là hướng phát triển tiếp"*. **Vẫn đúng đề bài, vẫn có đồ án hoàn chỉnh.** |
->
-> ⚠️ `DECISION.md` §0.3 ghi cổng này ở tuần 5. **Roadmap siết sớm hơn một tuần để có đệm** — nếu tuần 4 gần đạt (ví dụ sai số 8–10%) thì cho thêm tuần 5 rồi chốt lại.
+> | ✅ **ĐẠT** | Đi tiếp → T5 làm trường gió |
+> | 🟡 **GẦN ĐẠT (8–10%)** | Cho thêm tuần 5 để sửa, rồi chốt lại. Dời trường gió sang T6 |
+> | ❌ **KHÔNG ĐẠT** | **DỪNG phần số trị.** Dùng `C_gauss` làm kết quả chính + mask toà nhà. Dồn T5–T8 vào **phân tích không gian + WEB + báo cáo**. Ghi rõ trong Hạn chế. **Vẫn đúng đề bài, vẫn có web, vẫn có đồ án hoàn chỉnh.** |
 
 ---
 
-## 3. GIAI ĐOẠN 2 — Sau seminar (T5–T8)
+## 4. GIAI ĐOẠN 2 — Sau seminar (T5–T8)
 
-### 🗓️ TUẦN 5 — Trường gió mass-consistent → 🏁 M4
+### 🗓️ TUẦN 5 — Trường gió + phân tích không gian → 🏁 M4
 
-| | Người A | Người B |
-|---|---|---|
-| **Việc** | **Phân tích không gian, phần 1** (chạy trên `C_gauss` trước, sau thay bằng kết quả FV):<br>• Lát cắt ngang ở z = 1,5 / 6 / 15 / 30 m<br>• Mặt cắt đứng cắt ngang hẻm phố<br>• Profile đứng tại vị trí trạm quan trắc | ⭐ **Trường gió bảo toàn khối lượng.** `02_wind.py`:<br>• khởi tạo: profile luỹ thừa `u(z)`, đặt **u = v = w = 0 bên trong nhà**<br>• giải Poisson cho λ bằng **SOR, ω = 1,78**, dừng khi `Σ\|λ^(t+1) − λ^t\| < 1e-4`<br>• hệ số mặt `e,f,g,h,m,n = 0` ở mặt tường<br>• `u = u₀ + (1/2α₁²)·∂λ/∂x` …<br>• **làm 2D trước**<br>• **kiểm: div(u) ≈ 0 ở mọi voxel khí** |
-| **Xong tuần** | 3 sản phẩm phân tích | `wind_field.nc` với div ≈ 0 |
+**👤 NGƯỜI A — Phân tích không gian** (chạy trên `C_gauss` trước, sau thay bằng kết quả FV):
+1. Lát cắt ngang ở z = 1,5 / 6 / 15 / 30 m
+2. Mặt cắt đứng cắt ngang hẻm phố
+3. Profile đứng tại vị trí trạm quan trắc
+4. Chuẩn hoá lưu trữ: xarray `(z,y,x)`, CF, `positive="up"` → netCDF-4
 
-**Kiểm tra trực quan bắt buộc:** vẽ vector gió trên một lát cắt ngang ở z = 10 m. **Phải thấy dòng đi vòng qua các khối nhà.** Nếu gió đi xuyên nhà thì hệ số mặt đang sai.
+**👤 NGƯỜI B — ⭐ Trường gió bảo toàn khối lượng.** `02_wind.py`:
+- khởi tạo: profile luỹ thừa `u(z)`, đặt **u = v = w = 0 bên trong nhà**
+- giải Poisson cho λ bằng **SOR, ω = 1,78**, dừng khi `Σ|λ^(t+1) − λ^t| < 1e-4`
+- hệ số mặt `e,f,g,h,m,n = 0` ở mặt tường
+- `u = u₀ + (1/2α₁²)·∂λ/∂x` …
+- **làm 2D trước**
+- ⚠️ **kiểm: `div(u) ≈ 0` ở mọi voxel khí**
 
----
-
-### 🗓️ TUẦN 6 — Ghép và chạy kịch bản → 🏁 M5
-
-| | Người A | Người B |
-|---|---|---|
-| **Việc** | **Phân tích không gian, phần 2:**<br>• **Isosurface** bằng `marching_cubes(C, level=50, spacing=(2,5,5))` ở ngưỡng QCVN 50 µg/m³ và WHO 15 µg/m³<br>• **Thể tích vượt ngưỡng**: `(C > ngưỡng).sum() × Δx·Δy·Δz`<br>• Chuẩn hoá lưu trữ: xarray `(time,z,y,x)`, CF, `positive="up"` → netCDF-4 | **Ghép gió vào bộ giải vận chuyển** và chạy **3 kịch bản**:<br>1. Gió ĐB mùa đông, Δ = 5 m<br>2. Gió ĐN mùa hè, Δ = 5 m<br>3. Gió ĐB, **Δ = 10 m** (kiểm độ nhạy độ phân giải)<br>• chạy tới trạng thái dừng (~800–1200 bước, dưới 1 phút/kịch bản) |
-| **Xong tuần** | 2 sản phẩm phân tích + netCDF chuẩn | 3 file kết quả + bảng so sánh độ phân giải |
-
-> 🏁 **M5 — pipeline hoàn chỉnh chạy đầu-cuối.** Từ đây chỉ còn làm đẹp và viết.
+**Kiểm tra trực quan bắt buộc:** vẽ vector gió trên lát cắt ngang ở z = 10 m. **Phải thấy dòng đi vòng qua các khối nhà.** Nếu gió đi xuyên nhà → hệ số mặt đang sai.
 
 ---
 
-### 🗓️ TUẦN 7 — Phơi nhiễm, trực quan hoá, (URock nếu kịp) → 🏁 M6
+### 🗓️ TUẦN 6 — Kịch bản + export dữ liệu web → 🏁 M5
 
-| | Người A | Người B |
-|---|---|---|
-| **Việc** | **Phân tích không gian, phần 3:**<br>• **Phơi nhiễm mặt đứng toà nhà**: `binary_dilation(B) & ~B` → lấy mẫu C ở voxel sát tường, phân theo tầng<br>• **Phơi nhiễm dân số**: giao lát cắt z = 1,5 m với WorldPop 100 m<br>• **Trực quan hoá**: QGIS 3D view + PyVista, xuất hình độ phân giải cao cho báo cáo | **Chọn một:**<br>🅰️ Nếu lõi ổn định → **chạy URock** trong QGIS/UMEP, lấy trường gió **có cavity + wake**, chạy lại kịch bản 1, **so sánh hai trường gió** (bản đồ hiệu số + tương quan) ← *phần nâng cấp giá trị nhất*<br>🅱️ Nếu còn lỗi → sửa lỗi, tối ưu tốc độ (Numba `@njit`), làm sạch code |
-| **Xong tuần** | 2 sản phẩm phân tích + bộ hình | Kết quả so sánh URock **hoặc** code đã ổn định |
+**👤 NGƯỜI B — Ghép gió vào bộ giải và chạy 3 kịch bản:**
+1. Gió ĐB mùa đông, Δ = 5 m
+2. Gió ĐN mùa hè, Δ = 5 m
+3. Gió ĐB, **Δ = 10 m** (kiểm độ nhạy độ phân giải)
+- chạy tới trạng thái dừng (~800–1200 bước, dưới 1 phút/kịch bản)
+- bảng so sánh độ phân giải 5 m vs 10 m
 
-> ⚠️ **Đừng bắt đầu URock sau thứ Tư tuần 7.** Nếu chưa xong trong 3 ngày thì bỏ — rủi ro cài đặt Java/H2GIS trong QGIS là thật, và tuần 8 không có chỗ cho nó.
+**👤 NGƯỜI A — Bắt đầu web:**
+1. `06_export_web.py`: netCDF → JSON cho web
+   - gộp `C` theo **50 tầng z**, mỗi tầng một lưới 100 × 100
+   - lọc bỏ ô có `C` dưới ngưỡng nhỏ để giảm dung lượng
+   - xuất thêm `buildings.geojson` (footprint + height) cho layer toà nhà
+   - **mục tiêu: tổng dữ liệu < 5 MB**
+2. Dựng khung `web/index.html`: MapLibre basemap + deck.gl qua CDN + `PolygonLayer` extrude toà nhà (**W1**)
 
 ---
 
-### 🗓️ TUẦN 8 — Viết và bảo vệ → 🏁 M7
+### 🗓️ TUẦN 7 — Xây web → 🏁 M6
 
-| | Người A | Người B |
-|---|---|---|
-| **Việc** | Viết chương: Bối cảnh · Dữ liệu · Quy trình xây dựng · Kết quả · Phân tích không gian<br>Làm slide bảo vệ | Viết chương: Mô hình · Phương pháp số · Kiểm chứng · **Hạn chế**<br>Chuẩn bị trả lời câu hỏi kỹ thuật |
-| **Cả hai** | Đọc chéo bài của nhau · Kiểm mọi con số đều truy được nguồn · **Tập dượt bảo vệ 2 lần bấm giờ** · Đóng gói repo + README |
+**👤 NGƯỜI A — Toàn bộ tính năng web:**
+- **W2** `GridCellLayer` hiển thị nồng độ một tầng z, tô màu theo thang
+- ⭐ **W3** thanh trượt chọn z → đổi tầng hiển thị (tính năng quan trọng nhất)
+- **W4** nút chuyển kịch bản gió
+- **W5** bật/tắt tô màu vùng vượt ngưỡng QCVN 50 / WHO 15
+- Legend, tiêu đề, chú thích nguồn dữ liệu
 
-**Chương Hạn chế phải liệt kê đủ (đây là chương ghi điểm, không phải chương thú tội):**
-1. Không có xoáy tái tuần hoàn / xoáy hẻm phố (đã cắt 7 vùng Röckle) → nồng độ trong hẻm bị ước lượng thấp
+**👤 NGƯỜI B — Hỗ trợ + hoàn thiện mô hình:**
+- Giúp A phần xuất dữ liệu nếu file quá nặng (gộp ô, hạ độ phân giải cho web)
+- **W6** tính sẵn profile đứng cho mỗi ô lưới ngang → xuất JSON để web click là hiện ngay
+- **W7** tính số liệu cho panel: thể tích vượt ngưỡng, nồng độ trung bình theo tầng
+- Làm sạch code, viết docstring, đảm bảo chạy lại được từ đầu
+
+> ⚠️ **Thứ Sáu tuần 7 là hạn chót của W1–W5.** Nếu chưa xong thì **bỏ deck.gl, chuyển sang Qgis2threejs export** (2 người-ngày, xuất trang web tĩnh thẳng từ QGIS). Xấu hơn nhưng vẫn là web và vẫn nộp được.
+
+---
+
+### 🗓️ TUẦN 8 — Hoàn thiện và bảo vệ → 🏁 M7
+
+**👤 NGƯỜI A:**
+- Hoàn thiện web: **W6** click → profile đứng, **W7** panel số liệu, làm đẹp giao diện
+- Test web trên **2 máy khác nhau + điện thoại**
+- Viết chương: Bối cảnh · Dữ liệu · Quy trình xây dựng · Kết quả · Phân tích không gian · **Ứng dụng web**
+- Quay **video demo web 1–2 phút** (phòng khi hôm bảo vệ mạng lỗi)
+
+**👤 NGƯỜI B:**
+- Viết chương: Mô hình · Phương pháp số · Kiểm chứng · **Hạn chế**
+- Chuẩn bị trả lời câu hỏi kỹ thuật (SEMINAR.md §7)
+
+**Cả hai:** đọc chéo bài của nhau · kiểm mọi con số truy được nguồn · **tập dượt bảo vệ 2 lần bấm giờ** · đóng gói repo + README + hướng dẫn chạy web.
+
+**Chương Hạn chế phải liệt kê đủ — đây là chương ghi điểm, không phải chương thú tội:**
+1. Không có xoáy tái tuần hoàn / xoáy hẻm phố → nồng độ trong hẻm bị ước lượng thấp
 2. Khuếch tán số của upwind bậc 1 — **kèm con số K_num đo được**
 3. Không có rối do giao thông (TPT) → sai lệch lúc lặng gió
 4. Chỉ verification, **chưa validation** với số liệu thực nghiệm — kèm lý do
 5. Lưu lượng giao thông là bất định lớn nhất, dùng proxy cấp đường OSM
-6. Chiều cao toà nhà từ sản phẩm ML **chưa kiểm định ở Đông Nam Á** (trích nguyên văn cảnh báo của Google)
+6. Chiều cao toà nhà từ sản phẩm ML **chưa kiểm định ở Đông Nam Á**
 7. LoD1, không có hoá học, một trường gió tựa dừng mỗi lần chạy
+8. Web hiển thị dữ liệu đã gộp/giảm mẫu, không phải toàn bộ 500k voxel
 
 ---
 
-## 4. Bảng theo dõi ngân sách
+## 5. Ngân sách
 
-| Tuần | Người A (pd) | Người B (pd) | Cộng dồn |
-|---|---|---|---|
-| T1 | 2 | 2 | 4 |
-| T2 | 2 | 2 | 8 |
-| T3 | 2 | 2 | 12 |
-| T4 | 2,5 | 2 | 16,5 |
-| T5 | 2 | 2,5 | 21 |
-| T6 | 2 | 2 | 25 |
-| T7 | 2 | 2 | 29 |
-| T8 | 2 | 2 | **33** |
+| Tuần | 👤 A (pd) | 👤 B (pd) | Cộng dồn | Trọng tâm |
+|---|---|---|---|---|
+| T1 | 2 | 2 | 4 | Dữ liệu |
+| T2 | 2 | 2 | 8 | Voxel + Gaussian |
+| T3 | 2 | 2 | 12 | FV 2D |
+| T4 | 2 | 2 | 16 | FV 3D + Seminar |
+| T5 | 2 | 2 | 20 | Gió + phân tích |
+| T6 | 2 | 2 | 24 | Kịch bản + export web |
+| T7 | 2,5 | 1,5 | 28 | **WEB** |
+| T8 | 2 | 2 | **32** | Web + báo cáo |
 
-📐 33 người-ngày — vừa khít ngân sách ~32, **không có đệm**. Nghĩa là: nếu một tuần trượt, phải cắt chứ không dồn. Thứ tự cắt khi cần: URock (T7) → phơi nhiễm dân số (T7) → kịch bản thứ 3 (T6) → isosurface (T6).
+📐 Đúng 32 người-ngày — **không có đệm**. Nếu một tuần trượt thì **cắt**, không dồn.
+
+**Thứ tự cắt khi cần:**
+`W8 isosurface web` → `W7 panel số liệu` → `W6 click profile` → `kịch bản thứ 3 (Δ=10 m)` → `mặt cắt đứng`
+
+⚠️ **Không được cắt:** W1–W5 của web, kiểm định Bậc 1, chương Hạn chế.
 
 ---
 
-## 5. Quy tắc làm việc
+## 6. Quy tắc làm việc
 
 1. **Git từ ngày đầu.** Một repo, hai nhánh, merge ở mỗi mốc. Không gửi file qua Zalo.
-2. **Mỗi mốc M: cả hai phải chạy được pipeline.** 30 phút cuối mốc dành cho việc này.
-3. **Lưu mọi kết quả trung gian ra netCDF**, đừng giữ trong RAM giữa các bước. Chạy lại được từng tầng độc lập.
-4. **Không tối ưu sớm.** Cứ viết numpy slicing cho chạy đúng trước. Chỉ dùng Numba khi đo được là chậm thật.
-5. **Mọi con số đưa vào báo cáo phải ghi nguồn ngay lúc viết**, không để cuối kỳ mới truy lại — xem `RESEARCH.md` §19.
-6. **Hình ảnh xuất ≥ 300 dpi ngay từ đầu.** Vẽ lại hình vào tuần 8 là lãng phí.
+2. **`.gitignore` cho `data/raw/` ngay commit đầu** — OSM extract Việt Nam nặng 313 MB.
+3. **Giao diện giữa hai người là file netCDF**, không phải lời gọi hàm. A đưa B hai mảng, B trả A một mảng.
+4. **Lưu mọi kết quả trung gian ra netCDF.** Chạy lại được từng tầng độc lập.
+5. **Không tối ưu sớm.** numpy slicing cho chạy đúng trước; chỉ dùng Numba khi đo được là chậm thật.
+6. **Mọi con số đưa vào báo cáo phải ghi nguồn ngay lúc viết** — xem `RESEARCH.md` §19.
+7. **Hình xuất ≥ 300 dpi ngay từ đầu.** Vẽ lại hình vào tuần 8 là lãng phí.
+8. **Web test trên ≥ 2 máy.** "Chạy được trên máy tôi" không tính.
 
 ---
 
-## 6. Ba thứ dễ làm trượt lịch nhất
+## 7. Bốn thứ dễ làm trượt lịch nhất
 
 | Nguy cơ | Dấu hiệu sớm | Xử lý |
 |---|---|---|
-| **Bộ giải FV không hội tụ / ra nồng độ âm** | Xuất hiện ngay ở 2D tuần 3 | Kiểm 3 thứ theo thứ tự: (1) dấu upwind với u âm, (2) `Cr` có thực sự ≤ 0,5 không, (3) biên tường có đúng flux = 0 không. **Đừng đụng vào 3D khi 2D còn sai** |
-| **Cài URock hỏng** | Lỗi Java/H2GIS khi bật plugin UMEP | Cho đúng 3 ngày. Không xong thì bỏ — nó nằm ngoài đường găng |
+| **Bộ giải FV không hội tụ / nồng độ âm** | Xuất hiện ngay ở 2D tuần 3 | Kiểm 3 thứ theo thứ tự: (1) dấu upwind với u âm, (2) `Cr` có thực sự ≤ 0,5, (3) biên tường có đúng flux = 0. **Đừng đụng 3D khi 2D còn sai** |
+| **Dữ liệu web quá nặng** | File JSON > 20 MB, trình duyệt lag | Gộp ô cho web (Δ = 10 m thay vì 5 m), lọc bỏ ô nồng độ thấp, tách file theo tầng và tải lười |
 | **Dữ liệu chiều cao toà nhà tệ** | Phát hiện ở tuần 1 nếu làm đúng Overpass | Số hoá tay ~50 nhà ở lõi miền, và **biến nó thành phân tích độ nhạy** |
+| **Web không kịp** | Hết thứ Sáu tuần 7 mà W1–W5 chưa chạy | Chuyển sang **Qgis2threejs export** — 2 người-ngày, xấu hơn nhưng vẫn là web |
+
+---
+
+## 8. Cấu trúc repo
+
+```
+IE402_Voxel-air-dispersion/
+├── README.md                  ← mô tả + ảnh H2 + link web demo + hướng dẫn chạy
+├── docs/
+│   ├── RESEARCH.md · DECISION.md · ROADMAP.md · SEMINAR.md
+├── src/
+│   ├── 01_voxelize.py         👤A  Tầng 0
+│   ├── emissions.py           👤A  nguồn phát thải
+│   ├── gaussian.py            👤B  baseline + chuẩn kiểm chứng
+│   ├── 02_wind.py             👤B  Tầng 1 — SOR Poisson
+│   ├── 03_transport.py        👤B  Tầng 2 — FV
+│   ├── 04_analysis.py         👤A  Tầng 3 — phân tích không gian
+│   ├── 05_viz.py              👤A  hình cho báo cáo
+│   └── 06_export_web.py       👤A  netCDF → JSON cho web
+├── web/                       👤A  ⭐ SẢN PHẨM CUỐI
+│   ├── index.html             deck.gl + MapLibre, CDN, không build
+│   ├── app.js
+│   ├── style.css
+│   └── data/                  *.json đã export (< 5 MB)
+├── tests/
+│   └── test_verification.py   👤B  Bậc 1: giải tích + bảo toàn khối lượng
+├── data/
+│   ├── raw/                   .gitignore
+│   └── processed/             .gitignore trừ file nhỏ
+├── output/                    netCDF + hình; .gitignore trừ hình báo cáo
+├── notebooks/                 thử nghiệm 2D tuần 3 và tuần 5
+├── requirements.txt
+└── .gitignore
+```

@@ -1,0 +1,94 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1000 340" width="1000" height="340" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif">
+  <rect width="1000" height="340" fill="#ffffff"/>
+  <text x="500" y="26" text-anchor="middle" font-size="17" font-weight="700" fill="#1f2328">Mô hình gió bảo toàn khối lượng hoạt động thế nào</text>
+  <text x="500" y="46" text-anchor="middle" font-size="12" fill="#6b7480">nhìn từ trên xuống · ô xám = toà nhà · mũi tên = gió</text>
+
+  <!-- ============ PANEL 1 ============ -->
+  <rect x="20" y="62" width="300" height="230" rx="8" fill="#fafbfc" stroke="#d0d7de" stroke-width="1.5"/>
+  <text x="170" y="86" text-anchor="middle" font-size="13" font-weight="700" fill="#0969da">1. KHỞI TẠO</text>
+  <text x="170" y="104" text-anchor="middle" font-size="11" fill="#4a5560">Gió thổi thẳng theo profile u(z)</text>
+  <text x="170" y="120" text-anchor="middle" font-size="11" fill="#4a5560">Đặt u = 0 ở voxel trong nhà</text>
+
+  <rect x="110" y="165" width="70" height="60" fill="#c9d1d9" stroke="#6b7480" stroke-width="1.5"/>
+  <text x="145" y="191" text-anchor="middle" font-size="10" fill="#3d444d">nhà</text>
+  <text x="145" y="208" text-anchor="middle" font-size="11" font-weight="700" fill="#cf222e">u = 0</text>
+
+  <g stroke="#0969da" stroke-width="2" fill="#0969da">
+    <line x1="40" y1="145" x2="68" y2="145"/><polygon points="76,145 66,140 66,150"/>
+    <line x1="95" y1="145" x2="123" y2="145"/><polygon points="131,145 121,140 121,150"/>
+    <line x1="150" y1="145" x2="178" y2="145"/><polygon points="186,145 176,140 176,150"/>
+    <line x1="205" y1="145" x2="233" y2="145"/><polygon points="241,145 231,140 231,150"/>
+    <line x1="260" y1="145" x2="285" y2="145"/><polygon points="293,145 283,140 283,150"/>
+
+    <line x1="40" y1="195" x2="68" y2="195"/><polygon points="76,195 66,190 66,200"/>
+    <line x1="205" y1="195" x2="233" y2="195"/><polygon points="241,195 231,190 231,200"/>
+    <line x1="260" y1="195" x2="285" y2="195"/><polygon points="293,195 283,190 283,200"/>
+
+    <line x1="40" y1="250" x2="68" y2="250"/><polygon points="76,250 66,245 66,255"/>
+    <line x1="95" y1="250" x2="123" y2="250"/><polygon points="131,250 121,245 121,255"/>
+    <line x1="150" y1="250" x2="178" y2="250"/><polygon points="186,250 176,245 176,255"/>
+    <line x1="205" y1="250" x2="233" y2="250"/><polygon points="241,250 231,245 231,255"/>
+    <line x1="260" y1="250" x2="285" y2="250"/><polygon points="293,250 283,245 283,255"/>
+  </g>
+  <text x="170" y="275" text-anchor="middle" font-size="10.5" fill="#57606a">Gió đi xuyên qua nhà — chưa đúng vật lý</text>
+
+  <!-- arrow to panel 2 -->
+  <line x1="326" y1="177" x2="348" y2="177" stroke="#8b949e" stroke-width="2"/>
+  <polygon points="356,177 346,172 346,182" fill="#8b949e"/>
+
+  <!-- ============ PANEL 2 ============ -->
+  <rect x="360" y="62" width="300" height="230" rx="8" fill="#fdecee" stroke="#cf222e" stroke-width="1.5"/>
+  <text x="510" y="86" text-anchor="middle" font-size="13" font-weight="700" fill="#cf222e">2. VẤN ĐỀ</text>
+  <text x="510" y="104" text-anchor="middle" font-size="11" fill="#8b1a23">Xét một voxel sát tường nhà:</text>
+  <text x="510" y="120" text-anchor="middle" font-size="11" fill="#8b1a23">lượng khí VÀO ≠ lượng khí RA</text>
+
+  <rect x="455" y="150" width="90" height="90" rx="4" fill="#ffffff" stroke="#cf222e" stroke-width="2"/>
+  <text x="500" y="200" text-anchor="middle" font-size="11" fill="#57606a">1 voxel</text>
+
+  <g stroke="#0969da" stroke-width="2.4" fill="#0969da">
+    <line x1="398" y1="195" x2="432" y2="195"/><polygon points="442,195 430,189 430,201"/>
+    <line x1="470" y1="118" x2="470" y2="140"/><polygon points="470,150 464,138 476,138"/>
+    <line x1="530" y1="118" x2="530" y2="140"/><polygon points="530,150 524,138 536,138"/>
+  </g>
+  <g stroke="#57606a" stroke-width="2.4" fill="#57606a">
+    <line x1="549" y1="195" x2="573" y2="195"/><polygon points="583,195 571,189 571,201"/>
+  </g>
+
+  <text x="410" y="176" text-anchor="middle" font-size="10" font-weight="600" fill="#0969da">vào</text>
+  <text x="596" y="176" text-anchor="middle" font-size="10" font-weight="600" fill="#57606a">ra</text>
+
+  <text x="510" y="268" text-anchor="middle" font-size="12" font-weight="700" fill="#cf222e">div u ≠ 0</text>
+  <text x="510" y="284" text-anchor="middle" font-size="10.5" fill="#8b1a23">→ không khí tự sinh ra hoặc tự biến mất</text>
+
+  <!-- arrow to panel 3 -->
+  <line x1="666" y1="177" x2="688" y2="177" stroke="#8b949e" stroke-width="2"/>
+  <polygon points="696,177 686,172 686,182" fill="#8b949e"/>
+
+  <!-- ============ PANEL 3 ============ -->
+  <rect x="700" y="62" width="280" height="230" rx="8" fill="#eef7f1" stroke="#4f9d69" stroke-width="1.5"/>
+  <text x="840" y="86" text-anchor="middle" font-size="13" font-weight="700" fill="#2f6f46">3. SỬA</text>
+  <text x="840" y="104" text-anchor="middle" font-size="11" fill="#2f6f46">Giải Poisson cho λ bằng SOR (ω = 1,78)</text>
+  <text x="840" y="120" text-anchor="middle" font-size="11" fill="#2f6f46">ép vào = ra ở MỌI voxel</text>
+
+  <rect x="795" y="165" width="70" height="60" fill="#c9d1d9" stroke="#6b7480" stroke-width="1.5"/>
+  <text x="830" y="200" text-anchor="middle" font-size="10" fill="#3d444d">nhà</text>
+
+  <g stroke="#2f6f46" stroke-width="2.2" fill="none" stroke-linecap="round">
+    <path d="M 716 142 C 780 142, 790 136, 830 136 C 870 136, 880 142, 948 142"/>
+    <path d="M 716 178 C 772 178, 778 156, 830 156 C 882 156, 888 180, 948 180"/>
+    <path d="M 716 212 C 772 212, 778 236, 830 236 C 882 236, 888 214, 948 214"/>
+    <path d="M 716 252 C 780 252, 790 256, 830 256 C 870 256, 880 252, 948 252"/>
+  </g>
+  <g fill="#2f6f46">
+    <polygon points="958,142 946,136 946,148"/>
+    <polygon points="958,180 946,174 946,186"/>
+    <polygon points="958,214 946,208 946,220"/>
+    <polygon points="958,252 946,246 946,258"/>
+  </g>
+
+  <text x="840" y="268" text-anchor="middle" font-size="12" font-weight="700" fill="#2f6f46">div u ≈ 0</text>
+  <text x="840" y="284" text-anchor="middle" font-size="10.5" fill="#2f6f46">→ gió ĐI VÒNG qua nhà, khối lượng bảo toàn</text>
+
+  <!-- footer -->
+  <text x="500" y="318" text-anchor="middle" font-size="11.5" fill="#4a5560">Toà nhà đi vào bài toán qua <tspan font-weight="700" fill="#1f2328">hệ số mặt voxel</tspan>: đặt = 0 ở mặt nào là tường. Không giải phương trình động lượng.</text>
+</svg>

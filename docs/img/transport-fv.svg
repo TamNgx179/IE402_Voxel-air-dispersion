@@ -1,0 +1,104 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1000 360" width="1000" height="360" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif">
+  <rect width="1000" height="360" fill="#ffffff"/>
+  <text x="500" y="24" text-anchor="middle" font-size="17" font-weight="700" fill="#1f2328">Mô hình 2 — phát tán bằng thể tích hữu hạn trên voxel</text>
+  <text x="500" y="44" text-anchor="middle" font-size="12" fill="#6b7480">nhận (u,v,w) từ Mô hình 1, trả về nồng độ C tại mọi voxel</text>
+
+  <!-- ================= PANEL 1 ================= -->
+  <rect x="18" y="58" width="312" height="248" rx="8" fill="#fafbfc" stroke="#d0d7de" stroke-width="1.5"/>
+  <text x="174" y="82" text-anchor="middle" font-size="13" font-weight="700" fill="#1f2328">1. BA CƠ CHẾ</text>
+
+  <rect x="34" y="94" width="280" height="34" rx="5" fill="#ffffff" stroke="#d0d7de"/>
+  <text x="174" y="116" text-anchor="middle" font-size="13" fill="#1f2328">∂C/∂t + <tspan fill="#0969da" font-weight="700">∇·(uC)</tspan> − <tspan fill="#2f6f46" font-weight="700">∇·(K∇C)</tspan> = <tspan fill="#d68c2e" font-weight="700">S</tspan></text>
+
+  <!-- advection -->
+  <circle cx="58" cy="158" r="9" fill="#0969da" opacity="0.18"/>
+  <circle cx="96" cy="158" r="9" fill="#0969da" opacity="0.85"/>
+  <line x1="70" y1="158" x2="82" y2="158" stroke="#0969da" stroke-width="2"/>
+  <polygon points="88,158 79,154 79,162" fill="#0969da"/>
+  <text x="120" y="153" font-size="11" font-weight="700" fill="#0969da">TẢI (advection)</text>
+  <text x="120" y="168" font-size="10" fill="#4a5560">gió cuốn khối khí đi, giữ nguyên hình</text>
+
+  <!-- diffusion -->
+  <circle cx="58" cy="208" r="6" fill="#2f6f46" opacity="0.9"/>
+  <circle cx="96" cy="208" r="14" fill="#2f6f46" opacity="0.18"/>
+  <circle cx="96" cy="208" r="9" fill="#2f6f46" opacity="0.3"/>
+  <line x1="68" y1="208" x2="78" y2="208" stroke="#2f6f46" stroke-width="2"/>
+  <polygon points="84,208 75,204 75,212" fill="#2f6f46"/>
+  <text x="120" y="203" font-size="11" font-weight="700" fill="#2f6f46">KHUẾCH TÁN (diffusion)</text>
+  <text x="120" y="218" font-size="10" fill="#4a5560">rối làm loang ra, loãng dần</text>
+
+  <!-- source -->
+  <rect x="46" y="264" width="60" height="6" rx="2" fill="#6b7480"/>
+  <g stroke="#d68c2e" stroke-width="2" fill="#d68c2e">
+    <line x1="58" y1="262" x2="58" y2="248"/><polygon points="58,242 54,252 62,252"/>
+    <line x1="76" y1="262" x2="76" y2="252"/><polygon points="76,246 72,256 80,256"/>
+    <line x1="94" y1="262" x2="94" y2="248"/><polygon points="94,242 90,252 98,252"/>
+  </g>
+  <text x="120" y="255" font-size="11" font-weight="700" fill="#d68c2e">NGUỒN (source)</text>
+  <text x="120" y="270" font-size="10" fill="#4a5560">xe máy thải ra ở voxel mực đường</text>
+
+  <line x1="336" y1="180" x2="358" y2="180" stroke="#8b949e" stroke-width="2"/>
+  <polygon points="366,180 356,175 356,185" fill="#8b949e"/>
+
+  <!-- ================= PANEL 2 ================= -->
+  <rect x="370" y="58" width="300" height="248" rx="8" fill="#eef4fb" stroke="#0969da" stroke-width="1.5"/>
+  <text x="520" y="82" text-anchor="middle" font-size="13" font-weight="700" fill="#0969da">2. CÂN BẰNG THÔNG LƯỢNG</text>
+  <text x="520" y="99" text-anchor="middle" font-size="10.5" fill="#4a5560">xét 1 voxel: đếm khối lượng qua 6 mặt</text>
+
+  <rect x="480" y="148" width="80" height="80" rx="4" fill="#ffffff" stroke="#0969da" stroke-width="2.2"/>
+  <text x="520" y="184" text-anchor="middle" font-size="12" font-weight="700" fill="#1f2328">C[k,j,i]</text>
+  <text x="520" y="200" text-anchor="middle" font-size="9.5" fill="#6b7480">1 voxel</text>
+
+  <g stroke="#0969da" stroke-width="2.4" fill="#0969da">
+    <line x1="424" y1="188" x2="460" y2="188"/><polygon points="470,188 458,182 458,194"/>
+    <line x1="520" y1="256" x2="520" y2="242"/><polygon points="520,232 514,244 526,244"/>
+  </g>
+  <g stroke="#57606a" stroke-width="2.4" fill="#57606a">
+    <line x1="564" y1="188" x2="600" y2="188"/><polygon points="610,188 598,182 598,194"/>
+    <line x1="520" y1="144" x2="520" y2="130"/><polygon points="520,120 514,132 526,132"/>
+  </g>
+  <text x="436" y="176" text-anchor="middle" font-size="10" font-weight="700" fill="#0969da">vào</text>
+  <text x="592" y="176" text-anchor="middle" font-size="10" font-weight="700" fill="#57606a">ra</text>
+
+  <rect x="386" y="266" width="268" height="30" rx="5" fill="#ffffff" stroke="#c3d9f0"/>
+  <text x="520" y="279" text-anchor="middle" font-size="10.5" fill="#1f2328">ΔC · V = Δt · Σ (thông lượng VÀO − RA qua 6 mặt)</text>
+  <text x="520" y="292" text-anchor="middle" font-size="9.5" font-weight="700" fill="#0969da">⟹ khối lượng bảo toàn đến độ chính xác máy</text>
+
+  <line x1="676" y1="180" x2="698" y2="180" stroke="#8b949e" stroke-width="2"/>
+  <polygon points="706,180 696,175 696,185" fill="#8b949e"/>
+
+  <!-- ================= PANEL 3 ================= -->
+  <rect x="710" y="58" width="272" height="248" rx="8" fill="#eef7f1" stroke="#2f6f46" stroke-width="1.5"/>
+  <text x="846" y="82" text-anchor="middle" font-size="13" font-weight="700" fill="#2f6f46">3. UPWIND + CFL</text>
+  <text x="846" y="99" text-anchor="middle" font-size="10.5" fill="#2f6f46">lấy giá trị từ ô THƯỢNG LƯU</text>
+
+  <!-- wind arrow -->
+  <g stroke="#0969da" stroke-width="2" fill="#0969da">
+    <line x1="742" y1="120" x2="932" y2="120"/><polygon points="942,120 930,114 930,126"/>
+  </g>
+  <text x="836" y="114" text-anchor="middle" font-size="9.5" font-weight="700" fill="#0969da">hướng gió u</text>
+
+  <!-- cells -->
+  <g stroke="#6b7480" stroke-width="1.2" fill="#ffffff">
+    <rect x="734" y="132" width="52" height="44"/>
+    <rect x="838" y="132" width="52" height="44"/>
+    <rect x="890" y="132" width="52" height="44"/>
+  </g>
+  <rect x="786" y="132" width="52" height="44" fill="#d7ede2" stroke="#2f6f46" stroke-width="2"/>
+  <rect x="838" y="132" width="52" height="44" fill="#fdf3e7" stroke="#d68c2e" stroke-width="2.4"/>
+  <text x="812" y="159" text-anchor="middle" font-size="11" font-weight="700" fill="#2f6f46">i−1</text>
+  <text x="864" y="159" text-anchor="middle" font-size="11" font-weight="700" fill="#9a5f12">i</text>
+  <text x="812" y="190" text-anchor="middle" font-size="8.5" fill="#2f6f46">thượng lưu</text>
+  <text x="864" y="190" text-anchor="middle" font-size="8.5" fill="#9a5f12">đang tính</text>
+
+  <rect x="722" y="206" width="248" height="26" rx="4" fill="#ffffff" stroke="#bcdcc8"/>
+  <text x="846" y="223" text-anchor="middle" font-size="10.5" fill="#1f2328">Cᵢⁿ⁺¹ = Cᵢⁿ − (u·Δt/Δx)·(Cᵢⁿ − Cᵢ₋₁ⁿ)</text>
+
+  <rect x="722" y="240" width="248" height="56" rx="5" fill="#fdecee" stroke="#cf222e" stroke-width="1.4"/>
+  <text x="846" y="257" text-anchor="middle" font-size="10.5" font-weight="700" fill="#cf222e">Điều kiện ổn định CFL</text>
+  <text x="846" y="272" text-anchor="middle" font-size="10" fill="#8b1a23">trong 1 bước Δt, gió không được vượt quá 1 ô</text>
+  <text x="846" y="289" text-anchor="middle" font-size="11" font-weight="700" fill="#cf222e">Cr = u·Δt/Δx ≤ 1   ·   nhóm dùng ≤ 0,5</text>
+
+  <!-- footer -->
+  <text x="500" y="336" text-anchor="middle" font-size="11.5" fill="#4a5560">Đánh đổi của upwind bậc 1: <tspan font-weight="700" fill="#cf222e">khuếch tán số</tspan> K_num ≈ ½·u·Δx·(1−Cr) — với u = 3 m/s, Δx = 5 m thì cỡ vài m²/s, so sánh được với khuếch tán rối thật.</text>
+</svg>

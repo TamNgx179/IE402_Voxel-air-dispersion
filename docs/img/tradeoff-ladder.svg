@@ -1,0 +1,68 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1000 400" width="1000" height="400" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif">
+  <rect width="1000" height="400" fill="#ffffff"/>
+  <text x="500" y="24" text-anchor="middle" font-size="17" font-weight="700" fill="#1f2328">Trade-off: độ chính xác đổi lấy chi phí là PHI TUYẾN</text>
+
+  <!-- axes -->
+  <line x1="62" y1="348" x2="968" y2="348" stroke="#57606a" stroke-width="1.5"/>
+  <text x="515" y="370" text-anchor="middle" font-size="11" font-weight="600" fill="#57606a">chi phí tính toán tăng dần →</text>
+  <line x1="62" y1="348" x2="62" y2="60" stroke="#57606a" stroke-width="1.5"/>
+  <text x="44" y="204" text-anchor="middle" font-size="11" font-weight="600" fill="#57606a" transform="rotate(-90 44 204)">độ trung thực vật lý →</text>
+
+  <!-- ===== STEP 1 : Gaussian ===== -->
+  <rect x="78" y="298" width="150" height="44" rx="6" fill="#f0f2f5" stroke="#8b949e" stroke-width="1.5"/>
+  <text x="153" y="316" text-anchor="middle" font-size="12" font-weight="700" fill="#1f2328">Gaussian</text>
+  <text x="153" y="333" text-anchor="middle" font-size="9.5" fill="#57606a">giây · KHÔNG có toà nhà</text>
+
+  <!-- riser 1 -->
+  <line x1="230" y1="300" x2="230" y2="272" stroke="#cf222e" stroke-width="2"/>
+  <line x1="230" y1="272" x2="258" y2="272" stroke="#cf222e" stroke-width="2"/>
+  <polygon points="266,272 256,267 256,277" fill="#cf222e"/>
+  <text x="244" y="291" text-anchor="middle" font-size="11.5" font-weight="700" fill="#cf222e">×50</text>
+
+  <!-- ===== STEP 2 : NHÓM ===== -->
+  <text x="360" y="218" text-anchor="middle" font-size="10" font-weight="600" fill="#2f6f46">được: TOÀ NHÀ LÀM LỆCH DÒNG</text>
+  <rect x="270" y="226" width="180" height="58" rx="6" fill="#dbe8f7" stroke="#0969da" stroke-width="2.8"/>
+  <text x="360" y="246" text-anchor="middle" font-size="12.5" font-weight="700" fill="#0969da">mass-consistent</text>
+  <text x="360" y="262" text-anchor="middle" font-size="11" font-weight="700" fill="#0969da">+ voxel</text>
+  <text x="360" y="277" text-anchor="middle" font-size="9.5" fill="#4a5560">&lt; 1 phút · có toà nhà</text>
+  <polygon points="360,300 351,314 369,314" fill="#0969da"/>
+  <text x="360" y="332" text-anchor="middle" font-size="12" font-weight="700" fill="#0969da">NHÓM ĐỨNG Ở ĐÂY</text>
+
+  <!-- riser 2 -->
+  <line x1="452" y1="232" x2="452" y2="198" stroke="#d68c2e" stroke-width="2"/>
+  <line x1="452" y1="198" x2="480" y2="198" stroke="#d68c2e" stroke-width="2"/>
+  <polygon points="488,198 478,193 478,203" fill="#d68c2e"/>
+  <text x="466" y="222" text-anchor="middle" font-size="11.5" font-weight="700" fill="#d68c2e">×2</text>
+
+  <!-- ===== STEP 3 : Röckle ===== -->
+  <text x="558" y="146" text-anchor="middle" font-size="10" font-weight="600" fill="#2f6f46">được: XOÁY CAVITY + HẺM PHỐ</text>
+  <rect x="492" y="154" width="172" height="52" rx="6" fill="#f0f2f5" stroke="#8b949e" stroke-width="1.5"/>
+  <text x="578" y="174" text-anchor="middle" font-size="12" font-weight="700" fill="#1f2328">Röckle đầy đủ</text>
+  <text x="578" y="191" text-anchor="middle" font-size="9.5" fill="#57606a">2–10 phút · +15–20 người-ngày</text>
+
+  <!-- riser 3 -->
+  <line x1="666" y1="160" x2="666" y2="126" stroke="#cf222e" stroke-width="2"/>
+  <line x1="666" y1="126" x2="694" y2="126" stroke="#cf222e" stroke-width="2"/>
+  <polygon points="702,126 692,121 692,131" fill="#cf222e"/>
+  <text x="680" y="150" text-anchor="middle" font-size="11.5" font-weight="700" fill="#cf222e">×100</text>
+
+  <!-- ===== STEP 4 : CFD RANS ===== -->
+  <text x="772" y="74" text-anchor="middle" font-size="10" font-weight="600" fill="#2f6f46">được: VẬT LÝ RỐI THẬT</text>
+  <rect x="706" y="82" width="132" height="52" rx="6" fill="#f0f2f5" stroke="#8b949e" stroke-width="1.5"/>
+  <text x="772" y="102" text-anchor="middle" font-size="12" font-weight="700" fill="#1f2328">CFD RANS</text>
+  <text x="772" y="119" text-anchor="middle" font-size="9.5" fill="#57606a">giờ · +4–6 tuần chia lưới</text>
+
+  <!-- riser 4 -->
+  <line x1="840" y1="98" x2="864" y2="98" stroke="#cf222e" stroke-width="2"/>
+  <polygon points="872,98 862,93 862,103" fill="#cf222e"/>
+  <text x="852" y="88" text-anchor="middle" font-size="11" font-weight="700" fill="#cf222e">×1000</text>
+
+  <!-- ===== STEP 5 : LES ===== -->
+  <rect x="876" y="72" width="106" height="52" rx="6" fill="#fdecee" stroke="#cf222e" stroke-width="1.8"/>
+  <text x="929" y="92" text-anchor="middle" font-size="12" font-weight="700" fill="#cf222e">LES</text>
+  <text x="929" y="108" text-anchor="middle" font-size="9" fill="#8b1a23">4.744 GPU-giờ</text>
+  <text x="929" y="119" text-anchor="middle" font-size="9" fill="#8b1a23">cho 1 ca</text>
+
+  <!-- key insight -->
+  <text x="500" y="392" text-anchor="middle" font-size="12" fill="#1f2328"><tspan font-weight="700">Bậc đầu tiên rẻ nhất mà đổi được nhiều nhất</tspan> — từ "không có toà nhà" sang "có toà nhà" chỉ tốn ×50 của một mô hình vốn đã chạy vài giây.</text>
+</svg>
