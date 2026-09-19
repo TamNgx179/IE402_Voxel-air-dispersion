@@ -251,25 +251,7 @@ Tham chiếu: [Gorte et al. 2024](https://doi.org/10.5194/isprs-annals-X-4-2024-
 
 ### 5.3 ▸ Quy trình xây dựng
 
-```
-TẦNG 0 — HÌNH HỌC                                          【~4 người-ngày】
-  OSM footprint + chiều cao → raster hoá → H[y,x]
-  → extrude:  B[k,j,i] = ( Z[k] < H[j,i] )        ⟹ mảng chiếm chỗ 3D
-  → raster hoá mạng đường × EF xe máy              ⟹ mảng nguồn S[k,j,i]
-                            ↓
-TẦNG 1 — TRƯỜNG GIÓ                                        【~6 người-ngày】
-  profile luỹ thừa, u=0 trong nhà → giải Poisson λ bằng SOR (ω=1,78)
-  → u = u₀ + (1/2α₁²)∂λ/∂x …                      ⟹ (u,v,w), div ≈ 0
-                            ↓
-TẦNG 2 — VẬN CHUYỂN                                        【~10 người-ngày】
-  ∂C/∂t + ∇·(uC) − ∇·(K∇C) = S,  upwind + FV,  Cr ≤ 0,5
-  chạy tới trạng thái dừng (~800–1200 bước, < 1 phút)  ⟹ C[k,j,i]
-                            ↓
-TẦNG 3 — PHÂN TÍCH + WEB                                   【~12 người-ngày】
-  lát cắt · mặt cắt đứng · profile đứng · isosurface ·
-  thể tích vượt ngưỡng · phơi nhiễm mặt đứng
-  → netCDF-4 (CF)  →  export JSON  →  ỨNG DỤNG WEB 3D
-```
+![Quy trình xây dựng 4 tầng](./img/pipeline-4-tang.svg)
 
 ⭐ **Chiến thuật triển khai đáng nói:** cả Tầng 1 và Tầng 2 đều được **viết ở 2D trước** (mặt cắt x–z, lưới 100 × 50), kiểm chứng xong mới mở lên 3D. Ở 2D, một lỗi dấu upwind hay lỗi biên **nhìn ra ngay bằng mắt**; ở 3D chỉ thấy "số ra kỳ kỳ".
 

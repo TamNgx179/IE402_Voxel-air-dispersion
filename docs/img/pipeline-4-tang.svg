@@ -1,0 +1,76 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1000 540" width="1000" height="540" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif">
+  <rect width="1000" height="540" fill="#ffffff"/>
+  <text x="500" y="26" text-anchor="middle" font-size="17" font-weight="700" fill="#1f2328">Quy trình xây dựng — 4 tầng, tất cả trên cùng một lưới voxel</text>
+
+  <!-- legend -->
+  <circle cx="742" cy="44" r="8" fill="#3d444d"/><text x="742" y="48" text-anchor="middle" font-size="9.5" font-weight="700" fill="#ffffff">A</text>
+  <text x="756" y="48" font-size="10" fill="#6b7480">GIS · Dữ liệu · Web</text>
+  <circle cx="866" cy="44" r="8" fill="#3d444d"/><text x="866" y="48" text-anchor="middle" font-size="9.5" font-weight="700" fill="#ffffff">B</text>
+  <text x="880" y="48" font-size="10" fill="#6b7480">Mô hình · Số trị</text>
+
+  <!-- ============ TẦNG 0 ============ -->
+  <rect x="150" y="62" width="700" height="86" rx="8" fill="#f6f8fa" stroke="#8b949e" stroke-width="1.8"/>
+  <rect x="150" y="62" width="7" height="86" rx="3" fill="#8b949e"/>
+  <text x="176" y="88" font-size="13.5" font-weight="700" fill="#1f2328">TẦNG 0 — HÌNH HỌC</text>
+  <text x="176" y="110" font-size="11" fill="#4a5560">OSM footprint + chiều cao  →  raster hoá  →  H[y,x]</text>
+  <text x="176" y="128" font-size="11" fill="#4a5560">extrude:  B[k,j,i] = ( Z[k] &lt; H[j,i] )   ·   raster hoá mạng đường × EF xe máy</text>
+  <circle cx="800" cy="90" r="11" fill="#3d444d"/><text x="800" y="94" text-anchor="middle" font-size="11" font-weight="700" fill="#ffffff">A</text>
+  <rect x="762" y="112" width="76" height="20" rx="10" fill="#eaeef2"/>
+  <text x="800" y="126" text-anchor="middle" font-size="10" font-weight="600" fill="#57606a">~4 người-ngày</text>
+
+  <!-- arrow 0→1 -->
+  <line x1="500" y1="150" x2="500" y2="172" stroke="#8b949e" stroke-width="2.4"/>
+  <polygon points="500,182 493,168 507,168" fill="#8b949e"/>
+  <rect x="540" y="152" width="270" height="22" rx="11" fill="#f6f8fa" stroke="#d0d7de"/>
+  <text x="675" y="167" text-anchor="middle" font-size="10.5" font-weight="600" fill="#3d444d">B[k,j,i] mask nhà  ·  S[k,j,i] nguồn phát thải</text>
+
+  <!-- ============ TẦNG 1 ============ -->
+  <rect x="150" y="186" width="700" height="86" rx="8" fill="#eef4fb" stroke="#0969da" stroke-width="1.8"/>
+  <rect x="150" y="186" width="7" height="86" rx="3" fill="#0969da"/>
+  <text x="176" y="212" font-size="13.5" font-weight="700" fill="#0969da">TẦNG 1 — TRƯỜNG GIÓ</text>
+  <text x="176" y="234" font-size="11" fill="#4a5560">profile gió luỹ thừa u(z)  ·  đặt u = v = w = 0 ở voxel trong nhà</text>
+  <text x="176" y="252" font-size="11" fill="#4a5560">giải Poisson cho λ bằng SOR (ω = 1,78)  →  u = u₀ + (1/2α₁²)·∂λ/∂x …</text>
+  <circle cx="800" cy="214" r="11" fill="#3d444d"/><text x="800" y="218" text-anchor="middle" font-size="11" font-weight="700" fill="#ffffff">B</text>
+  <rect x="762" y="236" width="76" height="20" rx="10" fill="#dbe8f7"/>
+  <text x="800" y="250" text-anchor="middle" font-size="10" font-weight="600" fill="#0969da">~6 người-ngày</text>
+
+  <!-- arrow 1→2 -->
+  <line x1="500" y1="274" x2="500" y2="296" stroke="#0969da" stroke-width="2.4"/>
+  <polygon points="500,306 493,292 507,292" fill="#0969da"/>
+  <rect x="540" y="276" width="230" height="22" rx="11" fill="#eef4fb" stroke="#c3d9f0"/>
+  <text x="655" y="291" text-anchor="middle" font-size="10.5" font-weight="600" fill="#0969da">(u, v, w) tại mọi voxel  ·  div ≈ 0</text>
+
+  <!-- ============ TẦNG 2 ============ -->
+  <rect x="150" y="310" width="700" height="86" rx="8" fill="#eef7f1" stroke="#2f6f46" stroke-width="1.8"/>
+  <rect x="150" y="310" width="7" height="86" rx="3" fill="#2f6f46"/>
+  <text x="176" y="336" font-size="13.5" font-weight="700" fill="#2f6f46">TẦNG 2 — VẬN CHUYỂN</text>
+  <text x="176" y="358" font-size="11.5" fill="#1f2328">∂C/∂t + ∇·(uC) − ∇·(K∇C) = S</text>
+  <text x="176" y="376" font-size="11" fill="#4a5560">thể tích hữu hạn · upwind bậc 1 · Cr ≤ 0,5 · chạy tới trạng thái dừng (&lt; 1 phút)</text>
+  <circle cx="800" cy="338" r="11" fill="#3d444d"/><text x="800" y="342" text-anchor="middle" font-size="11" font-weight="700" fill="#ffffff">B</text>
+  <rect x="758" y="360" width="84" height="20" rx="10" fill="#d7ede2"/>
+  <text x="800" y="374" text-anchor="middle" font-size="10" font-weight="600" fill="#2f6f46">~10 người-ngày</text>
+
+  <!-- arrow 2→3 -->
+  <line x1="500" y1="398" x2="500" y2="420" stroke="#2f6f46" stroke-width="2.4"/>
+  <polygon points="500,430 493,416 507,416" fill="#2f6f46"/>
+  <rect x="540" y="400" width="230" height="22" rx="11" fill="#eef7f1" stroke="#bcdcc8"/>
+  <text x="655" y="415" text-anchor="middle" font-size="10.5" font-weight="600" fill="#2f6f46">C[k,j,i] — nồng độ tại mọi voxel</text>
+
+  <!-- ============ TẦNG 3 ============ -->
+  <rect x="150" y="434" width="700" height="86" rx="8" fill="#fdf3e7" stroke="#d68c2e" stroke-width="1.8"/>
+  <rect x="150" y="434" width="7" height="86" rx="3" fill="#d68c2e"/>
+  <text x="176" y="460" font-size="13.5" font-weight="700" fill="#9a5f12">TẦNG 3 — PHÂN TÍCH KHÔNG GIAN + WEB</text>
+  <text x="176" y="482" font-size="11" fill="#4a5560">lát cắt ngang · mặt cắt đứng · profile đứng · isosurface · thể tích vượt ngưỡng</text>
+  <text x="176" y="500" font-size="11" fill="#4a5560">netCDF-4 (CF)  →  export JSON  →  <tspan font-weight="700" fill="#9a5f12">ỨNG DỤNG WEB 3D</tspan> (deck.gl + MapLibre)</text>
+  <circle cx="800" cy="462" r="11" fill="#3d444d"/><text x="800" y="466" text-anchor="middle" font-size="11" font-weight="700" fill="#ffffff">A</text>
+  <rect x="758" y="484" width="84" height="20" rx="10" fill="#fae4c8"/>
+  <text x="800" y="498" text-anchor="middle" font-size="10" font-weight="600" fill="#9a5f12">~12 người-ngày</text>
+
+  <!-- side note -->
+  <text x="75" y="278" text-anchor="middle" font-size="10.5" font-weight="700" fill="#57606a">Mọi tầng</text>
+  <text x="75" y="294" text-anchor="middle" font-size="10.5" font-weight="700" fill="#57606a">dùng chung</text>
+  <text x="75" y="310" text-anchor="middle" font-size="10.5" font-weight="700" fill="#57606a">MỘT mảng 3D</text>
+  <text x="75" y="330" text-anchor="middle" font-size="10" fill="#8b949e">100 × 100 × 50</text>
+  <text x="75" y="345" text-anchor="middle" font-size="10" fill="#8b949e">= 500.000 voxel</text>
+  <line x1="130" y1="105" x2="130" y2="477" stroke="#d0d7de" stroke-width="1.5" stroke-dasharray="4 4"/>
+</svg>

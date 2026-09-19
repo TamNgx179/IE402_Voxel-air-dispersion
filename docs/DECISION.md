@@ -36,10 +36,7 @@
 
 Cắt 7 vùng Röckle thì **không được gọi là mô hình Röckle nữa**. Cụ thể:
 
-```
-Röckle  =  vùng thực nghiệm (cavity, wake, rooftop…)  +  ép bảo toàn khối lượng
-                        ↑ CẮT phần này                      ↑ GIỮ phần này
-```
+![Röckle — cắt phần nào, giữ phần nào](./img/rockle-split.svg)
 
 Còn lại là **mô hình gió chẩn đoán bảo toàn khối lượng (mass-consistent diagnostic wind model)** — họ mô hình của **CALMET** và **MATHEW/ABLE**, có trước Röckle. Phương pháp biến phân **Sasaki (1970)**.
 
@@ -52,13 +49,10 @@ Còn lại là **mô hình gió chẩn đoán bảo toàn khối lượng (mass-
 
 Đây là lời khuyên quan trọng nhất trong file này cho nhóm.
 
-```
-Bước 1:  Viết bộ giải trên mặt cắt 2D (x–z), lưới 200 × 100 = 20.000 ô
-         → chạy tức thì, in ra màn hình xem được, debug bằng mắt
-         → kiểm CFL, kiểm bảo toàn khối lượng, kiểm biên tường
-Bước 2:  Chỉ khi 2D đã đúng mới thêm trục y  →  C[k,j,i]
-         → code gần như y hệt, chỉ thêm một bộ số hạng
-```
+| | Làm gì | Vì sao |
+|---|---|---|
+| **Bước 1** | Viết bộ giải trên **mặt cắt 2D (x–z)**, lưới 200 × 100 = 20.000 ô | Chạy tức thì · in ra màn hình xem được · **debug bằng mắt** · kiểm CFL, bảo toàn khối lượng, biên tường |
+| **Bước 2** | Chỉ khi 2D đã đúng **mới thêm trục y** → `C[k,j,i]` | Code gần như y hệt, chỉ thêm một bộ số hạng |
 
 Debug một bộ giải 3D trực tiếp là cực hình: sai ở đâu cũng chỉ thấy "số ra kỳ kỳ". Ở 2D, một lỗi dấu hay lỗi upwind **nhìn phát ra ngay**. Chiến thuật này tiết kiệm dễ đến một tuần, và **mặt cắt 2D đó còn dùng lại được làm hình trong báo cáo**.
 
@@ -74,25 +68,9 @@ Debug một bộ giải 3D trực tiếp là cực hình: sai ở đâu cũng ch
 
 Đây là chỗ hay bị lẫn, nên nói rõ trước: **không phải một mô hình, mà là hai mô hình ghép lại**, chạy trên cùng một lưới voxel.
 
-```
-       ┌──────────────────────────────────────────────────────┐
-       │  MÔ HÌNH 1 — TRƯỜNG GIÓ                              │
-       │  "Mô hình gió chẩn đoán kiểu RÖCKLE"                 │
-       │  (diagnostic / mass-consistent wind model)           │
-       │                                                      │
-       │  Trả lời: gió thổi thế nào quanh các toà nhà?        │
-       │  Đầu ra:  (u, v, w) tại MỌI voxel                    │
-       └──────────────────────────────────────────────────────┘
-                              ↓  (u,v,w) làm đầu vào
-       ┌──────────────────────────────────────────────────────┐
-       │  MÔ HÌNH 2 — PHÁT TÁN                                │
-       │  "Phương trình tải–khuếch tán giải bằng              │
-       │   thể tích hữu hạn (finite volume) trên voxel"       │
-       │                                                      │
-       │  Trả lời: chất ô nhiễm đi đâu trong trường gió đó?   │
-       │  Đầu ra:  nồng độ C tại MỌI voxel, theo thời gian    │
-       └──────────────────────────────────────────────────────┘
-```
+![Hai mô hình ghép lại trên cùng một lưới voxel](./img/model-pipeline.svg)
+
+> ⚠️ Hình trên vẽ theo **phạm vi 8 tuần đã cắt** (§0.1) — Mô hình 1 là *mass-consistent thuần*, không có 7 vùng Röckle.
 
 ### 1.1 Röckle là cái gì (nói bằng tiếng Việt thường)
 
@@ -241,11 +219,7 @@ Cột ⭐ tách làm hai để thấy rõ **cái gì bị mất khi cắt 7 vùn
 
 **Trade-off 1 — Độ chính xác đổi lấy chi phí là PHI TUYẾN.**
 
-```
-Gaussian          →  mass-consistent:  chi phí ×~50,    có toà nhà      ← NHÓM ĐỨNG Ở ĐÂY
-mass-consistent   →  Röckle đầy đủ:    chi phí ×~2,     thêm xoáy cavity/canyon
-Röckle            →  LES:              chi phí ×~1000,  FAC2 ~0,6 → ~0,8-0,95
-```
+![Thang trade-off độ chính xác vs chi phí](./img/tradeoff-ladder.svg)
 **Bậc thang cuối đắt hơn rất nhiều nhưng lợi ích tăng thêm ít hơn.** Với đồ án sinh viên, **hai bậc đầu là nơi tỉ lệ lợi ích/chi phí cao nhất** — và bậc 1 (thêm toà nhà vào trường gió) là bậc rẻ nhất mà cũng đổi nhiều nhất về mặt "đây có phải mô hình 3D thật không".
 
 **Trade-off 2 — Độ phân giải đổi lấy bộ nhớ là BẬC BA.**
@@ -341,24 +315,11 @@ Mỗi mục có **một câu trả lời** và **một con số** — dùng đư
 
 ## 6. Kiểm định — trong 8 tuần chỉ làm được Bậc 1
 
-```
-✅ Bậc 1 — VERIFICATION (mã có đúng không?)          [BẮT BUỘC, ~2 người-ngày]
-        So bộ giải voxel với NGHIỆM GAUSSIAN GIẢI TÍCH trong dòng đều, không nhà
-        Mục tiêu: sai số < 6%   (mốc QES-Plume: 5,91%)
-        → Làm TRƯỚC khi thêm bất kỳ toà nhà nào. Không đạt = có bug
-        → Thêm: kiểm BẢO TOÀN KHỐI LƯỢNG (tổng khối lượng trong miền
-          + lượng thoát ra biên = tổng đã phát thải) — rẻ và rất thuyết phục
-
-❌ Bậc 2 — VALIDATION vật lý (hầm gió Michelstadt/MUST)   [CẮT, ~8 người-ngày]
-        Không phải vì khó, mà vì phải dựng lại hình học 60 khối nhà,
-        chạy mô hình, trích kết quả tại 196 vị trí cảm biến rồi mới tính được FAC2.
-        → Ghi thẳng trong phần Hạn chế: "chưa kiểm định với số liệu thực nghiệm,
-          đây là hướng phát triển tiếp theo"
-
-🟡 Bậc 3 — SO SÁNH ĐỊNH TÍNH với quan trắc          [LÀM NẾU KỊP, ~2 người-ngày]
-        So bậc độ lớn nồng độ mô phỏng với trạm US Embassy Hà Nội / OpenAQ
-        → Chỉ là kiểm tra hợp lý (sanity check), KHÔNG gọi là "kiểm định"
-```
+| | Bậc | Làm gì | Chi phí |
+|---|---|---|---|
+| ✅ | **Bậc 1 — VERIFICATION**<br>*"mã có đúng không?"* | So bộ giải voxel với **nghiệm Gaussian giải tích** trong dòng đều, không nhà. Mục tiêu **sai số < 6%** (mốc QES-Plume: 5,91%).<br>→ Làm **TRƯỚC** khi thêm bất kỳ toà nhà nào. Không đạt = có bug.<br>→ Thêm: kiểm **bảo toàn khối lượng** (tổng trong miền + thoát ra biên = tổng đã phát thải) — rẻ và rất thuyết phục | **BẮT BUỘC**<br>~2 người-ngày |
+| ❌ | **Bậc 2 — VALIDATION vật lý**<br>*hầm gió Michelstadt/MUST* | Không phải vì khó, mà vì phải dựng lại hình học **60 khối nhà**, chạy mô hình, trích kết quả tại **196 vị trí cảm biến** rồi mới tính được FAC2.<br>→ Ghi thẳng trong Hạn chế: *"chưa kiểm định với số liệu thực nghiệm, đây là hướng phát triển tiếp theo"* | **CẮT**<br>~8 người-ngày |
+| 🟡 | **Bậc 3 — SO SÁNH ĐỊNH TÍNH**<br>*với quan trắc* | So **bậc độ lớn** nồng độ mô phỏng với trạm US Embassy Hà Nội / OpenAQ.<br>→ Chỉ là kiểm tra hợp lý (sanity check), **KHÔNG gọi là "kiểm định"** | LÀM NẾU KỊP<br>~2 người-ngày |
 
 > ⚠️ **Nói thật trong báo cáo thay vì giấu.** Một đồ án môn học trung thực rằng *"mới verification, chưa validation, và đây là lý do"* mạnh hơn nhiều một đồ án khoe FAC2 tính từ dữ liệu ghép vội. Giám khảo phân biệt được hai thứ đó.
 >

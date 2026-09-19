@@ -1,0 +1,33 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1000 230" width="1000" height="230" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif">
+  <rect width="1000" height="230" fill="#ffffff"/>
+  <text x="500" y="26" text-anchor="middle" font-size="16" font-weight="700" fill="#1f2328">Cắt gì, giữ gì — và vì sao tên mô hình đổi</text>
+
+  <text x="60" y="94" font-size="20" font-weight="700" fill="#1f2328">Röckle</text>
+  <text x="152" y="94" font-size="20" font-weight="700" fill="#57606a">=</text>
+
+  <!-- CẮT -->
+  <rect x="184" y="56" width="300" height="60" rx="8" fill="#fdecee" stroke="#cf222e" stroke-width="2"/>
+  <text x="334" y="80" text-anchor="middle" font-size="12.5" font-weight="700" fill="#cf222e">Tham số hoá thực nghiệm 7 vùng</text>
+  <text x="334" y="99" text-anchor="middle" font-size="11" fill="#8b1a23">cavity · wake · rooftop · street canyon …</text>
+  <line x1="196" y1="66" x2="472" y2="106" stroke="#cf222e" stroke-width="2.4" opacity="0.55"/>
+  <line x1="472" y1="66" x2="196" y2="106" stroke="#cf222e" stroke-width="2.4" opacity="0.55"/>
+  <rect x="236" y="126" width="196" height="24" rx="12" fill="#cf222e"/>
+  <text x="334" y="143" text-anchor="middle" font-size="11.5" font-weight="700" fill="#ffffff">CẮT — 15–20 người-ngày</text>
+  <text x="334" y="170" text-anchor="middle" font-size="10.5" fill="#8b1a23">phải dựng hình học 7 vùng cho TỪNG toà nhà,</text>
+  <text x="334" y="185" text-anchor="middle" font-size="10.5" fill="#8b1a23">theo TỪNG hướng gió → bằng nửa ngân sách</text>
+
+  <text x="504" y="94" font-size="20" font-weight="700" fill="#57606a">+</text>
+
+  <!-- GIỮ -->
+  <rect x="540" y="56" width="300" height="60" rx="8" fill="#eef7f1" stroke="#2f6f46" stroke-width="2"/>
+  <text x="690" y="80" text-anchor="middle" font-size="12.5" font-weight="700" fill="#2f6f46">Ép bảo toàn khối lượng</text>
+  <text x="690" y="99" text-anchor="middle" font-size="11" fill="#2f6f46">giải Poisson cho λ bằng SOR (ω = 1,78)</text>
+  <rect x="592" y="126" width="196" height="24" rx="12" fill="#2f6f46"/>
+  <text x="690" y="143" text-anchor="middle" font-size="11.5" font-weight="700" fill="#ffffff">GIỮ — ~6 người-ngày</text>
+  <text x="690" y="170" text-anchor="middle" font-size="10.5" fill="#2f6f46">bộ giải SOR chỉ ~100 dòng, công thức đã in</text>
+  <text x="690" y="185" text-anchor="middle" font-size="10.5" fill="#2f6f46">sẵn trong tài liệu QES-Winds</text>
+
+  <!-- result -->
+  <rect x="190" y="196" width="620" height="26" rx="13" fill="#eef7f1" stroke="#2f6f46" stroke-width="1.6"/>
+  <text x="500" y="213" text-anchor="middle" font-size="11.5" fill="#1f2328">Còn lại = <tspan font-weight="700" fill="#2f6f46">mô hình gió chẩn đoán bảo toàn khối lượng</tspan> — họ của CALMET, MATHEW/ABLE</text>
+</svg>

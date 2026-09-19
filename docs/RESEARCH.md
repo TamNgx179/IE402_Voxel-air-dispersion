@@ -362,10 +362,8 @@ Model mạng lưới hẻm phố, ghép được với SSH-aerosol và Polair3D,
 
 Tầng này gồm **hai bước độc lập**, và có thể chọn riêng từng bước:
 
-```
-Bước A: sinh trường gió 3D (u,v,w) trên lưới voxel   ← §6.1–§6.3
-Bước B: vận chuyển chất ô nhiễm trên chính lưới đó   ← §6.4 (Euler) hoặc §6.5 (Lagrange)
-```
+- **Bước A** — sinh trường gió 3D (u,v,w) trên lưới voxel → §6.1–§6.3
+- **Bước B** — vận chuyển chất ô nhiễm trên chính lưới đó → §6.4 (Euler) hoặc §6.5 (Lagrange)
 
 ### 6.1 Profile gió nền — điều kiện biên vào
 
@@ -832,11 +830,11 @@ CAIRDIO viết bằng **Python với NumPy vector hoá và MPI**, dùng bộ gi�
 
 📐 **Tổng hợp của nhóm (trình bày là NHẬN ĐỊNH RIÊNG, không phải trích dẫn):** các điểm dữ liệu rời rạc đã xác thực cho thấy một **thang ba bậc**:
 
-```
-Gaussian            FAC2 thường < 0,5 trong khu xây dựng dày   —  chi phí: giây
-Röckle + Lagrange   FAC2 ~ 0,5–0,6  (QES-Plume: 0,59 ✅)        —  chi phí: giây → phút
-CFD                 FAC2 tới ~0,95 ở ca tốt nhất                —  chi phí: giờ → ngày
-```
+| Bậc | Độ chính xác | Chi phí |
+|---|---|---|
+| **Gaussian** | FAC2 thường < 0,5 trong khu xây dựng dày | giây |
+| **Röckle + Lagrange** | FAC2 ~ 0,5–0,6 (QES-Plume: **0,59** ✅) | giây → phút |
+| **CFD** | FAC2 tới ~0,95 ở ca tốt nhất | giờ → ngày |
 Và một nhận định có nguồn từ chính văn liệu Lagrange: *"cách tiếp cận mô hình hoá ngẫu nhiên Lagrange có thể là một thoả hiệp giữa các mô hình Gaussian đơn giản và các mô hình CFD tiên tiến"* ⚠️ (snippet từ [ScienceDirect S0167610519305768](https://www.sciencedirect.com/science/article/abs/pii/S0167610519305768)).
 
 ### 10.3 Ba trade-off cốt lõi để nói trong seminar
@@ -1350,22 +1348,11 @@ Mật khẩu file nén đo đạc lấy từ `ewtl.mi@uni-hamburg.de`.
 
 ### 16.4 Lộ trình kiểm định 3 bậc (📐 tổng hợp của nhóm)
 
-```
-Bậc 1 — VERIFICATION (mã có đúng không?)
-        So bộ giải voxel với NGHIỆM GAUSSIAN GIẢI TÍCH trong dòng đều, không nhà.
-        Mốc tham chiếu: QES-Plume đạt sai số tương đối tối đa 5,91% ở phép thử này ✅
-        → nếu không đạt, mã có bug. Làm việc này TRƯỚC khi thêm bất cứ toà nhà nào.
-
-Bậc 2 — VALIDATION vật lý (vật lý có đúng không?)
-        So với dữ liệu hầm gió Michelstadt hoặc MUST (miễn phí, Hamburg EWTL).
-        Mốc tham chiếu: QES-Plume đạt FAC2 = 0,59 trên mảng khối lập phương ✅
-        Báo cáo FAC2, FB, NMSE theo tầng ngưỡng ĐÔ THỊ.
-
-Bậc 3 — APPLICATION (có dùng được cho địa bàn thật không?)
-        So với trạm US Embassy Hà Nội (cấp tham chiếu) + OpenAQ.
-        So profile đứng với CAMS EAC4 (60 mực mô hình) — chỉ kiểm định HÌNH DẠNG profile.
-        Nêu rõ: đây là so sánh điểm, không phải kiểm định trường.
-```
+| Bậc | Câu hỏi | Làm gì | Mốc tham chiếu |
+|---|---|---|---|
+| **1 — VERIFICATION** | *Mã có đúng không?* | So bộ giải voxel với **nghiệm Gaussian giải tích** trong dòng đều, không nhà. Làm việc này **TRƯỚC** khi thêm bất cứ toà nhà nào; không đạt = có bug | QES-Plume đạt sai số tương đối tối đa **5,91%** ✅ |
+| **2 — VALIDATION vật lý** | *Vật lý có đúng không?* | So với dữ liệu hầm gió **Michelstadt** hoặc **MUST** (miễn phí, Hamburg EWTL). Báo cáo FAC2, FB, NMSE theo **tầng ngưỡng ĐÔ THỊ** | QES-Plume đạt **FAC2 = 0,59** trên mảng khối lập phương ✅ |
+| **3 — APPLICATION** | *Dùng được cho địa bàn thật không?* | So với trạm **US Embassy Hà Nội** (cấp tham chiếu) + OpenAQ. So profile đứng với **CAMS EAC4** (60 mực mô hình) — chỉ kiểm định **HÌNH DẠNG** profile | ⚠️ Nêu rõ: đây là **so sánh điểm**, không phải kiểm định trường |
 
 ---
 
