@@ -21,7 +21,7 @@
   <g font-size="10.5" fill="#1f2328" text-anchor="middle">
     <rect x="110" y="76" width="110" height="58" fill="#eef4fb" stroke="#4a86c5"/><text x="165" y="99">Dữ liệu +</text><text x="165" y="115">chọn địa bàn</text>
     <rect x="220" y="76" width="110" height="58" fill="#eef4fb" stroke="#4a86c5"/><text x="275" y="99">Voxel hoá</text><text x="275" y="115">thành phố</text>
-    <rect x="330" y="76" width="110" height="58" fill="#eef4fb" stroke="#4a86c5"/><text x="385" y="99">Nguồn</text><text x="385" y="115">phát thải</text>
+    <rect x="330" y="76" width="110" height="58" fill="#eef4fb" stroke="#4a86c5"/><text x="385" y="96">Nguồn phát thải</text><text x="385" y="110" font-weight="700" fill="#cf222e">SPIKE</text><text x="385" y="123" font-weight="700" fill="#cf222e">khung web</text>
     <rect x="440" y="76" width="110" height="58" fill="#dbe8f7" stroke="#4a86c5" stroke-width="1.8"/><text x="495" y="99" font-weight="700">Gói</text><text x="495" y="115" font-weight="700">SEMINAR</text>
     <rect x="550" y="76" width="110" height="58" fill="#eef4fb" stroke="#4a86c5"/><text x="605" y="99">Phân tích</text><text x="605" y="115">không gian</text>
     <rect x="660" y="76" width="110" height="58" fill="#eef4fb" stroke="#4a86c5"/><text x="715" y="99">Export dữ liệu</text><text x="715" y="115">+ khung web</text>
@@ -34,7 +34,7 @@
   <text x="60" y="163" text-anchor="middle" font-size="12.5" font-weight="700" fill="#1f2328">NGƯỜI B</text>
   <text x="60" y="181" text-anchor="middle" font-size="10" fill="#4a5560">Mô hình · Số trị</text>
   <g font-size="10.5" fill="#1f2328" text-anchor="middle">
-    <rect x="110" y="140" width="110" height="58" fill="#eef7f1" stroke="#4f9d69"/><text x="165" y="163">Khí tượng</text><text x="165" y="179">+ dựng repo</text>
+    <rect x="110" y="140" width="110" height="58" fill="#d7ede2" stroke="#4f9d69" stroke-width="1.8"/><text x="165" y="160">Khí tượng</text><text x="165" y="174" font-weight="700" fill="#cf222e">SPIKE</text><text x="165" y="187" font-weight="700" fill="#cf222e">gió 2D</text>
     <rect x="220" y="140" width="110" height="58" fill="#eef7f1" stroke="#4f9d69"/><text x="275" y="163">Gaussian</text><text x="275" y="179">giải tích</text>
     <rect x="330" y="140" width="110" height="58" fill="#eef7f1" stroke="#4f9d69" stroke-width="1.8"/><text x="385" y="163" font-weight="700">Bộ giải FV</text><text x="385" y="179" font-weight="700">ở 2D</text>
     <rect x="440" y="140" width="110" height="58" fill="#eef7f1" stroke="#4f9d69" stroke-width="1.8"/><text x="495" y="163" font-weight="700">FV lên 3D</text><text x="495" y="179">+ kiểm chứng</text>
