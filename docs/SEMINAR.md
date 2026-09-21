@@ -117,7 +117,8 @@ Chạy phần mềm đóng gói (GRAL, AUSTAL) cho vật lý tốt hơn nhưng n
 | 3 | **Không có rối do giao thông (TPT)** | Cao | [OSPM](https://envs.au.dk/en/research-areas/air-pollution-emissions-and-effects/the-monitoring-program/air-pollution-models/ospm/description-of-the-ospm-model): *"lặng gió → cơ chế phát tán duy nhất là TPT"* → **sai lệch lớn nhất đúng lúc ô nhiễm nặng nhất** |
 | 4 | **Chỉ verification, chưa validation** | Cao | Mới so với nghiệm giải tích; **chưa so với hầm gió hay hiện trường**. Lý do: dựng lại hình học Michelstadt + trích 196 điểm cảm biến vượt ngân sách |
 | 5 | **Bất định lưu lượng giao thông** | **Rất cao** | Không có bộ đếm mở nào cho Hà Nội/TP.HCM → dùng cấp đường OSM làm proxy tương đối |
-| 6 | **Chiều cao toà nhà chưa kiểm định ở Đông Nam Á** | Cao | Google ghi rõ MAE 1,5 m nhưng *"đánh giá chỉ giới hạn ở Bắc Mỹ, châu Âu và Nhật Bản — không phải Global South"*. Nhà ống VN là ca khó |
+| 6 | **Chiều cao toà nhà chưa kiểm định ở Việt Nam** | **Rất cao** | Chiều cao lấy từ Google Open Buildings 2.5D (suy từ Sentinel-2). Google công bố MAE 1,5 m nhưng *"đánh giá chỉ giới hạn ở Bắc Mỹ, châu Âu và Nhật Bản — không phải Global South"*. **Nhóm tự đo tại chỗ trên 21 toà có thẻ OSM: MAE 23,2 m** (trung vị 7,0 m, r = 0,74) → **dùng 23,2 m, đừng dùng 1,5 m**. Sản phẩm còn **chặn trần 100 m**: ba toà tháp 154/164,9/186 m trả về 88,5/62,5/91,0 m |
+| 6b | **Nhà ống Việt Nam không phân giải được** | Cao | Ở Δ = 5 m, nhà trung vị Ben Thanh (99,5 m²) chỉ rộng **2 × 2 voxel** — chính vì vậy địa bàn đó bị loại. Mô hình **không nói được gì về hình thái đô thị phổ biến nhất ở Việt Nam** |
 | 7 | **LoD1** — nhà là khối hộp | Thấp | Ở voxel 5 m thì hợp lý, mái dốc LoD2 không sống sót qua rời rạc hoá |
 | 8 | **Không có hoá học** | TB | Đúng với PM2.5; **sai với NO₂** (phản ứng NO+O₃) → chọn PM2.5 làm chất chính |
 

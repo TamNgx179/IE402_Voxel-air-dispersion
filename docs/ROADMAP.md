@@ -88,8 +88,8 @@ Tuần này quyết định một thứ **không sửa lại được: chọn đ
 
 | | Người A | Người B |
 |---|---|---|
-| **Việc** | Chọn 3 địa bàn ứng viên ở Hà Nội / TP.HCM — có hẻm phố rõ, gần trạm quan trắc, giao thông đông. Chạy Overpass đếm `building` vs `building:levels` vs `height` cho từng cái. Chốt địa bàn có tỉ lệ gắn thẻ cao nhất. Tải OSM extract, footprint, mạng đường, DEM GLO-30 | Dựng repo và môi trường. Kéo Open-Meteo lấy profile gió 19 mực áp suất + PBL height. Vẽ hoa gió theo mùa, chốt 2 hướng gió đại diện. Lấy API key OpenAQ, đếm trạm Việt Nam thật. **Chạy spike SOR 2D** (xem dưới) |
-| **Output** | `data/raw/study_area.geojson`<br>Bảng so sánh 3 ứng viên kèm % nhà có chiều cao<br>Thư mục dữ liệu thô đã tải | `wind_profile.csv`<br>Hình hoa gió 2 mùa<br>**Kết luận spike: SOR có hội tụ không, sau bao nhiêu vòng lặp**<br>Repo chạy được trên cả 2 máy |
+| **Việc** | Chọn 3 địa bàn ứng viên ở Hà Nội / TP.HCM — có hẻm phố rõ, gần trạm quan trắc, giao thông đông. Chạy Overpass đếm `building` vs `building:levels` vs `height` cho từng cái. **Chốt địa bàn mà khối nhà trung vị phân giải được ở Δ = 5 m (≥ 4 voxel mỗi cạnh)**; độ phủ thẻ chỉ là tiêu chí phụ. **Ghép chiều cao từ Google Open Buildings 2.5D.** Tải OSM extract, footprint, mạng đường, DEM GLO-30 | Dựng repo và môi trường. Kéo Open-Meteo lấy profile gió 19 mực áp suất + PBL height. Vẽ hoa gió theo mùa, chốt 2 hướng gió đại diện. Lấy API key OpenAQ, đếm trạm Việt Nam thật. **Chạy spike SOR 2D** (xem dưới) |
+| **Output** | `data/raw/study_area.geojson`<br>`study_area_candidates.csv` — 3 ứng viên kèm độ phủ thẻ, λ_P, số voxel mỗi cạnh **và provenance chiều cao cuối cùng**<br>**Bảng đối chứng chéo OSM vs Google 2.5D**<br>Thư mục dữ liệu thô đã tải | `wind_profile.csv`<br>Hình hoa gió 2 mùa<br>**Kết luận spike: SOR có hội tụ không, sau bao nhiêu vòng lặp**<br>Repo chạy được trên cả 2 máy |
 
 **Spike tuần 1 — kéo bài toán rủi ro nhất lên sớm 4 tuần.** Chưa ai biết SOR Poisson có hội tụ trên mask toà nhà thật hay không. Nó nằm trên đường găng với hai stage phụ thuộc phía sau, mà lịch cũ để tận tuần 5.
 
@@ -99,6 +99,14 @@ Tuần này quyết định một thứ **không sửa lại được: chọn đ
 - **Đạt cả ba** → độ tin cậy nhảy từ ~70% lên ~85%, phần còn lại chỉ là mở lên 3D. **Không hội tụ** → còn bảy tuần để đổi hướng, thay vì hai.
 
 **Nếu cả 3 địa bàn đều thưa thẻ chiều cao:** dùng Google Open Buildings 2.5D Temporal làm nguồn chính + số hoá tay ~50 toà nhà ở lõi miền. Cộng 2 người-ngày.
+
+> **Trạng thái 21/09/2026 — phần Người A đã xong.** Cả 3 địa bàn **đều** thưa thật
+> (33,8 % / 33,9 % / 4,9 %), nên đã đi đúng nhánh dự phòng này. Chốt **Nguyen Hue**
+> (4,82 voxel/cạnh; Ben Thanh 2,00 và Landmark 81 2,90 đều không phân giải được).
+> **Google Open Buildings 2.5D phủ 62/62 toà nhà — không còn toà nào phải suy ra chiều cao.**
+> Truy cập **không cần đăng nhập**, chi phí thực tế ~0,5 ngày chứ không phải 2.
+> **Số hoá tay 50 nhà: không cần nữa.** Đối chứng chéo và trần 100 m:
+> `docs/DECISION.md` *Amendment 21/09/2026* §B.
 
 ### Tuần 2 — Voxel hoá và Gaussian → M1
 
@@ -271,7 +279,7 @@ Dưới ~60% thì đây là bản nháp cần thử nghiệm chứ không phải
 |---|---|---|
 | Bộ giải FV không hội tụ hoặc ra nồng độ âm | Xuất hiện ngay ở 2D tuần 3 | Kiểm theo thứ tự: dấu upwind với u âm, `Cr` có thực sự ≤ 0,5, biên tường có đúng flux = 0. **Đừng đụng 3D khi 2D còn sai** |
 | Dữ liệu web quá nặng | File JSON > 20 MB, trình duyệt lag | Gộp ô cho web (Δ = 10 m), lọc ô nồng độ thấp, tách file theo tầng và tải lười |
-| Dữ liệu chiều cao toà nhà tệ | Phát hiện ở tuần 1 nếu làm đúng Overpass | Số hoá tay ~50 nhà ở lõi miền, và biến nó thành phân tích độ nhạy |
+| ✅ **ĐÃ XẢY RA, ĐÃ XỬ LÝ** — dữ liệu chiều cao OSM tệ | Phát hiện ở tuần 1 đúng như dự kiến: **66 % số toà nhà không có thẻ chiều cao** | Google Open Buildings 2.5D phủ 100 %, không cần số hoá tay. **Phân tích độ nhạy vẫn nên làm** — nay đã có hai trường chiều cao độc lập nên chỉ tốn một lần chạy lại |
 | Web không kịp | Hết thứ Sáu tuần 7 mà W1–W5 chưa chạy | Chuyển sang Qgis2threejs export |
 
 ---

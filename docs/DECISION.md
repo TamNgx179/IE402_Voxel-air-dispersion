@@ -372,3 +372,82 @@ Research để lại 37 mục chưa xác minh được (`RESEARCH.md` §18). V�
 | **Yếu nhất ở đâu?** | Khuếch tán số, thiếu rối do giao thông, và bất định lưu lượng giao thông — **cả ba đều nêu thẳng và lượng hoá trong báo cáo** |
 
 📚 **Toàn bộ công thức, số liệu, link nguồn (339 link): [`RESEARCH.md`](./RESEARCH.md)**
+
+---
+
+## Amendment, 21/09/2026 — tuần 1 đã chạy thật, hai điều cần ghi lại
+
+Ghi thêm, **không sửa** các mục trên.
+
+### A. §5 "Chiều cao nhà" — đã thực hiện đúng, và đây là số đo
+
+`docs/RESEARCH.md` §1007 và §5 chốt: **footprint OSM + chiều cao Google Open Buildings 2.5D
+Temporal**, `building:levels × 3 m` làm **đối chứng chéo**. Đã cài đặt đúng như vậy
+(`src/voxel/gob_heights.py`, gọi từ `src/00_prepare_osm_data.py`).
+
+**Truy cập KHÔNG cần đăng nhập.** Bucket `open-buildings-temporal-data` đọc ẩn danh qua
+HTTPS — chính notebook tải dữ liệu của Google dùng `AnonymousCredentials`. **Không cần tài
+khoản Earth Engine, không cần dự án Google Cloud, không cần OAuth.** Các tile là
+Cloud-Optimised GeoTIFF (block 512 × 512, có overview) nên đọc cửa sổ 500 m chỉ tốn vài trăm
+kB thay vì tải cả file 1,54 GB. Không thêm thư viện nào: `rasterio` và `pyproj` đã có sẵn.
+
+**Kết quả trên địa bàn Nguyen Hue:**
+
+| | Trước (chỉ OSM) | Sau (Google 2.5D) |
+|---|---|---|
+| Có chiều cao thật | 21/62 (34 %) | **62/62 (100 %)** |
+| Phải suy ra | **41 (66 %)** | **0** |
+| Khoảng chiều cao | 6 – 186 m | 0,5 – 91 m |
+| Voxel đặc | 42.399 | 41.084 |
+
+### B. Đối chứng chéo — bắt buộc phải đọc trước khi trích số
+
+Trên 21 toà nhà mà OSM có gắn thẻ:
+
+| | |
+|---|---|
+| MAE | **23,2 m** |
+| Sai lệch tuyệt đối trung vị | **7,0 m** |
+| Thiên lệch | **−8,8 m** (Google thấp hơn OSM) |
+| Tương quan | r = **0,740** |
+
+🔴 **Google công bố MAE 1,5 m, nhưng con số đó không áp dụng ở đây.** Nguyên văn:
+*"đánh giá này chỉ giới hạn ở Bắc Mỹ, châu Âu và Nhật Bản — không phải ở Global South nơi bộ
+dữ liệu được triển khai"*. Số đo tại chỗ của nhóm — MAE 23,2 m — là bằng chứng trực tiếp cho
+cảnh báo đó, và **phải dùng số 23,2 m trong báo cáo, không dùng 1,5 m**.
+
+🔴 **Trần 100 m.** Sản phẩm chặn mọi chiều cao ở 100 m. Ba toà tháp mà OSM ghi 154 / 164,9 /
+186 m trả về **88,5 / 62,5 / 91,0 m**. Với ba toà này, giá trị Google là **cận dưới, không
+phải phép đo**.
+
+**Nhưng hệ quả thực tế nhỏ hơn con số gợi ý:** miền mô hình cũng chỉ cao **100 m**
+(`config/project.yaml`), nên `01_voxelize.py` vốn đã cắt ngọn mọi toà cao hơn 100 m. Trước
+đây có cảnh báo *"241 ô raster vượt z_max"*; nay không còn, vì trần sản phẩm và trần miền
+trùng nhau. Chênh lệch còn lại trong lưới chỉ khoảng 9 m ở ba toà, tức 4–5 voxel.
+
+**Đầu thấp cũng cần nói:** 2 toà nhận chiều cao < 1 m nên **không xuất hiện trong mask**
+(Δz = 2 m), và 2 trong 5 toà thấp nhất mang thẻ `building=roof` — mái che, thấp là đúng.
+
+### C. §8 — tiêu chí chọn địa bàn đổi từ độ phủ sang khả năng phân giải
+
+§8 viết: *"chọn địa bàn có **tỉ lệ gắn thẻ chiều cao cao nhất**"*. **Thay bằng:** chọn địa
+bàn mà **khối nhà trung vị phân giải được ở Δ = 5 m** (≥ 4 voxel mỗi cạnh ngang); độ phủ thẻ
+chỉ còn là tiêu chí phụ.
+
+Lý do: hai ứng viên đầu chênh nhau **0,105 điểm phần trăm** trên cỡ mẫu 62 và 154 — nhiễu —
+trong khi khối nhà trung vị của chúng chênh **2,0 so với 4,8 voxel mỗi cạnh**. Một vật cản 2
+voxel không sinh được vùng tách dòng. Tiêu chí cũ càng mất ý nghĩa sau mục A: khi Google phủ
+100 % chiều cao thì **độ phủ thẻ OSM không còn là tiêu chí chọn địa bàn nữa**, nó chỉ còn
+quyết định có bao nhiêu điểm để đối chứng chéo.
+
+**Cả hai tiêu chí đều chọn Nguyen Hue**, nên đổi tiêu chí không đổi kết quả tuần 1 — chỉ đổi
+lý do, và làm nó đúng.
+
+### D. Hai việc chưa làm
+
+- **Phân tích độ nhạy theo trường chiều cao** (RESEARCH §1007 yêu cầu). Nay đã có **hai
+  trường chiều cao độc lập** cho cùng một địa bàn, nên việc này rẻ hơn nhiều so với lúc lập
+  kế hoạch: chạy mô hình hai lần và so kết quả.
+- **Tỉ lệ H/W của địa bàn chưa đo.** §4 đòi "một khu có hẻm phố rõ rệt"; Nguyen Hue là đại lộ
+  rộng. `docs/RESEARCH.md` §5.1 ghi 🔴 rằng ngưỡng H/W của Oke (1988) chỉ có trong search
+  snippet và **không được trích nếu chưa mở bài gốc**, nên không thể kết luận bằng suy đoán.

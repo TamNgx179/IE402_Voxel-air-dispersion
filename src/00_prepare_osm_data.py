@@ -14,6 +14,8 @@ import pandas as pd
 
 from shapely.geometry import Point, box
 
+from voxel.gob_heights import HEIGHT_CAP_M
+
 
 LOGGER = logging.getLogger(
     "prepare_osm_data"
@@ -95,8 +97,8 @@ def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(
         description=(
             "Compare three HCMC OSM candidates, "
-            "select the area with the best "
-            "building-height tag coverage, "
+            "select the area whose buildings are "
+            "resolvable at the model grid spacing, "
             "and prepare the GeoJSON inputs "
             "required by 01_voxelize.py."
         )
@@ -123,12 +125,44 @@ def parse_args() -> argparse.Namespace:
     )
 
     parser.add_argument(
-        "--fallback-height-m",
-        type=float,
-        default=9.0,
+        "--open-buildings-year",
+        type=int,
+        default=2023,
         help=(
-            "Temporary M1 height assigned to "
-            "buildings without OSM height/levels."
+            "Google Open Buildings 2.5D vintage "
+            "to read heights from (2016-2023)."
+        ),
+    )
+
+    parser.add_argument(
+        "--no-open-buildings",
+        action="store_true",
+        help=(
+            "Skip the Open Buildings download and "
+            "use OSM tags alone. Offline fallback; "
+            "leaves far more heights derived."
+        ),
+    )
+
+    parser.add_argument(
+        "--grid-spacing-m",
+        type=float,
+        default=5.0,
+        help=(
+            "Horizontal voxel size the study "
+            "area must be resolvable at. Must "
+            "match config/project.yaml."
+        ),
+    )
+
+    parser.add_argument(
+        "--min-voxels-per-side",
+        type=float,
+        default=4.0,
+        help=(
+            "A candidate is resolvable when its "
+            "median footprint spans at least this "
+            "many voxels per horizontal side."
         ),
     )
 
@@ -530,6 +564,49 @@ def inspect_height_coverage(
 
 
 # ============================================================
+# MORPHOLOGY
+# ============================================================
+
+def measure_morphology(
+    buildings: gpd.GeoDataFrame,
+    *,
+    area_size_m: float,
+    grid_spacing_m: float,
+) -> dict[str, Any]:
+    """
+    Measure how large the buildings are relative to one voxel.
+
+    Coverage of the height tag says nothing about whether a
+    building can be represented at all. A footprint two voxels
+    wide is not an obstacle the solver can resolve, so this is
+    the primary selection criterion and coverage is secondary.
+
+    lambda_P is the plan area index: footprint area over domain
+    area. Dense urban fabric sits around 0.3-0.5.
+    """
+
+    if len(buildings) == 0:
+        return {
+            "lambda_P": 0.0,
+            "mean_area_m2": 0.0,
+            "median_area_m2": 0.0,
+            "median_voxels_per_side": 0.0,
+        }
+
+    utm = buildings.estimate_utm_crs()
+    area = buildings.to_crs(utm).geometry.area
+
+    median_area = float(area.median())
+
+    return {
+        "lambda_P": float(area.sum() / (area_size_m * area_size_m)),
+        "mean_area_m2": float(area.mean()),
+        "median_area_m2": median_area,
+        "median_voxels_per_side": math.sqrt(median_area) / grid_spacing_m,
+    }
+
+
+# ============================================================
 # OUTPUT PREPARATION
 # ============================================================
 
@@ -581,31 +658,298 @@ def index_values(
     )
 
 
+def has_conflicting_values(
+    value: Any,
+) -> bool:
+    """
+    True when an OSM tag carries more than one value.
+
+    OSM writes a disputed tag as "2;3". positive_number would
+    read that as 2, which is a guess dressed up as a reading.
+    Treat it as absent instead: a derived height is honest,
+    a silently picked one is not.
+    """
+
+    return isinstance(value, str) and ";" in value
+
+
+def resolve_heights_from_osm(
+    buildings: gpd.GeoDataFrame,
+    *,
+    meters_per_level: float,
+) -> list[tuple[float, str] | None]:
+    """
+    Read one height per building from OSM, or None if absent.
+
+    Priority: a direct `height` tag, then `building:levels`
+    times meters_per_level. An unparseable, disputed or
+    non-metric tag counts as absent rather than raising,
+    because that is ordinary OSM noise.
+    """
+
+    resolved: list[tuple[float, str] | None] = []
+
+    for _, row in buildings.iterrows():
+
+        raw_height = row.get("height")
+        raw_levels = row.get("building:levels")
+
+        direct_height = (
+            None
+            if has_conflicting_values(raw_height)
+            else positive_number(
+                raw_height,
+                reject_non_metre_units=True,
+            )
+        )
+
+        if direct_height is not None:
+            resolved.append((direct_height, "osm:height"))
+            continue
+
+        level_count = (
+            None
+            if has_conflicting_values(raw_levels)
+            else positive_number(raw_levels)
+        )
+
+        if level_count is not None:
+            resolved.append(
+                (
+                    level_count * meters_per_level,
+                    "osm:building:levels",
+                )
+            )
+            continue
+
+        resolved.append(None)
+
+    return resolved
+
+
+def sample_open_buildings(
+    buildings: gpd.GeoDataFrame,
+    *,
+    year: int,
+    candidate_name: str,
+) -> list[float | None]:
+    """
+    One Google Open Buildings 2.5D height per footprint, or None.
+
+    The primary height source, per docs/DECISION.md §5 and
+    docs/RESEARCH.md §1007: OSM footprints carry the geometry, this carries
+    the height. Needs no credentials.
+    """
+
+    from voxel.gob_heights import find_tile_url, read_height_window, zonal_median_height
+
+    utm = buildings.estimate_utm_crs()
+    projected = buildings.to_crs(utm)
+    centre = projected.geometry.union_all().centroid
+
+    tile_url = find_tile_url(
+        centre.x,
+        centre.y,
+        epsg_code=int(utm.to_epsg()),
+        year=year,
+        cache_dir=REPO_ROOT / "cache",
+    )
+
+    LOGGER.info(
+        "%s: reading Open Buildings 2.5D (%d) from %s",
+        candidate_name,
+        year,
+        tile_url.rsplit("/", 1)[-1],
+    )
+
+    height, transform = read_height_window(
+        tile_url,
+        tuple(projected.total_bounds),
+    )
+
+    return zonal_median_height(list(projected.geometry), height, transform)
+
+
+def cross_check_heights(
+    osm: list[tuple[float, str] | None],
+    gob: list[float | None],
+    *,
+    candidate_name: str,
+) -> dict[str, Any]:
+    """
+    Compare the two height fields where both speak.
+
+    The `building:levels × 3 m` cross-check docs/RESEARCH.md §1007 requires.
+    It is reported, never used to silently pick a winner.
+    """
+
+    pairs = [
+        (entry[0], value)
+        for entry, value in zip(osm, gob)
+        if entry is not None and value is not None
+    ]
+
+    if not pairs:
+        return {"pairs": 0}
+
+    osm_values = np.array([p[0] for p in pairs])
+    gob_values = np.array([p[1] for p in pairs])
+    difference = gob_values - osm_values
+
+    at_cap = int((gob_values >= HEIGHT_CAP_M - 1.0).sum())
+    over_cap_in_osm = int((osm_values > HEIGHT_CAP_M).sum())
+
+    result = {
+        "pairs": len(pairs),
+        "mae_m": float(np.abs(difference).mean()),
+        "median_abs_m": float(np.median(np.abs(difference))),
+        "bias_m": float(difference.mean()),
+        "correlation": (
+            float(np.corrcoef(osm_values, gob_values)[0, 1])
+            if len(pairs) > 1
+            else float("nan")
+        ),
+        "gob_at_cap": at_cap,
+        "osm_above_cap": over_cap_in_osm,
+    }
+
+    LOGGER.info(
+        "%s: cross-check on %d buildings - MAE %.1f m, median |diff| %.1f m, "
+        "bias %+.1f m, r = %.3f",
+        candidate_name,
+        result["pairs"],
+        result["mae_m"],
+        result["median_abs_m"],
+        result["bias_m"],
+        result["correlation"],
+    )
+
+    if over_cap_in_osm:
+        LOGGER.warning(
+            "%s: %d building(s) exceed the product's %.0f m ceiling, so their "
+            "Open Buildings height is a floor, not a measurement. The model "
+            "domain is also %.0f m tall, so the voxeliser truncates them "
+            "either way.",
+            candidate_name,
+            over_cap_in_osm,
+            HEIGHT_CAP_M,
+            HEIGHT_CAP_M,
+        )
+
+    return result
+
+
+def derived_height_for(
+    resolved: list[tuple[float, str] | None],
+    *,
+    candidate_name: str,
+) -> float:
+    """
+    The height given to buildings OSM does not describe.
+
+    It is the median of the heights this candidate's own OSM
+    data did resolve - never a written-in constant, because a
+    constant is a number nobody measured. With nothing resolved
+    there is nothing to derive from, and refusing is correct:
+    see BR-11 in docs/spec.md.
+    """
+
+    observed = [
+        entry[0]
+        for entry in resolved
+        if entry is not None
+    ]
+
+    if not observed:
+        raise ValueError(
+            f"Candidate '{candidate_name}' has no building whose "
+            "height could be resolved from OSM, so no height can "
+            "be derived. Refusing to write a default height "
+            "(docs/spec.md BR-11)."
+        )
+
+    if len(observed) == 1:
+        LOGGER.warning(
+            "Candidate %s resolved exactly one height (%.1f m). "
+            "The median is that single value, which is a constant "
+            "in all but name.",
+            candidate_name,
+            observed[0],
+        )
+
+    series = pd.Series(observed)
+
+    LOGGER.info(
+        "%s: %d resolved heights, min %.1f / p25 %.1f / median %.1f "
+        "/ p75 %.1f / max %.1f m",
+        candidate_name,
+        len(observed),
+        series.min(),
+        series.quantile(0.25),
+        series.median(),
+        series.quantile(0.75),
+        series.max(),
+    )
+
+    return float(series.median())
+
+
 def prepare_building_output(
     buildings: gpd.GeoDataFrame,
     *,
     meters_per_level: float,
-    fallback_height_m: float,
+    candidate_name: str,
+    open_buildings_year: int | None = 2023,
 ) -> gpd.GeoDataFrame:
     """
     Prepare buildings for 01_voxelize.py.
 
-    Height priority
-    ---------------
-    1. OSM height
-    2. OSM building:levels × 3 m
-    3. temporary M1 fallback
+    Height priority, as docs/DECISION.md §5 and docs/RESEARCH.md §1007 set it
+    for Vietnam: OSM supplies the footprint geometry, Google Open Buildings
+    2.5D supplies the height, and the OSM tags cross-check it.
 
-    Important
-    ---------
-    The fallback is explicitly stored in
-    prepared_height_source so it remains
-    auditable.
+    1. Google Open Buildings 2.5D `building_height`
+    2. OSM height
+    3. OSM building:levels × meters_per_level
+    4. the median of whatever 1-3 resolved here
 
-    This is only for completing and testing
-    the M1 pipeline. It is not intended as
-    the final building-height dataset.
+    Every value carries its provenance in prepared_height_source, so a reader
+    can tell a measured height from a derived one. Step 4 is a documented
+    limitation, not a hidden default: report the derived fraction wherever
+    this data is used.
+
+    Pass open_buildings_year=None to skip the download and fall back to OSM
+    alone, which is what the offline tests do.
     """
+
+    osm_resolved = resolve_heights_from_osm(
+        buildings,
+        meters_per_level=meters_per_level,
+    )
+
+    gob_heights: list[float | None] = [None] * len(buildings)
+
+    if open_buildings_year is not None:
+        gob_heights = sample_open_buildings(
+            buildings,
+            year=open_buildings_year,
+            candidate_name=candidate_name,
+        )
+        cross_check_heights(
+            osm_resolved,
+            gob_heights,
+            candidate_name=candidate_name,
+        )
+
+    resolved: list[tuple[float, str] | None] = [
+        (value, "gob:building_height") if value is not None else entry
+        for value, entry in zip(gob_heights, osm_resolved)
+    ]
+
+    derived_height_m = derived_height_for(
+        resolved,
+        candidate_name=candidate_name,
+    )
 
     records: list[
         dict[
@@ -614,10 +958,10 @@ def prepare_building_output(
         ]
     ] = []
 
-    for (
+    for position, (
         index,
         row,
-    ) in buildings.iterrows():
+    ) in enumerate(buildings.iterrows()):
 
         (
             osm_type,
@@ -638,55 +982,50 @@ def prepare_building_output(
             )
         )
 
+        # Same guards as resolve_heights_from_osm, so the raw
+        # columns below never advertise a value the height did
+        # not actually come from.
         direct_height = (
-            positive_number(
+            None
+            if has_conflicting_values(
+                raw_height
+            )
+            else positive_number(
                 raw_height,
                 reject_non_metre_units=True,
             )
         )
 
         level_count = (
-            positive_number(
+            None
+            if has_conflicting_values(
+                raw_levels
+            )
+            else positive_number(
                 raw_levels
             )
         )
 
-        if (
-            direct_height
-            is not None
-        ):
+        entry = resolved[
+            position
+        ]
+
+        if entry is None:
 
             height_m = (
-                direct_height
+                derived_height_m
             )
 
             source = (
-                "osm:height"
-            )
-
-        elif (
-            level_count
-            is not None
-        ):
-
-            height_m = (
-                level_count
-                * meters_per_level
-            )
-
-            source = (
-                "osm:building:levels"
+                "derived:median"
             )
 
         else:
 
-            height_m = (
-                fallback_height_m
-            )
-
-            source = (
-                "temporary_fallback"
-            )
+            (
+                height_m,
+                source,
+            ) = entry
 
         building_value = (
             row.get(
@@ -838,11 +1177,20 @@ def main() -> None:
         )
 
     if (
-        args.fallback_height_m
+        args.grid_spacing_m
         <= 0.0
     ):
         raise ValueError(
-            "--fallback-height-m "
+            "--grid-spacing-m "
+            "must be positive."
+        )
+
+    if (
+        args.min_voxels_per_side
+        <= 0.0
+    ):
+        raise ValueError(
+            "--min-voxels-per-side "
             "must be positive."
         )
 
@@ -957,11 +1305,58 @@ def main() -> None:
                     "coverage_percent":
                         0.0,
 
+                    "osm_unresolved_count":
+                        0,
+
+                    "osm_unresolved_percent":
+                        0.0,
+
+                    "lambda_P":
+                        0.0,
+
+                    "median_area_m2":
+                        0.0,
+
+                    "median_voxels_per_side":
+                        0.0,
+
                     "status":
                         (
                             "failed: "
                             f"{exc}"
                         ),
+                }
+            )
+
+            continue
+
+        # An empty candidate is a real outcome, not a crash:
+        # the request may have succeeded over a genuinely
+        # unbuilt block. Record it and keep going.
+        if len(buildings) == 0:
+
+            LOGGER.warning(
+                "Candidate %s returned no buildings.",
+                name,
+            )
+
+            candidate_results.append(
+                {
+                    "candidate": name,
+                    "lat": candidate["lat"],
+                    "lon": candidate["lon"],
+                    "total_buildings": 0,
+                    "direct_height": 0,
+                    "levels_only": 0,
+                    "resolved_from_osm": 0,
+                    "unresolved": 0,
+                    "coverage_percent": 0.0,
+                    "osm_unresolved_count": 0,
+                    "osm_unresolved_percent": 0.0,
+                    "lambda_P": 0.0,
+                    "median_area_m2": 0.0,
+                    "median_voxels_per_side": 0.0,
+                    "status": "empty",
                 }
             )
 
@@ -976,16 +1371,33 @@ def main() -> None:
             )
         )
 
+        morphology = (
+            measure_morphology(
+                buildings,
+                area_size_m=float(
+                    args.area_size_m
+                ),
+                grid_spacing_m=float(
+                    args.grid_spacing_m
+                ),
+            )
+        )
+
         LOGGER.info(
             "%s: %d buildings, "
             "%.1f%% have OSM "
-            "height/levels",
+            "height/levels, "
+            "median footprint spans "
+            "%.1f voxels per side",
             name,
             coverage[
                 "total_buildings"
             ],
             coverage[
                 "coverage_percent"
+            ],
+            morphology[
+                "median_voxels_per_side"
             ],
         )
 
@@ -1037,6 +1449,47 @@ def main() -> None:
                         3,
                     ),
 
+                # Measured before any Open Buildings download, so
+                # these describe the OSM tags alone. The final
+                # provenance is written for the winner further down.
+                "osm_unresolved_count":
+                    coverage[
+                        "unresolved"
+                    ],
+
+                "osm_unresolved_percent":
+                    round(
+                        100.0
+                        - coverage[
+                            "coverage_percent"
+                        ],
+                        3,
+                    ),
+
+                "lambda_P":
+                    round(
+                        morphology[
+                            "lambda_P"
+                        ],
+                        3,
+                    ),
+
+                "median_area_m2":
+                    round(
+                        morphology[
+                            "median_area_m2"
+                        ],
+                        1,
+                    ),
+
+                "median_voxels_per_side":
+                    round(
+                        morphology[
+                            "median_voxels_per_side"
+                        ],
+                        2,
+                    ),
+
                 "status":
                     "ok",
             }
@@ -1084,18 +1537,66 @@ def main() -> None:
             "study_area_candidates.csv."
         )
 
-    # Prefer:
+    # Selection, in this order and for this reason:
     #
-    # 1. highest percentage with OSM height data;
-    # 2. highest absolute resolved count;
-    # 3. highest building count.
+    # 1. the candidate must be RESOLVABLE - its median footprint
+    #    must span at least --min-voxels-per-side voxels. A block
+    #    two voxels wide is not an obstacle the solver can
+    #    represent, so no amount of height data rescues it.
+    # 2. among those, most absolute resolved heights.
+    # 3. then coverage percent, then building count.
+    #
+    # Coverage percent is deliberately NOT first. Measured on
+    # 2026-09-21 the top two candidates differed by 0.105
+    # percentage points on samples of 62 and 154 - noise, not a
+    # signal, and it had been deciding the whole study area.
 
-    successful = (
-        successful
+    resolvable = successful[
+        successful[
+            "median_voxels_per_side"
+        ]
+        >= float(
+            args.min_voxels_per_side
+        )
+    ].copy()
+
+    if resolvable.empty:
+
+        # Nobody clears the bar. Take the least-bad candidate on
+        # resolution alone and say plainly that it is under-resolved.
+        LOGGER.warning(
+            "No candidate has a median footprint spanning %.1f "
+            "voxels at %.1f m spacing. Selecting the best-resolved "
+            "candidate anyway; expect building geometry to be "
+            "under-resolved.",
+            float(
+                args.min_voxels_per_side
+            ),
+            float(
+                args.grid_spacing_m
+            ),
+        )
+
+        resolvable = successful.copy()
+
+        primary_key = (
+            "median_voxels_per_side"
+        )
+
+    else:
+
+        # Resolution is already satisfied by everyone left, so
+        # the tie-break is how much real height data there is.
+        primary_key = (
+            "resolved_from_osm"
+        )
+
+    resolvable = (
+        resolvable
         .sort_values(
             by=[
+                primary_key,
                 "coverage_percent",
-                "resolved_from_osm",
                 "total_buildings",
             ],
             ascending=[
@@ -1107,7 +1608,7 @@ def main() -> None:
     )
 
     winner_name = str(
-        successful
+        resolvable
         .iloc[0][
             "candidate"
         ]
@@ -1130,8 +1631,11 @@ def main() -> None:
             meters_per_level=float(
                 args.meters_per_level
             ),
-            fallback_height_m=float(
-                args.fallback_height_m
+            candidate_name=winner_name,
+            open_buildings_year=(
+                None
+                if args.no_open_buildings
+                else int(args.open_buildings_year)
             ),
         )
     )
@@ -1160,14 +1664,39 @@ def main() -> None:
         driver="GeoJSON",
     )
 
-    fallback_count = int(
-        (
-            prepared_buildings[
-                "prepared_height_source"
-            ]
-            == "temporary_fallback"
-        )
-        .sum()
+    # The real provenance, after every source has had its turn.
+    source_counts = (
+        prepared_buildings["prepared_height_source"]
+        .value_counts()
+        .to_dict()
+    )
+
+    total_prepared = len(prepared_buildings)
+    derived_count = int(source_counts.get("derived:median", 0))
+    derived_percent = (
+        100.0 * derived_count / total_prepared if total_prepared else 0.0
+    )
+
+    # Write the winner's actual breakdown back into the report, so the CSV and
+    # the printed summary cannot disagree. Other candidates were never
+    # prepared, so their cells stay empty rather than being guessed at.
+    for column, value in (
+        ("final_gob_count", int(source_counts.get("gob:building_height", 0))),
+        ("final_osm_count", int(
+            source_counts.get("osm:height", 0)
+            + source_counts.get("osm:building:levels", 0)
+        )),
+        ("final_derived_median_count", derived_count),
+        ("final_derived_median_percent", round(derived_percent, 3)),
+    ):
+        if column not in report.columns:
+            report[column] = pd.NA
+        report.loc[report["candidate"] == winner_name, column] = value
+
+    report.to_csv(
+        report_path,
+        index=False,
+        encoding="utf-8-sig",
     )
 
     # --------------------------------------------------------
@@ -1213,10 +1742,27 @@ def main() -> None:
         f"{len(prepared_buildings)}"
     )
 
+    print()
+    print("Height provenance:")
+
+    for source, count in sorted(
+        source_counts.items(),
+        key=lambda item: -item[1],
+    ):
+        print(
+            f"  {source:<24} {count:>4}  "
+            f"({100.0 * count / total_prepared:.1f}%)"
+        )
+
     print(
-        "Temporary fallback "
-        f"({args.fallback_height_m:.1f} m) "
-        f"count: {fallback_count}"
+        f"\nHeights derived from the local median: "
+        f"{derived_count} of {total_prepared} "
+        f"({derived_percent:.1f}%)"
+    )
+
+    print(
+        "Report this fraction wherever this dataset is used. "
+        "It is a known limitation, not a hidden default."
     )
 
     print()

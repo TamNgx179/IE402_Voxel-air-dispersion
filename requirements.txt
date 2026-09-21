@@ -21,6 +21,11 @@ rasterio>=1.4
 # OpenStreetMap
 osmnx>=2.0
 
+# Google Open Buildings 2.5D over plain HTTPS (no credentials).
+# Arrives transitively via osmnx, but src/voxel/gob_heights.py imports
+# it directly, so it is declared directly.
+requests>=2.32
+
 # Jupyter / debugging
 jupyter>=1.1
 ipykernel>=6.29

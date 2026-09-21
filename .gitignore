@@ -10,6 +10,10 @@ __pycache__/
 .mypy_cache/
 .ruff_cache/
 
+# osmnx / Overpass HTTP response cache. Machine-local, regenerates itself,
+# and grows without limit - three responses were already 216 KB.
+cache/
+
 
 # ============================================================
 # Virtual environments

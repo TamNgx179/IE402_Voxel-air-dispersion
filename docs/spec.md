@@ -307,3 +307,95 @@ could not be verified. Two bear directly on this spec:
   and 4) attributed to the same paper. This spec therefore states no NMSE acceptance threshold.
 - The QCVN 05:2023 table could not be extracted consistently; only the PM2.5 rows (50 / 25 µg/m³)
   were corroborated twice, and only those are used here.
+
+---
+
+## Amendment, 2026-09-21 — building heights now come from Open Buildings 2.5D
+
+Appended, not edited. Week 1 selected a study area and ran the preparation stage and Tier 0
+on real data for the first time. Full reasoning and measurements: `docs/DECISION.md`,
+*Amendment 21/09/2026*.
+
+### New source ids
+
+| Source id | Kind | Supports |
+| --- | --- | --- |
+| `OBS-11` | observed | **Open Buildings 2.5D needs no credentials.** The GCS bucket is anonymously readable over HTTPS and the tiles are Cloud-Optimised, so a 500 m window is a range read, not a 1.54 GB download. `EXT-8` is therefore in scope after all |
+| `OBS-12` | observed | On the selected area it resolves **62 of 62** buildings, leaving **nothing** to a fallback |
+| `OBS-13` | observed | Local cross-check against the 21 OSM-tagged buildings: **MAE 23.2 m**, median absolute difference 7.0 m, bias −8.8 m, r = 0.740 |
+| `OBS-14` | observed | The product **caps every height at 100 m**. Three towers OSM records at 154 / 164.9 / 186 m return 88.5 / 62.5 / 91.0 m |
+| `DEC-6` | MVP decision | A study area is chosen by **resolvability at the grid spacing**, not by OSM height-tag coverage |
+| `DEC-7` | MVP decision | Where no source resolves a height, the value is the **median of that area's own resolved heights** — never a written-in constant. With nothing resolved the stage refuses |
+
+### BR-11 is NOT repealed — it is scoped
+
+BR-11 continues to govern the voxeliser. `src/voxel/heights.py` still runs with
+`fallback.mode: "error"`, still stops on a building it cannot resolve, and
+`tests/test_verification.py:299` still proves it. What changed is that a **preparation stage
+runs before it** and resolves every height while the source data is in hand, so the
+voxeliser's gate is now a backstop rather than the primary control. Read BR-11 as: *the
+voxeliser never invents a height.*
+
+### Added business rules
+
+| | Rule | Source |
+| --- | --- | --- |
+| **BR-20** | **Building heights come from Google Open Buildings 2.5D Temporal; OSM supplies footprint geometry.** The OSM `height` and `building:levels` tags are a **cross-check** and a fallback where the product is silent, in that order | `EXT-8`, `OBS-11`, `OBS-12` |
+| **BR-21** | **Every building carries its height's provenance** in `prepared_height_source` — `gob:building_height`, `osm:height`, `osm:building:levels` or `derived:median` — and the counts are written to the candidate CSV and printed | `OBS-12` |
+| **BR-22** | **The 1.5 m MAE is never quoted as this project's accuracy.** Google assessed it outside the Global South; the project's own local figure is **MAE 23.2 m** against 21 OSM-tagged buildings, and that is the number the report uses | `EXT-8`, `OBS-13`, supersedes nothing in BR-17 but makes it concrete |
+| **BR-23** | **A height at the product's 100 m ceiling is a lower bound, not a measurement**, and is reported as such. The model domain is also 100 m tall, so the voxeliser truncates above it either way | `OBS-14` |
+| **BR-24** | **A study area is chosen by resolvability at Δ = 5 m** — median footprint at least 4 voxels per horizontal side. Coverage differences below one percentage point are noise at these sample sizes | `DEC-6` |
+| **BR-25** | **An OSM tag carrying conflicting values (`"2;3"`) counts as absent.** Reading the first number is a guess presented as a measurement | `DEC-7` |
+
+### Amended edge cases
+
+| Situation | Expected | Source |
+| --- | --- | --- |
+| The chosen study area has very sparse OSM height tagging | **supersedes the earlier row.** Sparse OSM tagging no longer constrains the choice: the raster product supplies the heights and OSM tagging only sets how many cross-check points exist | BR-20, BR-24 |
+| A building polygon has neither a direct height nor a level count | **unchanged for the voxeliser** — it stops and names the building. In the **preparation** stage the building takes the Open Buildings height, or the derived median if that is silent too | BR-11, BR-20, `DEC-7` |
+| No source resolves a height anywhere in the study area | the preparation stage stops and names the candidate. Nothing is written | `DEC-7` |
+| Open Buildings returns a height at the 100 m ceiling | accepted as a lower bound and reported as one; never described as a measured height | BR-23 |
+| Open Buildings returns a height below one voxel (< 2 m) | legitimate — `building=roof` canopies exist — and the building simply contributes no solid voxel. Two such buildings exist on the selected area | BR-21 |
+| A building's `building:levels` is `"2;3"`, `"ground"` or similar | treated as absent, and the run continues | BR-25 |
+
+### Added acceptance criteria
+
+| ID | Criterion | Traces to |
+| --- | --- | --- |
+| AC-26 | Every building in the prepared output carries a `prepared_height_source`, and the counts per source appear in both the printed summary and the candidate CSV | BR-21 |
+| AC-27 | Where Open Buildings resolves a height, it is used, and no `derived:median` value remains | BR-20 |
+| AC-28 | No Open Buildings height exceeds 100 m; a value above it means the wrong raster band was read | BR-23 |
+| AC-29 | A study area with no resolvable height from any source stops the preparation stage with an error naming the candidate, and writes no output | `DEC-7` |
+| AC-30 | The selected study area's median footprint spans at least 4 voxels per horizontal side at Δ = 5 m | BR-24 |
+
+### Known gaps this amendment does not close
+
+- **No height-field sensitivity analysis yet.** `docs/RESEARCH.md` §1007 requires one. Two
+  independent height fields now exist for the same area, so the comparison is cheap: run the
+  model on each and report the spread.
+- **Tier 0's own height summary is wrong.** `src/voxel/heights.py` reports
+  `height_source: direct:height` for all 62 buildings, because the preparation stage writes a
+  numeric `height` for every one. The per-building data is correct — `prepared_height_source`
+  survives into `data/processed/buildings_with_height.geojson` — but the log line and the
+  netCDF `height_source_counts_json` attribute overstate how much was directly measured.
+- **`BR-25` is proven by fixture only.** The Nguyen Hue extract contains no semicolon tag
+  today, so the guard has no real-data evidence behind it.
+- **Vietnamese tube houses are outside what this grid can represent** at Δ = 5 m — a median
+  footprint of ~99 m² is 2 × 2 voxels. This is why Ben Thanh was rejected.
+- **Whether the selected area is a street canyon is unmeasured.** `docs/DECISION.md` §4 calls
+  for a block with clear street canyons; Nguyen Hue is a wide boulevard and its H/W ratio has
+  not been computed. `docs/RESEARCH.md` §5.1 forbids quoting Oke's H/W thresholds from
+  secondary sources, so this cannot be settled by recollection.
+
+### Sources
+
+**Local files inspected:** `src/00_prepare_osm_data.py`, `src/voxel/gob_heights.py`,
+`src/voxel/heights.py:195`, `tests/test_verification.py:299`, `config/project.yaml`,
+`docs/DECISION.md` §4 §5 §8, `docs/RESEARCH.md` §401 §1001–1002 §1007 §5.1, `docs/ROADMAP.md` §4.
+
+**Real runs:** `src/00_prepare_osm_data.py` (3 live Overpass calls plus one anonymous Open
+Buildings read, 2026-09-21), `src/01_voxelize.py` (41 084 solid voxels), `pytest` (50 passed).
+
+**External links:** the Open Buildings 2.5D dataset page and the Earth Engine catalog entry,
+both already recorded in `docs/RESEARCH.md` §1002 and §19 item 178. The accuracy caveat is
+quoted from those pages verbatim; the 23.2 m MAE is this project's own measurement.
