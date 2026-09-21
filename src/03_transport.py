@@ -1,40 +1,18 @@
 """
 Finite-volume advection-diffusion transport on a voxel grid.
 
-Model
------
-Solves the scalar transport equation
+Solves  dC/dt + div(uC) - div(K grad C) = S  with first-order upwind
+advection, central diffusion and explicit time stepping.
 
-    dC/dt + div(u C) - div(K grad C) = S
+Upwind, not central differencing: central is unbounded and gives negative
+concentrations at a sharp front. The cost is numerical diffusion,
+K_num ~ 0.5*u*dx*(1-Cr), reported by numerical_diffusion().
 
-on the project's regular voxel grid, using
+Flux form: fluxes are taken on cell faces and differenced, so mass is
+conserved to machine precision. Check it with total_mass().
 
-    advection  first-order UPWIND
-    diffusion  central differences
-    time       explicit (forward Euler)
-
-Why upwind rather than central differencing
--------------------------------------------
-A central difference for the advective term is second-order accurate but
-UNBOUNDED: at high cell Peclet number it produces 2*dx oscillations and
-NEGATIVE concentrations, which are not physical for a pollutant field.
-First-order upwind is bounded, at the cost of numerical diffusion
-
-    K_num ~ 0.5 * u * dx * (1 - Cr)
-
-which is reported by `numerical_diffusion()` so the error can be quoted in
-the report rather than hidden.
-
-Why flux form
--------------
-Fluxes are evaluated on cell FACES and differenced, so whatever leaves one
-cell enters its neighbour exactly. Mass is therefore conserved to machine
-precision, and `total_mass()` makes that checkable.
-
-Array convention
-----------------
-All 3D arrays are [z, y, x], matching src/voxel/models.py.
-Velocity components are CELL-CENTRED and averaged onto faces internally.
+All 3D arrays are [z, y, x]. Velocity is cell-centred and averaged onto
+faces internally.
 """
 
 from __future__ import annotations
@@ -75,26 +53,14 @@ def _face_flux_divergence(
     closed_lower_face: bool,
 ) -> np.ndarray:
     """
-    Net outflow per unit volume along one axis, in flux form.
+    Net outflow per unit volume along one axis: (F[i+1/2] - F[i-1/2]) / spacing.
 
-    Returns
-    -------
-    The quantity  ( F[i+1/2] - F[i-1/2] ) / spacing  for every cell, where F
-    is the face-normal flux, positive in the +axis direction.
-
-    Boundary treatment
-    ------------------
-    Domain faces are OPEN: material leaves freely and incoming air is clean
-    (background concentration zero). `closed_lower_face` instead makes the
+    Domain faces are open, with clean inflow. `closed_lower_face` makes the
     first face zero-flux, which is how the ground is represented in z.
-
     Building faces carry zero flux, so air cannot pass through a wall.
     """
 
     n = concentration.shape[axis]
-
-    if n < 2:
-        raise ValueError("Each axis needs at least two cells.")
 
     # Move the working axis to the front so slicing stays readable.
     c = np.moveaxis(concentration, axis, 0)
@@ -105,17 +71,20 @@ def _face_flux_divergence(
     flux = np.zeros((n + 1,) + c.shape[1:], dtype=c.dtype)
 
     # ---- interior faces: between cell i-1 (left) and cell i (right) -------
-    c_left = c[:-1]
-    c_right = c[1:]
+    # An axis one cell thick has no interior face. That is the 2D-slice case
+    # and is legitimate, so skip rather than refuse.
+    if n >= 2:
+        c_left = c[:-1]
+        c_right = c[1:]
 
-    vel_face = 0.5 * (vel[:-1] + vel[1:])
+        vel_face = 0.5 * (vel[:-1] + vel[1:])
 
-    # Upwind: take the value from whichever side the flow comes FROM.
-    advective = np.where(vel_face >= 0.0, vel_face * c_left, vel_face * c_right)
+        # Upwind: take the value from whichever side the flow comes FROM.
+        advective = np.where(vel_face >= 0.0, vel_face * c_left, vel_face * c_right)
 
-    diffusive = -diffusivity * (c_right - c_left) / spacing_m
+        diffusive = -diffusivity * (c_right - c_left) / spacing_m
 
-    flux[1:-1] = advective + diffusive
+        flux[1:-1] = advective + diffusive
 
     # ---- domain faces ------------------------------------------------------
     # Outflow carries material away; inflow brings clean air, so it adds none.
@@ -127,8 +96,9 @@ def _face_flux_divergence(
 
     # ---- walls -------------------------------------------------------------
     if solid_axis is not None:
-        blocked = solid_axis[:-1] | solid_axis[1:]
-        flux[1:-1] = np.where(blocked, 0.0, flux[1:-1])
+        if n >= 2:
+            blocked = solid_axis[:-1] | solid_axis[1:]
+            flux[1:-1] = np.where(blocked, 0.0, flux[1:-1])
 
         flux[0] = np.where(solid_axis[0], 0.0, flux[0])
         flux[-1] = np.where(solid_axis[-1], 0.0, flux[-1])
@@ -154,28 +124,12 @@ def transport_step(
     """
     Advance the concentration field by one explicit finite-volume step.
 
-    Parameters
-    ----------
-    concentration:
-        [z, y, x] field, kg/m^3.
-
-    velocity:
-        (w, v, u) cell-centred components in [z, y, x] ORDER, m/s.
-
-    source:
-        [z, y, x] emission rate, kg/m^3/s.
-
-    diffusivity:
-        Eddy diffusivity, m^2/s. Scalar, or (Kz, Ky, Kx).
-
-    dt:
-        Time step in seconds. Use `cfl_time_step()` to choose it.
-
-    solid:
-        Optional boolean [z, y, x] building mask. True marks a solid voxel.
-
-    ground_is_reflective:
-        Zero flux through the bottom face, i.e. no deposition.
+    concentration  [z, y, x], kg/m^3
+    velocity       (w, v, u) cell-centred, in [z, y, x] order, m/s
+    source         [z, y, x] emission rate, kg/m^3/s
+    diffusivity    m^2/s; scalar or (Kz, Ky, Kx)
+    dt             seconds; choose it with cfl_time_step()
+    solid          optional [z, y, x] bool mask, True = building
     """
 
     if concentration.shape != source.shape:
@@ -233,12 +187,8 @@ def cfl_time_step(
     """
     Largest stable explicit time step, times a safety factor.
 
-    Two constraints apply and the smaller one wins:
-
-        advective (Courant)   dt * ( |w|/dz + |v|/dy + |u|/dx ) <= 1
-        diffusive (von Neumann)   dt <= 0.5 / ( Kz/dz^2 + Ky/dy^2 + Kx/dx^2 )
-
-    `courant` scales the result; the project default is 0.5.
+    Two limits, smaller wins: Courant dt*(|w|/dz + |v|/dy + |u|/dx) <= 1,
+    and von Neumann dt <= 0.5 / (Kz/dz^2 + Ky/dy^2 + Kx/dx^2).
     """
 
     if not 0.0 < courant <= 1.0:
@@ -298,13 +248,10 @@ def numerical_diffusion(
     courant: float,
 ) -> float:
     """
-    Artificial diffusivity introduced by first-order upwind, m^2/s.
+    Artificial diffusivity from first-order upwind: 0.5*u*dx*(1-Cr), m^2/s.
 
-        K_num ~ 0.5 * u * dx * (1 - Cr)
-
-    Report this next to the physical eddy diffusivity. When the two are
-    comparable, the plume is being spread by the SCHEME as much as by the
-    atmosphere, and that belongs in the limitations section.
+    Report it next to the physical K. When the two are comparable, the plume
+    is spread by the scheme as much as by the atmosphere.
     """
 
     if not 0.0 <= courant <= 1.0:
