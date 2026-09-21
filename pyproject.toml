@@ -1,14 +1,6 @@
-# Project metadata and tool configuration.
-#
-# Runtime dependencies stay in requirements.txt, which is what the team installs
-# from. They are NOT duplicated here: two lists drift, and the one people run is
-# the one that stays right.
-#
-# There is deliberately no [build-system] section. This repository is run as
-# scripts and notebooks, not installed as a package, and several modules under
-# src/ are named 01_voxelize.py, 02_wind.py and so on - names that are valid
-# files but not valid Python identifiers, so they cannot be imported as a
-# package anyway. Declaring a build backend would claim something untrue.
+# Runtime dependencies stay in requirements.txt; they are not duplicated here.
+# No [build-system]: this is run as scripts and notebooks, not installed, and
+# modules named 01_voxelize.py cannot be imported as a package anyway.
 
 [project]
 name = "ie402-voxel-air-dispersion"

@@ -1,33 +1,18 @@
 """
-Tier-1 VERIFICATION for the finite-volume transport solver.
+Tier-1 verification for the finite-volume transport solver.
 
-Verification asks "is the code solving the equation correctly?", which is a
-different question from validation ("is the equation right for the real
-world?"). Only verification is in scope for this project; see docs/DECISION.md
-section 6.
+Verification asks whether the code solves the equation correctly. That is not
+validation, which asks whether the equation matches reality and is out of
+scope here (docs/DECISION.md section 6).
 
-Each test below compares the solver against something KNOWN, not against
-another run of itself:
+Each test compares the solver against something known: mass conservation,
+boundedness, zero flux through a wall, advection distance, and the analytic
+diffusion law sigma^2 = 2Kt.
 
-    mass conservation      an exact property of the flux form
-    boundedness            upwind must never produce a negative concentration
-    solid walls            zero flux through a building, exactly
-    pure advection         a blob must travel u * t
-    pure diffusion         variance must grow as sigma^2 = 2 K t (analytic)
-
-NOT COVERED HERE, deliberately
-------------------------------
-A full comparison against the analytic Gaussian PLUME (continuous source in a
-sheared wind, Briggs urban sigmas) is not asserted. On a 5 m grid the
-first-order upwind scheme carries a numerical diffusivity of roughly
-
-    K_num ~ 0.5 * u * dx * (1 - Cr)  =  3.75 m^2/s   at u = 3 m/s, Cr = 0.5
-
-which is the same order as the physical eddy diffusivity. Such a comparison
-would therefore measure the SCHEME's error, not a coding error, and any
-tolerance chosen to make it pass would be arbitrary. The pure-diffusion test
-below avoids this: with zero velocity the upwind branch never fires, so the
-numerical diffusion is zero and the analytic answer is a fair target.
+No comparison against the Gaussian plume, deliberately. At 5 m the scheme's
+own numerical diffusion is ~3.75 m^2/s, the same order as the physical K, so
+that test would measure the scheme rather than the code. The pure-diffusion
+test avoids this: with zero velocity the upwind branch never fires.
 """
 
 from __future__ import annotations
