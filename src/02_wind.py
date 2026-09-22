@@ -1,34 +1,49 @@
-"""
-Wind-field preparation and mass-consistent pressure correction.
+"""Wind/SOR entry point.
 
-CONVENTION WARNING, unresolved. This module orders its components
-(u, v, w) = (x, y, z), while 03_transport.py takes (w, v, u) to match the
-[z, y, x] array order. Whoever implements sor_poisson should settle on one
-and change the other, before the two are ever wired together.
+Implementation is organised under:
+
+    src/wind/core.py
+        Numerical SOR and mass-consistent wind routines.
+
+    src/wind/spike.py
+        Week-1 ROADMAP SOR spike and robustness validation.
+
+Public functions are re-exported here so older code loading
+src/02_wind.py continues to work.
 """
 
 from __future__ import annotations
 
-import numpy as np
+import sys
+from pathlib import Path
 
 
-def divergence(u: np.ndarray, v: np.ndarray, w: np.ndarray, spacing: float = 1.0) -> np.ndarray:
-    """
-    Cell-centred divergence of a Cartesian velocity field.
+SRC_DIR = Path(__file__).resolve().parent
 
-    Arrays are [z, y, x]; u, v, w are the x, y, z components in that order.
-    An axis one cell thick contributes nothing, which is what makes a 2D
-    x-z slice work.
-    """
-    total = np.zeros(u.shape, dtype=float)
-
-    for component, axis in ((u, 2), (v, 1), (w, 0)):
-        if component.shape[axis] >= 2:
-            total = total + np.gradient(component, spacing, axis=axis, edge_order=1)
-
-    return total
+if str(SRC_DIR) not in sys.path:
+    sys.path.insert(
+        0,
+        str(SRC_DIR),
+    )
 
 
-def sor_poisson(rhs: np.ndarray, omega: float = 1.7, tolerance: float = 1e-6, max_iter: int = 10000) -> np.ndarray:
-    """Solve a 3D Poisson problem with a simple SOR iteration."""
-    raise NotImplementedError("Implement boundary conditions for the selected voxel domain")
+from wind import (  # noqa: E402,F401
+    DEFAULT_MAX_ITER,
+    DEFAULT_OMEGA,
+    DEFAULT_TOLERANCE,
+    SorResult,
+    WindResult,
+    apply_correction,
+    build_week1_multi_obstacle_case,
+    build_week1_spike_case,
+    divergence,
+    power_law_profile,
+    project_mass_consistent,
+    run_week1_spike,
+    save_week1_plot,
+    sor_poisson,
+)
+
+
+if __name__ == "__main__":
+    run_week1_spike()
