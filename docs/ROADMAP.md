@@ -80,54 +80,33 @@ Web tốn ~6 người-ngày trên ngân sách vốn không có đệm.
 
 ---
 
-## 3.5. Tiến độ thực tế — cập nhật 22/09/2026
+## 4. Tiến độ thực tế — cập nhật 22/09/2026
 
-Đối chiếu từng việc trong §4 và §5 với những gì **thật sự có trên đĩa**. Mọi dòng dưới đây
-kiểm được bằng cách mở file hoặc chạy lệnh.
+**Trạng thái từng việc nằm ở cột `TT` trong §5 và §6, không lặp lại ở đây.** Mục này chỉ
+giữ ba thứ mà bảng tuần không nói được: con số tổng, danh sách "đã làm nhưng còn thiếu", và
+kết luận.
 
-### Người A — GIS, Dữ liệu, Web
+| | Xong | Làm dở | Chưa | Tổng |
+|---|---|---|---|---|
+| **Người A** | 12 | 0 | 30 | 42 |
+| **Người B** | 10 | 1 | 21 | 32 |
 
-| Tuần | Việc | Trạng thái | Bằng chứng / ghi chú |
-|---|---|---|---|
-| 1 | Chọn 3 địa bàn + Overpass + chốt địa bàn | ✅ **xong** | `study_area_candidates.csv`, chốt Nguyen Hue theo 4,82 voxel/cạnh |
-| 1 | Chiều cao toà nhà | ✅ **xong** | Google Open Buildings 2.5D, **62/62**, 0 suy ra |
-| 1 | Mạng đường OSM | ✅ **xong** | `roads.geojson` — 91 cạnh, 8.777 m, 4 cấp |
-| 1 | DEM GLO-30 | ✅ **đã quyết: BỎ** | Giả định đất phẳng z = 0 — `DECISION.md` *Amendment 22/09* §B. ⚠️ **giả định chưa đo** |
-| 1 | Tiêu chí "gần trạm quan trắc" | ✅ **đạt** | Lãnh sự quán Mỹ 931 m |
-| 2 | Tầng 0 voxel hoá | ✅ **xong sớm** | `01_voxelize.py` + `src/voxel/`, chạy thật 41.084 voxel đặc |
-| 3 | `emissions.py` — mạng đường → nguồn thải | ❌ **chưa** | File 14 dòng, chỉ có `build_source_term()` nhận sẵn chỉ số voxel. **Dữ liệu đầu vào đã sẵn sàng** |
-| 3 | Spike khung web | ❌ **chưa** | `web/` **chưa tồn tại** |
-| 6 | `04_analysis.py` Tầng 3 | ❌ **chưa** | stub 16 dòng |
-| 6 | `06_export_web.py` | ❌ **chưa** | stub 16 dòng |
-| 6 | `05_viz.py` | ❌ **chưa** | stub 14 dòng |
-| 7–8 | Ứng dụng web W1–W8 | ❌ **chưa bắt đầu** | Không có `web/index.html` |
-
-### Người B — Mô hình, Số trị
-
-| Tuần | Việc | Trạng thái | Bằng chứng / ghi chú |
-|---|---|---|---|
-| 1 | Dựng repo và môi trường | ✅ **xong** | `.venv` Python 3.12.14, 67 test chạy được |
-| 1 | Open-Meteo — profile gió 19 mực + PBL | ❌ **chưa** | Không có `wind_profile.csv` ở đâu trong repo |
-| 1 | Hoa gió 2 mùa, chốt 2 hướng gió | ❌ **chưa** | Không có hình hoa gió |
-| 1 | OpenAQ — đếm thật số trạm Việt Nam | ❌ **chưa** | Chưa có khoá, chưa có kết quả. Việc này quyết định Bậc 3 §6 có làm được không |
-| 1 | ⭐ **Spike SOR 2D** | 🟡 **làm dở** | `notebooks/02_wind_2d_debug.ipynb` có khung; **cell 5 chưa chạy**, `sor_poisson` vẫn `NotImplementedError`. **Ba câu hỏi của spike đều chưa có câu trả lời** |
-| 2 | Gaussian giải tích | ✅ **xong** | `gaussian.py` 852 dòng + `src/dispersion/`, 3 hình trong `output/figures/` |
-| 3 | Bộ giải FV 2D | ✅ **xong** | `03_transport.py`, **12 test** verification |
-| 4 | FV lên 3D | ✅ **thực chất đã xong** | `transport_step()` nhận velocity 3 thành phần trên `[z,y,x]`; 2D chỉ là trường hợp một trục dày 1 ô |
-| 5 | Trường gió mass-consistent | ❌ **chưa** | `02_wind.py` 34 dòng; `sor_poisson()` `raise NotImplementedError`. **Đây là đường găng** |
+- **Người A:** tuần 1 xong trọn vẹn, tuần 2 xong sớm. Dừng ở A2.4. Từ A3.1 trở đi chưa động.
+- **Người B:** tuần 2–4 phần số trị xong (B2.x, B3.x, B4.1). Còn **4 việc tuần 1** chưa làm
+  (B1.2–B1.5), trong đó **B1.5 là việc quan trọng nhất còn treo của cả đồ án**.
 
 ### Đã làm nhưng còn thiếu — ghi lại để không quên
 
-| # | Việc | Thiếu gì |
-|---|---|---|
-| 1 | **Xung đột thứ tự thành phần gió** | `02_wind.py` dùng `(u,v,w) = (x,y,z)`, `03_transport.py` dùng `(w,v,u)` khớp `[z,y,x]`. Docstring đã cảnh báo nhưng **chưa ai chốt**. Phải chốt **trước khi** nối Tầng 1 với Tầng 2, nếu không sẽ ra một trường gió xoay trục mà mọi test đơn lẻ vẫn xanh |
-| 2 | **Tầng 0 báo sai provenance** | `src/voxel/heights.py` in `height_source: direct:height 62` cho cả 62 toà, vì bước 00 đã điền số cho mọi toà. Dữ liệu từng toà đúng (`prepared_height_source` sống sót vào GeoJSON), chỉ **dòng log và thuộc tính netCDF sai** |
-| 3 | **Chưa phân tích độ nhạy chiều cao** | `RESEARCH.md` §1007 yêu cầu. Nay **rẻ hơn nhiều** vì đã có hai trường chiều cao độc lập cho cùng địa bàn — chỉ cần chạy mô hình hai lần và so |
-| 4 | **Giả định đất phẳng chưa đo** | Chưa ai tính độ chênh cao trong ô 500 m. Phải nằm trong chương Hạn chế như **giả định**, không phải kết luận |
-| 5 | **H/W của địa bàn chưa đo** | §4 `DECISION.md` đòi "khu có hẻm phố rõ rệt"; Nguyễn Huệ là đại lộ rộng. `RESEARCH.md` §5.1 cấm trích ngưỡng Oke từ nguồn thứ cấp nên không kết luận bằng suy đoán được |
-| 6 | **`maxspeed` chỉ phủ 47 %** | Đã đo và đã thành BR-28: tuần 3 phân bổ phát thải theo **cấp đường**, không theo tốc độ |
-| 7 | **Notebook 01 đã chạy, notebook 02 chưa xong** | `01_fv_2d_debug.ipynb` có output ở 4 cell; `02_wind_2d_debug.ipynb` cũng 4 cell nhưng **cell spike chưa chạy** |
-| 8 | **Landmark 81 hiện ghi `failed` trong CSV** | Overpass chặn tần suất ngày 22/09. Không phải lỗi code, không ảnh hưởng lựa chọn. Chạy lại `00_prepare_osm_data.py` khi Overpass hồi là khôi phục |
+| # | Việc | Thiếu gì | Chặn việc nào |
+|---|---|---|---|
+| 1 | **Xung đột thứ tự thành phần gió** | `02_wind.py` dùng `(u,v,w) = (x,y,z)`, `03_transport.py` dùng `(w,v,u)` khớp `[z,y,x]`. Docstring đã cảnh báo, **chưa ai chốt**. Nối hai tầng mà chưa chốt sẽ ra trường gió **xoay trục** trong khi test từng tầng vẫn xanh | B5.1 → B5.2 |
+| 2 | **Tầng 0 báo sai provenance** | `src/voxel/heights.py` in `height_source: direct:height 62` cho cả 62 toà, vì bước 00 đã điền số cho mọi toà. Dữ liệu từng toà đúng, chỉ **log và thuộc tính netCDF sai** | — |
+| 3 | **Chưa phân tích độ nhạy chiều cao** | `RESEARCH.md` §1007 yêu cầu. Nay **rẻ hơn nhiều** vì đã có hai trường chiều cao độc lập cho cùng địa bàn — chỉ cần chạy mô hình hai lần và so | B8.1 (chương Hạn chế) |
+| 4 | **Giả định đất phẳng chưa đo** | Chưa ai tính độ chênh cao trong ô 500 m. Phải nằm trong chương Hạn chế như **giả định**, không phải kết luận | B8.1 |
+| 5 | **H/W của địa bàn chưa đo** | `DECISION.md` §4 đòi "khu có hẻm phố rõ rệt"; Nguyễn Huệ là đại lộ rộng. `RESEARCH.md` §5.1 cấm trích ngưỡng Oke từ nguồn thứ cấp nên không kết luận bằng suy đoán | B8.1 |
+| 6 | **`maxspeed` chỉ phủ 47 %** | Đã đo, đã thành BR-28: phân bổ phát thải theo **cấp đường**, không theo tốc độ | A3.2 |
+| 7 | **Notebook 02 chưa chạy hết** | `01_fv_2d_debug.ipynb` có output ở 4 cell; `02_wind_2d_debug.ipynb` cũng 4 cell nhưng **cell spike chưa chạy** | B1.5 |
+| 8 | **Landmark 81 đang ghi `failed` trong CSV** | Overpass chặn tần suất ngày 22/09. Không phải lỗi code, không ảnh hưởng lựa chọn. Chạy lại `00_prepare_osm_data.py` là khôi phục | — |
 
 ### Đọc thẳng
 
@@ -144,119 +123,242 @@ phân tích hay đẩy lên web. **Web — thứ bị chấm điểm — chưa c
 
 | Người | Việc | Vì sao gấp |
 |---|---|---|
-| **B** | Chạy nốt **spike SOR 2D** ở `notebooks/02_wind_2d_debug.ipynb` | Rủi ro số 1 của cả đồ án, và đã trễ so với kế hoạch đưa nó lên tuần 1 |
-| **A** | `emissions.py` + **spike khung web** | Dữ liệu đường đã sẵn; web là thứ bị chấm mà chưa động tới |
+| **B** | **B1.5** — chạy nốt spike SOR 2D | Rủi ro số 1 của cả đồ án, đã trễ so với chính kế hoạch đưa nó lên tuần 1 |
+| **A** | **A3.6** — spike khung web, rồi A3.1–A3.5 | Web là thứ bị chấm mà chưa động tới; dữ liệu đường cho `emissions.py` thì đã sẵn |
 
 ---
 
-## 4. Giai đoạn 1 — tới seminar
+## 5. Giai đoạn 1 — tới seminar
+
+Mỗi việc có một **mã** (`A1.2` = Người A, tuần 1, việc 2) để tham chiếu được trong họp,
+trong commit và trong §4.
 
 ### Tuần 1 — Dữ liệu và chọn địa bàn
 
-Tuần này quyết định một thứ **không sửa lại được: chọn địa bàn**. Chọn sai (OSM thưa thẻ chiều cao) thì tới tuần 3 mới phát hiện và mất cả tuần.
+Tuần này quyết định một thứ **không sửa lại được: chọn địa bàn**.
 
-| | Người A | Người B |
-|---|---|---|
-| **Việc** | Chọn 3 địa bàn ứng viên ở Hà Nội / TP.HCM — có hẻm phố rõ, gần trạm quan trắc, giao thông đông. Chạy Overpass đếm `building` vs `building:levels` vs `height` cho từng cái. **Chốt địa bàn mà khối nhà trung vị phân giải được ở Δ = 5 m (≥ 4 voxel mỗi cạnh)**; độ phủ thẻ chỉ là tiêu chí phụ. **Ghép chiều cao từ Google Open Buildings 2.5D.** Tải OSM extract, footprint, mạng đường, DEM GLO-30 | Dựng repo và môi trường. Kéo Open-Meteo lấy profile gió 19 mực áp suất + PBL height. Vẽ hoa gió theo mùa, chốt 2 hướng gió đại diện. Lấy API key OpenAQ, đếm trạm Việt Nam thật. **Chạy spike SOR 2D** (xem dưới) |
-| **Output** | `data/raw/study_area.geojson`<br>`study_area_candidates.csv` — 3 ứng viên kèm độ phủ thẻ, λ_P, số voxel mỗi cạnh **và provenance chiều cao cuối cùng**<br>**Bảng đối chứng chéo OSM vs Google 2.5D**<br>`data/raw/roads.geojson` — 91 cạnh, 8.777 m, phân 4 cấp | `wind_profile.csv`<br>Hình hoa gió 2 mùa<br>**Kết luận spike: SOR có hội tụ không, sau bao nhiêu vòng lặp**<br>Repo chạy được trên cả 2 máy |
+**Người A — GIS và dữ liệu**
 
-**Spike tuần 1 — kéo bài toán rủi ro nhất lên sớm 4 tuần.** Chưa ai biết SOR Poisson có hội tụ trên mask toà nhà thật hay không. Nó nằm trên đường găng với hai stage phụ thuộc phía sau, mà lịch cũ để tận tuần 5.
+| Mã | Việc | Output | TT |
+|---|---|---|---|
+| A1.1 | Chọn 3 địa bàn ứng viên ở TP.HCM | 3 toạ độ tâm trong `CANDIDATES` | ✅ |
+| A1.2 | Chạy Overpass đếm `building` / `building:levels` / `height` từng ứng viên | Số liệu độ phủ thẻ cho cả 3 | ✅ |
+| A1.3 | Đo hình thái: λ_P, diện tích trung vị, **số voxel mỗi cạnh** ở Δ = 5 m | 3 chỉ số cho cả 3 ứng viên | ✅ |
+| A1.4 | Chốt địa bàn theo **khả năng phân giải**, không theo độ phủ thẻ | `data/raw/study_area.geojson`<br>`data/raw/study_area_candidates.csv` | ✅ |
+| A1.5 | Ghép chiều cao từ Google Open Buildings 2.5D | `data/raw/buildings.geojson`, 62/62 có chiều cao thật | ✅ |
+| A1.6 | Đối chứng chéo chiều cao Google ↔ thẻ OSM | MAE 23,2 m · trung vị 7,0 m · r = 0,740 | ✅ |
+| A1.7 | Tải mạng đường OSM và phân theo `highway=` | `data/raw/roads.geojson` — 91 cạnh, 8.777 m | ✅ |
+| A1.8 | Quyết định về DEM GLO-30 | Quyết định **BỎ** + giả định đất phẳng ghi vào `DECISION.md` | ✅ |
+| A1.9 | Kiểm tiêu chí "gần trạm quan trắc" | Lãnh sự quán Mỹ **931 m** | ✅ |
 
-- **Việc:** lưới 2D x–z, 100 × 50 ô, một khối nhà hình hộp, profile luỹ thừa thổi vào, `u = 0` trong nhà, giải Poisson cho λ bằng SOR ω = 1,78. Khung có sẵn ở `notebooks/02_wind_2d_debug.ipynb`.
-- **Chi phí:** ~1 người-ngày. Không cần dữ liệu thật, không cần Tầng 0 — mask dựng bằng `np.zeros` rồi gán `True` cho một khối chữ nhật.
-- **Ba câu hỏi:** (1) hội tụ không, sau bao nhiêu vòng? (2) `div(u)` sau khi giải có về dưới ngưỡng ở mọi ô khí không? (3) vẽ vector — dòng có đi vòng qua khối nhà không?
-- **Đạt cả ba** → độ tin cậy nhảy từ ~70% lên ~85%, phần còn lại chỉ là mở lên 3D. **Không hội tụ** → còn bảy tuần để đổi hướng, thay vì hai.
+**Người B — mô hình và môi trường**
 
-**Nếu cả 3 địa bàn đều thưa thẻ chiều cao:** dùng Google Open Buildings 2.5D Temporal làm nguồn chính + số hoá tay ~50 toà nhà ở lõi miền. Cộng 2 người-ngày.
+| Mã | Việc | Output | TT |
+|---|---|---|---|
+| B1.1 | Dựng repo và môi trường chạy được trên cả 2 máy | `.venv` Python 3.12, `pytest` xanh | ✅ |
+| B1.2 | Kéo Open-Meteo: profile gió 19 mực áp suất + PBL height | `data/raw/wind_profile.csv` | ❌ |
+| B1.3 | Vẽ hoa gió theo mùa, **chốt 2 hướng gió đại diện** | 2 hình hoa gió + 2 hướng đã chốt | ❌ |
+| B1.4 | Lấy quyền truy cập OpenAQ, chạy `GET /v3/locations?iso=VN`, **đếm thật** | Số trạm Việt Nam có thật — quyết định Bậc 3 trong `DECISION.md` §6 có làm được không | ❌ |
+| B1.5 | ⭐ **Spike SOR 2D** — lưới 100 × 50, một khối nhà, giải Poisson cho λ | Trả lời 3 câu hỏi dưới đây | 🟡 |
 
-> **Trạng thái 22/09/2026 — phần Người A ĐÃ XONG TRỌN VẸN.** Mạng đường: **91 cạnh,
-> 8.777 m** (residential 4.789 · tertiary 3.132 · primary 553 · secondary 302), khai ở
-> `paths.roads`. **DEM GLO-30: bỏ khỏi phạm vi** — mô hình giả định đất phẳng z = 0, lý do ở
-> `docs/DECISION.md` *Amendment 22/09/2026* §B. **Tiêu chí "gần trạm quan trắc": ĐẠT** —
-> Lãnh sự quán Mỹ cách **931 m**, tuy OSM không có trạm không khí nào trong 30 km.
+> **⭐ B1.5 là việc quan trọng nhất còn treo của cả đồ án.** Khung có sẵn ở
+> `notebooks/02_wind_2d_debug.ipynb`; **cell spike chưa chạy**. Ba câu hỏi phải trả lời:
 >
-> **Trạng thái 21/09/2026 — chọn địa bàn và chiều cao.** Cả 3 địa bàn **đều** thưa thật
-> (33,8 % / 33,9 % / 4,9 %), nên đã đi đúng nhánh dự phòng này. Chốt **Nguyen Hue**
-> (4,82 voxel/cạnh; Ben Thanh 2,00 và Landmark 81 2,90 đều không phân giải được).
-> **Google Open Buildings 2.5D phủ 62/62 toà nhà — không còn toà nào phải suy ra chiều cao.**
-> Truy cập **không cần đăng nhập**, chi phí thực tế ~0,5 ngày chứ không phải 2.
-> **Số hoá tay 50 nhà: không cần nữa.** Đối chứng chéo và trần 100 m:
-> `docs/DECISION.md` *Amendment 21/09/2026* §B.
+> 1. SOR có **hội tụ** không, sau bao nhiêu vòng lặp?
+> 2. `div(u)` sau khi giải có về dưới ngưỡng ở **mọi ô khí** không?
+> 3. Vẽ vector — dòng khí có **đi vòng qua** khối nhà không?
+>
+> Không cần dữ liệu thật, không cần Tầng 0: mask dựng bằng `np.zeros` rồi gán `True` cho
+> một khối chữ nhật. Chi phí ~1 người-ngày.
+>
+> **Đạt cả ba** → độ tin cậy nhảy từ ~70 % lên ~85 %, phần còn lại chỉ là mở lên 3D.
+> **Không hội tụ** → còn sáu tuần để đổi hướng, thay vì hai.
 
 ### Tuần 2 — Voxel hoá và Gaussian → M1
 
-| | Người A | Người B |
-|---|---|---|
-| **Việc** | Tầng 0 trong `01_voxelize.py`: rasterize footprint thành `H[y,x]` ở Δ = 5 m, rồi `B = Z < H` thành mask 3D. **Kiểm bằng mắt**: cắt 3 mặt phẳng, chồng lên ảnh vệ tinh | Gaussian giải tích trên lưới voxel: `C(x,y,z)` với σ **Briggs đô thị**, profile gió luỹ thừa p đô thị, nguồn đường là chồng chập nguồn điểm. Làm 2D trước rồi mở 3D |
-| **Output** | `data/processed/voxel_grid.nc` chứa `H (y,x)` và `B (z,y,x)`<br>Hình kiểm tra 3 mặt cắt chồng ảnh vệ tinh | `C_gaussian_ug_m3 (z,y,x)` trong cùng file netCDF<br>Hình lát cắt ngang đầu tiên |
+**Người A**
 
-**M1 quan trọng về mặt tâm lý:** từ đây đồ án **luôn có kết quả để nộp**. Mọi thứ sau là nâng cấp.
+| Mã | Việc | Output | TT |
+|---|---|---|---|
+| A2.1 | Rasterize footprint thành `H[y,x]` ở Δ = 5 m | Trường chiều cao 100 × 100 | ✅ |
+| A2.2 | Dựng mask 3D `B = Z < H` | `B (z,y,x)` — 41.084 voxel đặc | ✅ |
+| A2.3 | Ghi netCDF chuẩn CF | `data/processed/voxel_grid.nc` | ✅ |
+| A2.4 | **Kiểm bằng mắt**: cắt 3 mặt phẳng, chồng lên ảnh vệ tinh | 3 hình kiểm tra | ❌ |
+
+**Người B**
+
+| Mã | Việc | Output | TT |
+|---|---|---|---|
+| B2.1 | Gaussian giải tích 2D với σ **Briggs đô thị** | Hàm chạy đúng | ✅ |
+| B2.2 | Mở lên 3D, profile gió luỹ thừa p đô thị | `C_gaussian_ug_m3 (z,y,x)` | ✅ |
+| B2.3 | Nguồn đường = chồng chập nguồn điểm | Hình lát cắt ngang đầu tiên | ✅ |
+
+**M1 quan trọng về mặt tâm lý:** từ đây đồ án **luôn có kết quả để nộp**.
 
 ### Tuần 3 — Bộ giải FV ở 2D và nguồn phát thải → M2
 
-Tuần rủi ro nhất của cả đồ án. Đây là lý do phải làm 2D trước.
+**Người A**
 
-| | Người A | Người B |
-|---|---|---|
-| **Việc** | `emissions.py`: lấy mạng đường OSM, phân theo `highway=`, nhân EF xe máy Hà Nội (PM 0,053 g/km), raster hoá vào voxel ở z ≈ 1 m, chuẩn hoá tổng theo EDGAR. **Ghi lại mọi giả định vào file** — sẽ cần cho chương Hạn chế. Thêm: **spike khung web** (xem dưới) | Bộ giải FV trên mặt cắt 2D x–z, lưới 100 × 50: upwind bậc 1 + khuếch tán trung tâm, `Cr ≤ 0,5`, biên tường flux 0 / đất phản xạ / ra mở. Verify hai thứ: so Gaussian 2D sai số < 6%, và bảo toàn khối lượng |
-| **Output** | `S[k,j,i]` nguồn phát thải trong netCDF<br>File ghi giả định phát thải<br>`web/index.html` chạy được với dữ liệu giả | `transport_2d` chạy đúng<br>2 đồ thị verify: so giải tích, và bảo toàn khối lượng |
+| Mã | Việc | Output | TT |
+|---|---|---|---|
+| A3.1 | Đọc `roads.geojson`, phân nhóm theo `highway=` | Bảng chiều dài theo cấp | ❌ |
+| A3.2 | Nhân EF xe máy Hà Nội (PM 0,053 g/km) theo **cấp đường** | Cường độ phát thải mỗi cạnh | ❌ |
+| A3.3 | Raster hoá vào voxel ở z ≈ 1 m | `S[z,y,x]` trong netCDF | ❌ |
+| A3.4 | Chuẩn hoá tổng theo EDGAR | Hệ số chuẩn hoá đã ghi lại | ❌ |
+| A3.5 | **Ghi mọi giả định phát thải vào file** | File giả định — dùng cho chương Hạn chế | ❌ |
+| A3.6 | ⭐ **Spike khung web** | `web/index.html` chạy với dữ liệu bịa | ❌ |
 
-**Spike khung web, ~0,5 người-ngày.** Web là thứ cả đồ án bị chấm, nhưng lịch cũ chỉ đụng tới ở tuần 7. Việc: một `web/index.html`, MapLibre + deck.gl qua CDN, và **dữ liệu bịa** — 3 tầng độ cao, mỗi tầng lưới 10 × 10 số ngẫu nhiên ghi thẳng trong JS, một thanh trượt đổi tầng. Không cần netCDF, không cần kết quả mô hình. Chỉ trả lời: **thanh trượt có chạy trong trình duyệt không?**
+> **A3.2 dùng cấp đường, KHÔNG dùng `maxspeed`.** Đã đo: cấp đường phủ 100 % số cạnh,
+> `maxspeed` chỉ 47 %. Trọng số theo tốc độ sẽ bỏ im lặng một nửa mạng lưới. Xem BR-28.
 
-**Mẹo debug 2D:** `matplotlib.imshow` sau mỗi 50 bước. Lỗi dấu upwind hay lỗi biên nhìn ra ngay — chùm khói đi ngược, nồng độ âm, hoặc vệt sọc ở biên.
+> **A3.6 spike khung web, ~0,5 người-ngày.** Một `web/index.html`, MapLibre + deck.gl qua
+> CDN, và **dữ liệu bịa** — 3 tầng độ cao, mỗi tầng lưới 10 × 10 số ngẫu nhiên viết thẳng
+> trong JS, một thanh trượt đổi tầng. Không cần netCDF, không cần kết quả mô hình. Chỉ trả
+> lời một câu: **thanh trượt có chạy trong trình duyệt không?**
+
+**Người B**
+
+| Mã | Việc | Output | TT |
+|---|---|---|---|
+| B3.1 | Bộ giải FV 2D x–z: upwind bậc 1 + khuếch tán trung tâm | `transport_step()` chạy đúng | ✅ |
+| B3.2 | Ràng buộc CFL `Cr ≤ 0,5` | `cfl_time_step()`, `courant_number()` | ✅ |
+| B3.3 | Biên: tường flux 0 / đất phản xạ / ra mở | Biên đã cài và có test | ✅ |
+| B3.4 | Verify so nghiệm giải tích, mục tiêu sai số < 6 % | Đồ thị so sánh | ✅ |
+| B3.5 | Verify bảo toàn khối lượng | Đồ thị bảo toàn + `total_mass()` | ✅ |
+
+**Mẹo debug 2D:** `matplotlib.imshow` sau mỗi 50 bước. Lỗi dấu upwind hay lỗi biên nhìn ra
+ngay — chùm khói đi ngược, nồng độ âm, hoặc vệt sọc ở biên.
 
 ### Tuần 4 — FV lên 3D và gói seminar → M3, cổng quyết định
 
-| | Người A | Người B |
-|---|---|---|
-| **Việc** | Gói seminar (chi tiết ở [`SEMINAR.md`](SEMINAR.md)): làm hình H1–H4, dựng slide 13 trang, viết báo cáo theo 5 mục bắt buộc, **tập dượt bấm giờ ít nhất 2 lần** | Mở FV lên 3D: thêm trục y, code gần như y hệt 2D, dùng trường gió đồng nhất (chưa có nhà làm lệch dòng). **Kiểm định Bậc 1**: so nghiệm Gaussian giải tích 3D, mục tiêu sai số < 6%. Đo thời gian chạy |
-| **Output** | 4 hình H1–H4<br>Slide 13 trang + bản PDF dự phòng<br>Báo cáo seminar | `transport_3d` đã verify<br>Báo cáo sai số và thời gian chạy |
+**Người A**
 
-**Cổng quyết định — cuối tuần 4.** Bộ giải FV 3D có đạt sai số < 6% so với nghiệm giải tích không?
+| Mã | Việc | Output | TT |
+|---|---|---|---|
+| A4.1 | Làm 4 hình H1–H4 cho seminar | 4 hình | ❌ |
+| A4.2 | Dựng slide 13 trang + bản PDF dự phòng | Slide + PDF | ❌ |
+| A4.3 | Viết báo cáo seminar theo **5 mục bắt buộc** | Báo cáo seminar | ❌ |
+| A4.4 | **Tập dượt bấm giờ ít nhất 2 lần** | 2 lần chạy thử đúng 10–12 phút | ❌ |
+
+**Người B**
+
+| Mã | Việc | Output | TT |
+|---|---|---|---|
+| B4.1 | Mở FV lên 3D (thêm trục y), gió đồng nhất | `transport_step()` nhận velocity 3 thành phần | ✅ |
+| B4.2 | **Kiểm định Bậc 1**: so Gaussian giải tích 3D, mục tiêu < 6 % | Báo cáo sai số | ❌ |
+| B4.3 | Đo thời gian chạy một kịch bản | Con số thời gian thật | ❌ |
+
+> **B4.1 thực chất đã xong**: `transport_step()` làm việc trên `[z,y,x]` với velocity 3
+> thành phần, và 2D chỉ là trường hợp một trục dày 1 ô. Còn thiếu **B4.2** — chưa ai chạy
+> phép so 3D với nghiệm giải tích.
+
+**Cổng quyết định — cuối tuần 4.** Bộ giải FV 3D có đạt sai số < 6 % không?
 
 | Trả lời | Làm gì |
 |---|---|
 | Đạt | Đi tiếp, tuần 5 làm trường gió |
-| Gần đạt (8–10%) | Cho thêm tuần 5 để sửa rồi chốt lại, dời trường gió sang tuần 6 |
+| Gần đạt (8–10 %) | Cho thêm tuần 5 để sửa rồi chốt lại, dời trường gió sang tuần 6 |
 | Không đạt | **Dừng phần số trị.** Dùng `C_gauss` làm kết quả chính + mask toà nhà. Dồn tuần 5–8 vào phân tích không gian, web và báo cáo. Ghi rõ trong Hạn chế. Vẫn đúng đề bài, vẫn có web, vẫn có đồ án hoàn chỉnh |
 
 ---
 
-## 5. Giai đoạn 2 — tới sản phẩm web
+## 6. Giai đoạn 2 — tới sản phẩm web
 
 ### Tuần 5 — Trường gió và phân tích không gian → M4
 
-| | Người A | Người B |
-|---|---|---|
-| **Việc** | Phân tích không gian phần 1 (chạy trên `C_gauss` trước, sau thay bằng kết quả FV): lát cắt ngang ở z = 1,5 / 6 / 15 / 30 m, mặt cắt đứng qua hẻm phố, profile đứng tại vị trí trạm quan trắc. Chuẩn hoá lưu trữ: xarray `(z,y,x)`, CF, `positive="up"` | Trường gió bảo toàn khối lượng trong `02_wind.py`: profile luỹ thừa, `u = v = w = 0` trong nhà, giải Poisson cho λ bằng SOR ω = 1,78 dừng khi `Σ\|Δλ\| < 1e-4`, hệ số mặt = 0 ở tường, rồi khôi phục `u = u₀ + (1/2α₁²)·∂λ/∂x`. Làm 2D trước |
-| **Output** | 3 sản phẩm phân tích: lát cắt, mặt cắt đứng, profile đứng<br>netCDF chuẩn CF mở được bằng QGIS | `wind_field.nc` với `div(u) ≈ 0` ở mọi ô khí<br>Hình vector gió trên lát cắt z = 10 m |
+**Người A**
 
-**Kiểm tra trực quan bắt buộc:** vẽ vector gió trên lát cắt ngang ở z = 10 m. Phải thấy dòng **đi vòng qua** các khối nhà. Nếu gió đi xuyên nhà thì hệ số mặt đang sai.
+| Mã | Việc | Output | TT |
+|---|---|---|---|
+| A5.1 | Lát cắt ngang ở z = 1,5 / 6 / 15 / 30 m | 4 lát cắt | ❌ |
+| A5.2 | Mặt cắt đứng qua hẻm phố | 1 mặt cắt đứng | ❌ |
+| A5.3 | Profile đứng tại vị trí trạm quan trắc | 1 profile | ❌ |
+| A5.4 | Chuẩn hoá lưu trữ: xarray `(z,y,x)`, CF, `positive="up"` | netCDF mở được bằng QGIS | ❌ |
 
-### Tuần 6 — Kịch bản và export dữ liệu web → M5
+**Người B**
 
-| | Người A | Người B |
-|---|---|---|
-| **Việc** | `06_export_web.py`: netCDF → JSON. Gộp `C` theo 50 tầng z, mỗi tầng lưới 100 × 100, lọc bỏ ô nồng độ thấp, xuất thêm `buildings.geojson`. Dựng khung `web/index.html` thật: MapLibre + deck.gl + `PolygonLayer` extrude toà nhà (W1) | Ghép gió vào bộ giải, chạy 3 kịch bản: ĐB mùa đông Δ=5 m, ĐN mùa hè Δ=5 m, ĐB Δ=10 m. Chạy tới trạng thái dừng (~800–1200 bước). **Viết test tích hợp đầu-cuối** — hiện chưa có cái nào. Thêm kiểm tra nguồn phát thải không nằm trong voxel rắn |
-| **Output** | `web/data/*.json` tổng dưới 5 MB<br>`buildings.geojson`<br>Web hiện được toà nhà 3D (W1) | 3 file kết quả kịch bản<br>Bảng so sánh độ phân giải 5 m vs 10 m<br>`tests/test_integration.py` |
+| Mã | Việc | Output | TT |
+|---|---|---|---|
+| B5.1 | **Chốt thứ tự thành phần gió** giữa `02_wind.py` và `03_transport.py` | Một quy ước duy nhất, ghi vào docstring cả hai file | ❌ |
+| B5.2 | Cài `sor_poisson()`: SOR ω = 1,78, dừng khi tổng biến thiên λ dưới 1e-4 | Hàm chạy, không còn `NotImplementedError` | ❌ |
+| B5.3 | Hệ số mặt = 0 ở tường, `u = v = w = 0` trong nhà | Mask tường đã áp đúng | ❌ |
+| B5.4 | Khôi phục `u = u₀ + (1/2α₁²)·∂λ/∂x` | `wind_field.nc` với `div(u) ≈ 0` mọi ô khí | ❌ |
+| B5.5 | **Kiểm tra trực quan**: vector gió trên lát cắt z = 10 m | Hình vector — dòng phải **đi vòng qua** nhà | ❌ |
+
+> **B5.1 phải làm TRƯỚC B5.2.** `02_wind.py` đang dùng `(u,v,w) = (x,y,z)`, còn
+> `03_transport.py` dùng `(w,v,u)` khớp `[z,y,x]`. Nối hai tầng mà chưa chốt sẽ ra một
+> trường gió **xoay trục**, trong khi test đơn lẻ của từng tầng vẫn xanh.
+
+> **B5.5 là phép thử thật.** Nếu gió đi **xuyên** nhà thì hệ số mặt đang sai — bắt được
+> ngay bằng mắt, không cần test.
+
+### Tuần 6 — Kịch bản và dữ liệu cho web → M5
+
+**Người A**
+
+| Mã | Việc | Output | TT |
+|---|---|---|---|
+| A6.1 | `06_export_web.py`: netCDF → JSON, gộp theo 50 tầng z | `web/data/*.json` tổng < 5 MB | ❌ |
+| A6.2 | Lọc bỏ ô nồng độ thấp để giảm dung lượng | Hệ số giảm mẫu đã ghi lại | ❌ |
+| A6.3 | Xuất `buildings.geojson` cho web | File toà nhà cho deck.gl | ❌ |
+| A6.4 | Dựng khung web thật: MapLibre + deck.gl + `PolygonLayer` extrude | **W1** — web hiện được toà nhà 3D | ❌ |
+
+**Người B**
+
+| Mã | Việc | Output | TT |
+|---|---|---|---|
+| B6.1 | Ghép trường gió vào bộ giải vận chuyển | Pipeline đầu-cuối chạy được | ❌ |
+| B6.2 | Chạy 3 kịch bản: ĐB đông Δ=5, ĐN hè Δ=5, ĐB Δ=10 | 3 file kết quả | ❌ |
+| B6.3 | So độ phân giải 5 m vs 10 m | Bảng so sánh | ❌ |
+| B6.4 | **Viết test tích hợp đầu-cuối** — hiện chưa có cái nào | `tests/test_integration.py` | ❌ |
+| B6.5 | Kiểm nguồn phát thải không nằm trong voxel rắn | Test khẳng định điều đó | ❌ |
 
 ### Tuần 7 — Xây web → M6
 
-| | Người A | Người B |
-|---|---|---|
-| **Việc** | Toàn bộ tính năng web: W2 lớp nồng độ theo tầng, **W3 thanh trượt độ cao**, W4 nút chuyển kịch bản, W5 bật/tắt ngưỡng QCVN và WHO. Legend, tiêu đề, chú thích nguồn dữ liệu | Giúp A phần xuất dữ liệu nếu file quá nặng. Tính sẵn profile đứng cho mỗi ô lưới ngang để web click là hiện ngay (W6). Tính số liệu cho panel (W7). Làm sạch code, viết docstring, đảm bảo chạy lại được từ đầu |
-| **Output** | Web chạy được với đủ W1–W5 | JSON profile đứng<br>JSON số liệu panel<br>Code đã dọn sạch |
+**Người A**
 
-**Thứ Sáu tuần 7 là hạn chót của W1–W5.** Chưa xong thì bỏ deck.gl, chuyển sang Qgis2threejs export (~2 người-ngày). Xấu hơn nhưng vẫn là web và vẫn nộp được.
+| Mã | Việc | Output | TT |
+|---|---|---|---|
+| A7.1 | Lớp nồng độ hiển thị theo tầng độ cao | **W2** | ❌ |
+| A7.2 | ⭐ **Thanh trượt chọn độ cao z** | **W3** — tính năng mang toàn bộ luận điểm đồ án | ❌ |
+| A7.3 | Nút chuyển kịch bản gió | **W4** | ❌ |
+| A7.4 | Bật/tắt ngưỡng QCVN 50 và WHO 15 µg/m³ | **W5** | ❌ |
+| A7.5 | Legend, tiêu đề, chú thích nguồn dữ liệu | Web đọc được không cần giải thích | ❌ |
+
+**Người B**
+
+| Mã | Việc | Output | TT |
+|---|---|---|---|
+| B7.1 | Tính sẵn profile đứng cho mỗi ô lưới ngang | JSON profile đứng (cho W6) | ❌ |
+| B7.2 | Tính số liệu panel: thể tích vượt ngưỡng, trung bình theo tầng | JSON số liệu (cho W7) | ❌ |
+| B7.3 | Giúp A giảm dung lượng nếu file quá nặng | File trong ngưỡng | ❌ |
+| B7.4 | Dọn code, viết docstring, đảm bảo chạy lại được từ đầu | Repo sạch | ❌ |
+
+**Thứ Sáu tuần 7 là hạn chót của W1–W5.** Chưa xong thì bỏ deck.gl, chuyển sang
+Qgis2threejs (~2 người-ngày). Xấu hơn nhưng vẫn là web và vẫn nộp được.
 
 ### Tuần 8 — Hoàn thiện và bảo vệ → M7
 
-| | Người A | Người B |
-|---|---|---|
-| **Việc** | Hoàn thiện web: W6 click hiện profile, W7 panel số liệu, làm đẹp giao diện. **Test trên 2 máy khác nhau và điện thoại.** Viết chương Bối cảnh, Dữ liệu, Quy trình, Kết quả, Phân tích không gian, Ứng dụng web. Quay video demo 1–2 phút | Viết chương Mô hình, Phương pháp số, Kiểm chứng, **Hạn chế**. Chuẩn bị trả lời câu hỏi kỹ thuật ([`SEMINAR.md`](SEMINAR.md) §7) |
-| **Output** | Web hoàn chỉnh W1–W7<br>Video demo 1–2 phút<br>6 chương báo cáo | 4 chương báo cáo<br>Bộ câu trả lời Q&A |
+**Người A**
 
-**Cả hai:** đọc chéo bài của nhau, kiểm mọi con số truy được nguồn, tập dượt bảo vệ 2 lần bấm giờ, đóng gói repo kèm hướng dẫn chạy web.
+| Mã | Việc | Output | TT |
+|---|---|---|---|
+| A8.1 | Click một điểm → hiện profile đứng | **W6** | ❌ |
+| A8.2 | Panel số liệu | **W7** | ❌ |
+| A8.3 | Làm đẹp giao diện | Web trình bày được | ❌ |
+| A8.4 | **Test trên 2 máy khác nhau và điện thoại** | Biên bản test 3 thiết bị | ❌ |
+| A8.5 | Viết 6 chương: Bối cảnh, Dữ liệu, Quy trình, Kết quả, Phân tích không gian, Web | 6 chương báo cáo | ❌ |
+| A8.6 | Quay video demo 1–2 phút | Video | ❌ |
+
+**Người B**
+
+| Mã | Việc | Output | TT |
+|---|---|---|---|
+| B8.1 | Viết 4 chương: Mô hình, Phương pháp số, Kiểm chứng, **Hạn chế** | 4 chương báo cáo | ❌ |
+| B8.2 | Chuẩn bị trả lời câu hỏi kỹ thuật (`SEMINAR.md` §7) | Bộ Q&A | ❌ |
+
+**Cả hai:** đọc chéo bài của nhau, kiểm mọi con số truy được nguồn, tập dượt bảo vệ 2 lần
+bấm giờ, đóng gói repo kèm hướng dẫn chạy web.
 
 **Chương Hạn chế phải liệt kê đủ** — đây là chương ghi điểm, không phải chương thú tội:
 
@@ -265,13 +367,15 @@ Tuần rủi ro nhất của cả đồ án. Đây là lý do phải làm 2D tr�
 3. Không có rối do giao thông → sai lệch lúc lặng gió
 4. Chỉ verification, chưa validation với số liệu thực nghiệm, kèm lý do
 5. Lưu lượng giao thông là bất định lớn nhất, dùng proxy cấp đường OSM
-6. Chiều cao toà nhà từ sản phẩm ML chưa kiểm định ở Đông Nam Á
-7. LoD1, không có hoá học, một trường gió tựa dừng mỗi lần chạy
-8. Web hiển thị dữ liệu đã gộp và giảm mẫu, không phải toàn bộ 500.000 voxel
+6. **Chiều cao nhà từ sản phẩm ML**: MAE tự đo **23,2 m**, không phải 1,5 m của Google
+7. **Trần 100 m của sản phẩm chiều cao** cắt ngọn 3 toà tháp
+8. **Giả định đất phẳng z = 0** — chưa đo độ chênh cao
+9. LoD1, không có hoá học, một trường gió tựa dừng mỗi lần chạy
+10. Web hiển thị dữ liệu đã gộp và giảm mẫu, không phải toàn bộ 500.000 voxel
 
 ---
 
-## 6. Ngân sách
+## 7. Ngân sách
 
 | Tuần | A | B | Cộng dồn | Trọng tâm |
 |---|---|---|---|---|
@@ -296,7 +400,7 @@ Tuần rủi ro nhất của cả đồ án. Đây là lý do phải làm 2D tr�
 
 ---
 
-## 7. Giả định và độ tin cậy
+## 8. Giả định và độ tin cậy
 
 Kế hoạch đứng trên bảy giả định, liệt kê riêng từng cái để ai cũng phản bác được từng cái một.
 
@@ -335,7 +439,7 @@ Dưới ~60% thì đây là bản nháp cần thử nghiệm chứ không phải
 
 ---
 
-## 8. Quy tắc làm việc
+## 9. Quy tắc làm việc
 
 1. **Git từ ngày đầu.** Một repo, hai nhánh, merge ở mỗi mốc. Không gửi file qua Zalo.
 2. **`.gitignore` cho `data/raw/` ngay commit đầu** — OSM extract Việt Nam nặng 313 MB.
@@ -348,7 +452,7 @@ Dưới ~60% thì đây là bản nháp cần thử nghiệm chứ không phải
 
 ---
 
-## 9. Bốn thứ dễ làm trượt lịch nhất
+## 10. Bốn thứ dễ làm trượt lịch nhất
 
 | Nguy cơ | Dấu hiệu sớm | Xử lý |
 |---|---|---|
@@ -359,7 +463,7 @@ Dưới ~60% thì đây là bản nháp cần thử nghiệm chứ không phải
 
 ---
 
-## 10. Cấu trúc repo
+## 11. Cấu trúc repo
 
 ```
 IE402_Voxel-air-dispersion/
