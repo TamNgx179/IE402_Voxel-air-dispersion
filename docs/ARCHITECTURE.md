@@ -149,7 +149,7 @@ discovered later.
 | --- | --- |
 | **Central differencing** | unbounded; produces negative concentrations at a front. This was an *actual defect* in the first draft and is now prohibited by spec BR-4 |
 | **Higher-order / flux-limited** (MUSCL, van Leer) | genuinely better — far less numerical diffusion — but a limiter is a research-grade step for a team learning numpy, and a subtly wrong limiter is much harder to detect than a wrong upwind sign |
-| **Implicit time stepping** | removes the CFL cap, but needs a large sparse solve every step; at 500 000 cells that is a real memory burden for no benefit, since runs already finish in under a minute |
+| **Implicit time stepping** | removes the CFL cap, but needs a large sparse solve every step; at 500 000 cells that is a real memory burden and substantially complicates verification. The explicit scheme is retained; its actual runtime is measured in B4.3 rather than assumed |
 | **Lagrangian particles** | no numerical diffusion and no advective CFL limit, but needs a turbulence model this project does not have, and concentration recovery needs enough particles per voxel to be statistically stable |
 
 **Chosen: explicit upwind finite volume.** Bounded, mass-conserving, about a hundred lines, and
@@ -161,8 +161,8 @@ reported rather than absorbed (spec BR-14).
 5 m is not a preference. `RESEARCH.md` records NMSE rising **0.10 → 0.25 → 1.35** across
 5 m → 10 m → 20 m against wind-tunnel data (spec `EXT-2`). Halving the cell multiplies memory by
 8 and run time by roughly 16 — eight times the cells, twice the steps from CFL. 5 m sits at the
-knee: fine enough that skill has not begun degrading quickly, coarse enough to run on a laptop in
-under a minute.
+knee: fine enough that skill has not begun degrading quickly, while remaining small enough for a
+laptop-scale benchmark. The actual per-scenario wall-clock is recorded in B4.3 rather than claimed in advance.
 
 ### 6.4 Web delivery
 

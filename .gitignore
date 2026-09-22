@@ -82,6 +82,8 @@ output/analysis/*
 !output/netcdf/.gitkeep
 !output/figures/.gitkeep
 !output/analysis/.gitkeep
+!output/analysis/wind_spike_result.json
+!output/analysis/openaq_b1_4_status.json
 
 
 # ============================================================
@@ -123,3 +125,7 @@ web/data/buildings/*
 
 tmp/
 temp/
+
+.env
+.env.*
+!.env.example

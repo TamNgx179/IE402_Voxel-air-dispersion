@@ -147,7 +147,7 @@ Three of these need qualifying, and the qualification is part of the record.
 | **BR-4** | **Advection uses first-order upwind. Central differencing is prohibited** for the advective term. Central is unbounded: at a sharp front it produces 2Δx oscillations and negative concentrations, which are not physical for a pollutant. This is not a preference — it was an actual defect in the first implementation | `DEC-1`; observed in the repository's own history |
 | **BR-5** | Fluxes are taken **on cell faces and differenced**, so whatever leaves one cell enters its neighbour exactly. Mass is conserved to machine precision, and that is asserted rather than assumed: emitted mass equals mass still in the domain plus mass that has crossed a boundary | `OBS-9` |
 | **BR-6** | The time step satisfies a **Courant number of 0.5 or less, computed from the actual velocity field** rather than passed in as a constant, and the diffusive von Neumann limit is checked alongside it. The realised Courant number is reported back so the margin is visible | `OBS-9` |
-| **BR-7** | A run **terminates at a steady state, not at a wall-clock duration**. With a 500 m domain and a wind of a few m/s the crossing time is of order 100 s, so roughly 400–600 s of simulated time suffices. Running "one simulated hour" wastes nine tenths of the effort | `OBS-1` |
+| **BR-7** | A run **terminates at a steady state, not at a fixed step count or wall-clock duration**. The two selected winds are 1.62 and 1.84 m/s, so a 500 m domain has crossing times of about **309 s** and **272 s**. A conservative planning envelope is 4–6 crossings (**~1,235–1,852 s** and **~1,087–1,630 s** of simulated time), but the actual run uses the CFL-derived time step and stops on the steady-state criterion | `OBS-1` |
 | **BR-8** | Face fluxes are **zero on building walls and at the ground**, and **open at the domain edge with clean inflow**. Ground is reflective, meaning no deposition is modelled | `DEC-1` |
 
 ### 5.3 Geometry, grid and data
@@ -232,7 +232,7 @@ from.
 | AC-13 | A blob in uniform wind travels u·t, to within one cell | BR-4 |
 | AC-14 | Pure diffusion from a point release, with zero wind, matches σ² = 2Kt to better than 6 % | BR-5 |
 | AC-15 | The chosen time step yields a realised Courant number of 0.5 or less, reported by the code rather than assumed | BR-6 |
-| AC-16 | A run reaches steady state in roughly 400–600 s of simulated time and completes in under a minute of wall-clock | BR-7 |
+| AC-16 | Each representative run reports the **CFL-derived Δt, simulated seconds at termination, number of steps, and wall-clock time**. No fixed 800–1,200-step or under-one-minute claim is accepted before the B4.3 benchmark | BR-7 |
 
 ### 7.4 Results and delivery
 

@@ -11,8 +11,9 @@ K_num ~ 0.5*u*dx*(1-Cr), reported by numerical_diffusion().
 Flux form: fluxes are taken on cell faces and differenced, so mass is
 conserved to machine precision. Check it with total_mass().
 
-All 3D arrays are [z, y, x]. Velocity is cell-centred and averaged onto
-faces internally.
+All 3D arrays are [z, y, x]. Velocity components always follow the shared
+project convention (u, v, w) = (x, y, z); they are mapped to array axes
+internally before fluxes are computed.
 """
 
 from __future__ import annotations
@@ -125,7 +126,7 @@ def transport_step(
     Advance the concentration field by one explicit finite-volume step.
 
     concentration  [z, y, x], kg/m^3
-    velocity       (w, v, u) cell-centred, in [z, y, x] order, m/s
+    velocity       (u, v, w) cell-centred, where u->x, v->y, w->z, m/s
     source         [z, y, x] emission rate, kg/m^3/s
     diffusivity    m^2/s; scalar or (Kz, Ky, Kx)
     dt             seconds; choose it with cfl_time_step()
@@ -136,7 +137,7 @@ def transport_step(
         raise ValueError("concentration and source must have the same shape")
 
     if len(velocity) != 3:
-        raise ValueError("velocity must be (w, v, u) in [z, y, x] order")
+        raise ValueError("velocity must be (u, v, w) with u->x, v->y, w->z")
 
     for component in velocity:
         if component.shape != concentration.shape:
@@ -150,15 +151,23 @@ def transport_step(
 
     k_z, k_y, k_x = _as_triplet(diffusivity)
 
+    u, v, w = velocity
+
+    # Arrays are stored [z, y, x], but velocity tuples use the physical
+    # component convention (u, v, w) = (x, y, z). Map components to array
+    # axes explicitly so storage order can never silently redefine meaning.
+    axis_components = (w, v, u)
     spacing = (dz_m, dy_m, dx_m)
     diffusivities = (k_z, k_y, k_x)
 
     net_outflow = np.zeros_like(concentration)
 
-    for axis, (spacing_m, k) in enumerate(zip(spacing, diffusivities)):
+    for axis, (velocity_component, spacing_m, k) in enumerate(
+        zip(axis_components, spacing, diffusivities)
+    ):
         net_outflow = net_outflow + _face_flux_divergence(
             concentration=concentration,
-            velocity_component=velocity[axis],
+            velocity_component=velocity_component,
             diffusivity=k,
             spacing_m=spacing_m,
             axis=axis,
@@ -187,19 +196,20 @@ def cfl_time_step(
     """
     Largest stable explicit time step, times a safety factor.
 
-    Two limits, smaller wins: Courant dt*(|w|/dz + |v|/dy + |u|/dx) <= 1,
+    Velocity follows the project convention (u, v, w) = (x, y, z).
+    Two limits, smaller wins: Courant dt*(|u|/dx + |v|/dy + |w|/dz) <= 1,
     and von Neumann dt <= 0.5 / (Kz/dz^2 + Ky/dy^2 + Kx/dx^2).
     """
 
     if not 0.0 < courant <= 1.0:
         raise ValueError("courant must be in (0, 1]")
 
-    w, v, u = velocity
+    u, v, w = velocity
 
     advective_rate = (
-        np.max(np.abs(w)) / dz_m
+        np.max(np.abs(u)) / dx_m
         + np.max(np.abs(v)) / dy_m
-        + np.max(np.abs(u)) / dx_m
+        + np.max(np.abs(w)) / dz_m
     )
 
     k_z, k_y, k_x = _as_triplet(diffusivity)
@@ -230,14 +240,14 @@ def courant_number(
 ) -> float:
     """Courant number actually realised by a given time step."""
 
-    w, v, u = velocity
+    u, v, w = velocity
 
     return float(
         dt
         * (
-            np.max(np.abs(w)) / dz_m
+            np.max(np.abs(u)) / dx_m
             + np.max(np.abs(v)) / dy_m
-            + np.max(np.abs(u)) / dx_m
+            + np.max(np.abs(w)) / dz_m
         )
     )
 

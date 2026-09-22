@@ -102,6 +102,38 @@ grid:
 
 
 # ============================================================
+# METEOROLOGY
+# ============================================================
+
+meteorology:
+
+  # These are the two representative seasonal scenarios selected
+  # from the 2025 Open-Meteo analysis. They live in tracked config
+  # because data/processed and output/analysis are gitignored.
+  #
+  # Direction follows the meteorological convention: degrees clockwise
+  # from north and denotes where the wind comes FROM. The transport
+  # vector therefore points TO (direction_from_deg + 180) % 360.
+  source: "Open-Meteo Historical Forecast"
+
+  analysis_period:
+    start_date: "2025-01-01"
+    end_date: "2025-12-31"
+
+  direction_convention: "meteorological_from_deg_clockwise_from_north"
+
+  scenarios:
+
+    dry_nov_apr:
+      direction_from_deg: 112.0
+      speed_m_s: 1.62
+
+    wet_may_oct:
+      direction_from_deg: 227.0
+      speed_m_s: 1.84
+
+
+# ============================================================
 # VOXELIZATION
 # ============================================================
 

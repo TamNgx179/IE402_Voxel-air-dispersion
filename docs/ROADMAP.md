@@ -246,7 +246,7 @@ ngay — chùm khói đi ngược, nồng độ âm, hoặc vệt sọc ở biê
 |---|---|---|---|
 | B4.1 | Mở FV lên 3D (thêm trục y), gió đồng nhất | `transport_step()` nhận velocity 3 thành phần | ✅ |
 | B4.2 | **Kiểm định Bậc 1**: so Gaussian giải tích 3D, mục tiêu < 6 % | Báo cáo sai số | ❌ |
-| B4.3 | Đo thời gian chạy một kịch bản | Con số thời gian thật | ❌ |
+| B4.3 | **Benchmark một kịch bản thật**: ghi Δt do CFL, số bước tới steady-state, thời gian mô phỏng và wall-clock | Bảng benchmark có đủ 4 con số; không dùng lại giả định 800–1.200 bước | ❌ |
 
 > **B4.1 thực chất đã xong**: `transport_step()` làm việc trên `[z,y,x]` với velocity 3
 > thành phần, và 2D chỉ là trường hợp một trục dày 1 ô. Còn thiếu **B4.2** — chưa ai chạy
@@ -308,10 +308,17 @@ ngay — chùm khói đi ngược, nồng độ âm, hoặc vệt sọc ở biê
 | Mã | Việc | Output | TT |
 |---|---|---|---|
 | B6.1 | Ghép trường gió vào bộ giải vận chuyển | Pipeline đầu-cuối chạy được | ❌ |
-| B6.2 | Chạy 3 kịch bản: ĐB đông Δ=5, ĐN hè Δ=5, ĐB Δ=10 | 3 file kết quả | ❌ |
+| B6.2 | Chạy 3 kịch bản đã chốt: **112° / 1,62 m/s, Δ=5 m**; **227° / 1,84 m/s, Δ=5 m**; **112° / 1,62 m/s, Δ=10 m** | 3 file kết quả + log Δt/số bước/wall-clock từng ca | ❌ |
 | B6.3 | So độ phân giải 5 m vs 10 m | Bảng so sánh | ❌ |
 | B6.4 | **Viết test tích hợp đầu-cuối** — hiện chưa có cái nào | `tests/test_integration.py` | ❌ |
 | B6.5 | Kiểm nguồn phát thải không nằm trong voxel rắn | Test khẳng định điều đó | ❌ |
+
+> **Ngân sách bước cho B6.2 đã được tính lại theo gió thật.** Với miền 500 m, tốc độ
+> 1,62 m/s cho thời gian xuyên miền ~309 s; 1,84 m/s cho ~272 s. Dùng ngân sách 4–6
+> lần crossing time và mốc Δt=0,5 s chỉ để lập kế hoạch cho ra khoảng **2.469–3.704**
+> bước ở ca 1,62 m/s và **2.174–3.261** bước ở ca 1,84 m/s. Đây không phải số bước
+> hard-code: runtime phải dùng Δt do `cfl_time_step()` tính từ trường gió thật và dừng khi
+> đạt steady-state. B4.3 là nơi thay dự toán này bằng benchmark thực.
 
 ### Tuần 7 — Xây web → M6
 

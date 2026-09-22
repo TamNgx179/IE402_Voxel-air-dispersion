@@ -70,7 +70,7 @@ Giải chính phương trình mà **mọi mô hình CFD đều giải**:
 
 Rời rạc trên voxel: **upwind bậc 1** cho số hạng tải + **sai phân trung tâm** cho khuếch tán, **sơ đồ hiện**, ràng buộc ổn định CFL `Cr = Δt(|u|/Δx + |v|/Δy + |w|/Δz) ≤ 0,5`.
 
-Chạy tới **trạng thái dừng** (~800–1.200 bước) chứ không chạy đủ giờ đồng hồ → **dưới 1 phút/kịch bản**.
+Chạy tới **trạng thái dừng**, không chạy đủ một giờ. Với hai gió thật **1,62–1,84 m/s**, ngân sách bảo thủ ở mốc Δt=0,5 s là khoảng **2.200–3.700 bước**; số bước và wall-clock thật sẽ được đo ở B4.3 từ Δt CFL của từng kịch bản.
 
 ### 1.4 ⭐ Vì sao chọn mô hình này — 4 lý do
 
@@ -83,7 +83,7 @@ Chạy tới **trạng thái dừng** (~800–1.200 bước) chứ không chạy
 | Native voxel (đúng kỹ thuật đề bài) | 🟡 | ✅ | 🟡 |
 
 **Lý do 2 — Khoảng cách chi phí tới CFD là 2–3 bậc độ lớn.**
-Mô hình chẩn đoán "nhanh hơn LES và DNS **hai đến ba bậc độ lớn**" ([Front. Earth Sci. 2023](https://doi.org/10.3389/feart.2023.1251056)). Cụ thể: **dưới 1 phút** so với **4.744 GPU-giờ = 6,7 ngày trên 32 GPU** cho một ca LES Michel-Stadt. Với 2 người và 8 tuần bán thời gian, con số này tự nó quyết định.
+Mô hình chẩn đoán được báo cáo là nhanh hơn LES và DNS **hai đến ba bậc độ lớn** ([Front. Earth Sci. 2023](https://doi.org/10.3389/feart.2023.1251056)). Với chính implementation của nhóm, **không chốt con số dưới 1 phút trước khi benchmark B4.3 chạy xong**. Mốc LES Michel-Stadt vẫn cho thấy chênh lệch quy mô chi phí: **4.744 GPU-giờ = 6,7 ngày trên 32 GPU** cho một ca.
 
 **Lý do 3 — Mọi biến sống trên cùng một mảng 3D.**
 Mask toà nhà `B[k,j,i]`, gió `u,v,w[k,j,i]`, nhân tử `λ[k,j,i]`, nồng độ `C[k,j,i]` — **cùng một lưới, cùng một shape**. Đây đúng là *"mô hình 3D Array/voxel"* mà đề bài yêu cầu, không phải một mô hình khác rồi ép vào voxel sau.

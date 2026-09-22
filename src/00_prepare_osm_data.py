@@ -4,6 +4,7 @@ import argparse
 import logging
 import math
 import re
+import time
 from pathlib import Path
 from typing import Any
 
@@ -11,6 +12,19 @@ import geopandas as gpd
 import numpy as np
 import osmnx as ox
 import pandas as pd
+
+# Overpass public instances can be temporarily overloaded. The main endpoint
+# is tried first because it is reachable from this machine; VK Maps is the
+# fallback. OSMnx expects the base URL without the trailing /interpreter.
+OVERPASS_ENDPOINTS = (
+    "https://overpass-api.de/api",
+    "https://maps.mail.ru/osm/tools/overpass/api",
+)
+
+# The study polygons are only 500 m x 500 m, so a request that has not
+# completed within one minute is treated as an unhealthy endpoint and we
+# move on instead of blocking the whole preparation workflow for 180 s.
+ox.settings.requests_timeout = 60
 
 from shapely.geometry import Point, box
 
@@ -20,6 +34,64 @@ from voxel.gob_heights import HEIGHT_CAP_M
 LOGGER = logging.getLogger(
     "prepare_osm_data"
 )
+
+
+def run_overpass_with_fallback(
+    operation_name: str,
+    request_callable,
+):
+    """Run one OSMnx request against the configured Overpass instances.
+
+    A public Overpass instance can be reachable but temporarily unable to
+    serve a heavier interpreter query. Trying another global instance is
+    safer than silently changing the OSM data source: all endpoints query
+    the same OpenStreetMap database.
+    """
+
+    failures: list[str] = []
+
+    for endpoint in OVERPASS_ENDPOINTS:
+        ox.settings.overpass_url = endpoint
+
+        LOGGER.info(
+            "%s via %s",
+            operation_name,
+            endpoint,
+        )
+
+        try:
+            result = request_callable()
+
+        except Exception as exc:
+            failures.append(
+                f"{endpoint}: {type(exc).__name__}: {exc}"
+            )
+
+            LOGGER.warning(
+                "%s failed via %s: %s",
+                operation_name,
+                endpoint,
+                exc,
+            )
+
+            # Avoid immediately hammering the next public instance.
+            time.sleep(2.0)
+            continue
+
+        LOGGER.info(
+            "%s succeeded via %s",
+            operation_name,
+            endpoint,
+        )
+
+        return result
+
+    detail = "\n  - ".join(failures)
+
+    raise RuntimeError(
+        f"{operation_name} failed on every configured Overpass endpoint:"
+        f"\n  - {detail}"
+    )
 
 
 # File này nằm trong:
@@ -400,13 +472,14 @@ def download_buildings(
         "from Overpass..."
     )
 
-    buildings = (
-        ox.features_from_polygon(
+    buildings = run_overpass_with_fallback(
+        "OSM building request",
+        lambda: ox.features_from_polygon(
             polygon,
             tags={
                 "building": True
             },
-        )
+        ),
     )
 
     if buildings.empty:
@@ -1206,11 +1279,14 @@ def download_road_network(
         network_type,
     )
 
-    graph = ox.graph_from_polygon(
-        polygon,
-        network_type=network_type,
-        truncate_by_edge=True,
-        retain_all=True,
+    graph = run_overpass_with_fallback(
+        f"OSM road request ({network_type})",
+        lambda: ox.graph_from_polygon(
+            polygon,
+            network_type=network_type,
+            truncate_by_edge=True,
+            retain_all=True,
+        ),
     )
 
     _, edges = ox.graph_to_gdfs(

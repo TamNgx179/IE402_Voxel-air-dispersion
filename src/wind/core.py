@@ -1090,15 +1090,20 @@ def apply_correction(
     v0,
     w0,
     lam,
-    dz: float,
-    dy: float,
-    dx: float,
     *,
+    dx: float,
+    dy: float,
+    dz: float,
     solid=None,
     alpha1: float = 1.0,
     alpha2: float = 1.0,
 ):
-    """Compatibility helper for the original notebook API."""
+    """Apply the solved correction using keyword-only grid spacing.
+
+    Grid spacing follows the same public API convention as
+    :func:`project_mass_consistent`: ``dx``, ``dy``, ``dz``. Requiring
+    keywords prevents anisotropic grids from silently swapping x and z.
+    """
 
     u0 = np.asarray(
         u0,

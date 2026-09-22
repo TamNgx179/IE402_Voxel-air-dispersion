@@ -1,0 +1,56 @@
+{
+  "task": "B1.5",
+  "name": "Week-1 ROADMAP 2D x-z SOR spike",
+  "overall_status": "PASS",
+  "formal_case": {
+    "grid": {
+      "nx": 100,
+      "ny": 1,
+      "nz": 50,
+      "dx_m": 5.0,
+      "dy_m": 5.0,
+      "dz_m": 2.0
+    },
+    "solver": {
+      "omega": 1.78,
+      "tolerance": 0.0001,
+      "max_iter": 10000
+    },
+    "questions": {
+      "q1_sor_converges": {
+        "answer": true,
+        "iterations": 1443,
+        "final_sum_abs_delta_lambda": 9.96621144631702e-05
+      },
+      "q2_divergence_below_threshold_in_every_air_voxel": {
+        "answer": true,
+        "threshold_1_s": 0.001,
+        "max_abs_div_before_1_s": 0.7044329315664111,
+        "max_abs_div_after_1_s": 7.571336712967891e-09,
+        "mean_abs_div_after_1_s": 2.890651819156805e-09
+      },
+      "q3_flow_deflects_around_building": {
+        "answer": true,
+        "max_abs_vertical_speed_near_block_m_s": 3.4509774759118876,
+        "velocity_zero_inside_solid": true,
+        "vector_plot": "output\\figures\\wind_sor_week1_spike.png"
+      }
+    }
+  },
+  "supplemental_robustness": {
+    "status": "PASS",
+    "solver": {
+      "iterations": 2356,
+      "final_sum_abs_delta_lambda": 9.958392846075304e-05
+    },
+    "max_abs_div_before_1_s": 1.0059074466490316,
+    "max_abs_div_after_1_s": 1.2590249909467943e-08,
+    "velocity_zero_inside_all_solids": true,
+    "max_abs_vertical_speed_near_obstacles_m_s": [
+      3.5293274880441974,
+      6.892737004074755,
+      4.82915525339595
+    ],
+    "vector_plot": "output\\figures\\wind_sor_week1_interior_obstacles.png"
+  }
+}

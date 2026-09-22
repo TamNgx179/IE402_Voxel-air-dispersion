@@ -327,7 +327,7 @@ def test_resolvability_beats_coverage_percent():
 # ----------------------------------------------------------------------
 
 def test_no_constant_fallback_remains():
-    source = (REPO_ROOT / "src" / "00_prepare_osm_data.py").read_text()
+    source = (REPO_ROOT / "src" / "00_prepare_osm_data.py").read_text(encoding="utf-8")
 
     assert "fallback_height_m" not in source
     assert "temporary_fallback" not in source

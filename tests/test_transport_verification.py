@@ -57,7 +57,7 @@ def _zero_velocity(shape):
 
 def _uniform_x_wind(shape, speed):
     zero = np.zeros(shape)
-    return (zero, zero.copy(), np.full(shape, speed))
+    return (np.full(shape, speed), zero.copy(), zero.copy())
 
 
 # ---------------------------------------------------------------------------

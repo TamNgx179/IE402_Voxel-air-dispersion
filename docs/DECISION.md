@@ -210,7 +210,7 @@ Cột ⭐ tách làm hai để thấy rõ **cái gì bị mất khi cắt 7 vùn
 | Rối do xe cộ (lặng gió) | ❌ | ❌ | ✅ | ❌ | ❌ | 🟡 | 🟡 | ❌ |
 | Trường 3D theo z | ✅ | ✅ | 🟡 1 giá trị/phố | ✅ **native voxel** | ✅ | ✅ | ✅ | ✅ nhưng thô |
 | Độ phân giải | thành phố | 10–100 m | đoạn phố | **1–10 m** | 1–10 m | 0,5–5 m | < 1 m | **1–12 km** |
-| **Chi phí thực đo** | tức thì | 1 M điểm ~3 phút | giây | **500k ô: dưới 1 phút** | URock 0,5–3 M ô: 2–10 phút | 2 M ô: "vài phút" song song | **4.744 GPU-giờ = 6,7 ngày/32 GPU** | **11.520 CPU-giờ** |
+| **Chi phí thực đo** | tức thì | 1 M điểm ~3 phút | giây | **500k ô: benchmark ở B4.3 — chưa chốt** | URock 0,5–3 M ô: 2–10 phút | 2 M ô: "vài phút" song song | **4.744 GPU-giờ = 6,7 ngày/32 GPU** | **11.520 CPU-giờ** |
 | Độ chính xác (FAC2) | — | thường < 0,5 ở khu dày | SIRANE 0,73–0,90 | (chưa có số công bố cho biến thể này) | **QES-Plume 0,59** | tới ~0,95 ca tốt | cao nhất | — |
 | Mã nguồn mở | tự viết | ✅ AERMOD | 🟡 MUNICH | tự viết | ✅ **URock, QES, GRAL** | ✅ OpenFOAM | ✅ PALM, OpenLB | ✅ CMAQ |
 | **Khả thi 2 SV / 8 tuần bán TG** | CAO | CAO | CAO | ✅ **CAO** | 🟡 TB (dự phòng) | THẤP | RẤT THẤP | RẤT THẤP |
@@ -266,8 +266,8 @@ Mỗi mục có **một câu trả lời** và **một con số** — dùng đư
 | **Δz** | **2 m** | Cần phân giải mực hô hấp 1,5 m và chênh lệch tầng |
 | Kích thước lưới | 100 × 100 × 50 = **500.000 voxel** | |
 | Bộ nhớ | **2 MB/trường** float32; ~30 MB tổng cả bản tạm | Chạy được trên bất kỳ laptop nào |
-| **Δt** | **0,5 s** (Cr ≤ 0,5) | u=5 m/s → tải Δt ≤ 1 s; K_z=1 m²/s, Δz=2 m → khuếch tán Δt ≤ 2 s |
-| **Thời gian mô phỏng** | **Chạy tới trạng thái dừng, KHÔNG chạy đủ 1 giờ** | Gió 5 m/s xuyên miền 500 m mất 100 s → chạy ~400–600 s mô phỏng là hội tụ = **800–1.200 bước ≈ dưới 1 phút thực tế**. Đây là chỗ tiết kiệm lớn nhất |
+| **Δt** | **Tính từ trường gió thật; Cr ≤ 0,5** | `cfl_time_step()` lấy giới hạn nhỏ hơn giữa tải và khuếch tán cho từng kịch bản. **0,5 s chỉ còn là mốc dự toán bảo thủ**, không phải hằng số runtime |
+| **Thời gian mô phỏng** | **Chạy tới trạng thái dừng, KHÔNG chạy đủ 1 giờ** | Hai gió thật là **1,62 và 1,84 m/s**: xuyên 500 m mất lần lượt **~309 s và ~272 s**. Dùng ngân sách 4–6 lần thời gian xuyên miền → **~1.235–1.852 s** và **~1.087–1.630 s** mô phỏng. Với mốc bảo thủ Δt=0,5 s, tương ứng **~2.469–3.704 bước** và **~2.174–3.261 bước**. Số bước thật phải lấy từ Δt CFL và tiêu chí steady-state; B4.3 ghi cả Δt, số bước và wall-clock |
 | LoD | **LoD1** (extrude footprint) | Mái dốc LoD2 không sống sót qua voxel 5 m |
 | Kiểu dữ liệu | **float32** | Tiết kiệm 2× miễn phí |
 | Kịch bản | ⬇️ **3 lần chạy**: 2 hướng gió (ĐB mùa đông, ĐN mùa hè) + 1 lần ở Δ = 10 m để kiểm độ nhạy | Rút từ 6 xuống 3 |

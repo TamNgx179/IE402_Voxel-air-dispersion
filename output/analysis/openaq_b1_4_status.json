@@ -1,0 +1,21 @@
+{
+  "task": "B1.4",
+  "api": "OpenAQ v3",
+  "request": "GET /v3/locations?iso=VN",
+  "country_iso": "VN",
+  "status": "COMPLETED",
+  "api_key_stored": false,
+  "reason": null,
+  "results": {
+    "vietnam_location_count": 58,
+    "vietnam_pm25_location_count": 58,
+    "nguyen_hue_pm25_within_25_km": 19,
+    "nguyen_hue_reference_monitors_within_25_km": 2,
+    "tier3_qualitative_comparison_possible": true,
+    "generated_files": {
+      "all_locations_csv": "data\\processed\\openaq_vietnam_locations.csv",
+      "pm25_locations_csv": "data\\processed\\openaq_vietnam_pm25_locations.csv",
+      "summary_csv": "output\\analysis\\openaq_inventory_summary.csv"
+    }
+  }
+}

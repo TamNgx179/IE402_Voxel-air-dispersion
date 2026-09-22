@@ -40,7 +40,7 @@ class OpenAQPage:
 
     limit: int
 
-    found: int
+    found: int | str | None
 
 
 class OpenAQClient:
@@ -232,13 +232,6 @@ class OpenAQClient:
                 )
             )
 
-            found = int(
-                meta.get(
-                    "found",
-                    len(results),
-                )
-            )
-
         except (
             TypeError,
             ValueError,
@@ -247,6 +240,68 @@ class OpenAQClient:
                 "OpenAQ pagination "
                 "metadata is invalid."
             ) from exc
+
+        raw_found = (
+            meta["found"]
+            if "found" in meta
+            else len(results)
+        )
+
+        if raw_found is None:
+            found: int | str | None = None
+
+        elif (
+            isinstance(
+                raw_found,
+                int,
+            )
+            and not isinstance(
+                raw_found,
+                bool,
+            )
+        ):
+            if raw_found < 0:
+                raise RuntimeError(
+                    "OpenAQ pagination "
+                    "metadata is invalid."
+                )
+
+            found = raw_found
+
+        elif isinstance(
+            raw_found,
+            str,
+        ):
+            found_text = raw_found.strip()
+
+            if found_text.isdigit():
+                found = int(
+                    found_text
+                )
+
+            elif (
+                found_text.startswith(
+                    ">"
+                )
+                and found_text[1:].isdigit()
+            ):
+                # OpenAQ may return lower-bound strings such as
+                # ">1" or ">1000" when an exact count would be
+                # expensive. Preserve the marker and paginate
+                # until the result set is exhausted.
+                found = found_text
+
+            else:
+                raise RuntimeError(
+                    "OpenAQ pagination "
+                    "metadata is invalid."
+                )
+
+        else:
+            raise RuntimeError(
+                "OpenAQ pagination "
+                "metadata is invalid."
+            )
 
         return OpenAQPage(
             results=results,
@@ -397,7 +452,13 @@ class OpenAQClient:
     ) -> list[
         dict[str, Any]
     ]:
-        """Fetch every location matching the supplied filters."""
+        """Fetch every location matching the supplied filters.
+
+        OpenAQ's ``meta.found`` may be an exact integer, ``None``, or a
+        lower-bound string such as ``">1000"``. When the total is not
+        exact, pagination continues until OpenAQ returns a short or empty
+        page instead of trying to do arithmetic with ``meta.found``.
+        """
 
         page_number = 1
 
@@ -427,6 +488,10 @@ class OpenAQClient:
             if (
                 expected_found
                 is None
+                and isinstance(
+                    page.found,
+                    int,
+                )
             ):
                 expected_found = (
                     page.found
@@ -436,13 +501,29 @@ class OpenAQClient:
                 page.results
             )
 
+            if not page.results:
+                break
+
             if (
-                len(results)
+                isinstance(
+                    page.found,
+                    int,
+                )
+                and len(results)
                 >= page.found
             ):
                 break
 
-            if not page.results:
+            if (
+                not isinstance(
+                    page.found,
+                    int,
+                )
+                and len(
+                    page.results
+                )
+                < page.limit
+            ):
                 break
 
             page_number += 1
@@ -466,16 +547,32 @@ class OpenAQClient:
         self,
         **filters: Any,
     ) -> int:
-        """Return API-side count without downloading every record."""
+        """Return an exact count of matching locations.
+
+        OpenAQ may return ``meta.found`` as a lower-bound string such as
+        ``">1"`` or ``">1000"``. If that happens, enumerate the
+        matching location pages and count the downloaded records instead.
+        """
 
         page = (
             self.list_locations_page(
                 **filters,
 
-                limit=1,
+                limit=
+                MAX_PAGE_LIMIT,
 
                 page=1,
             )
         )
 
-        return page.found
+        if isinstance(
+            page.found,
+            int,
+        ):
+            return page.found
+
+        return len(
+            self.list_all_locations(
+                **filters
+            )
+        )

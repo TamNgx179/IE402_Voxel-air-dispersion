@@ -172,7 +172,7 @@ def test_summary_groups_length_by_class():
 def test_config_declares_the_roads_path():
     import yaml
 
-    config = yaml.safe_load(CONFIG_PATH.read_text())
+    config = yaml.safe_load(CONFIG_PATH.read_text(encoding="utf-8"))
 
     assert config["paths"]["roads"] == "data/raw/roads.geojson"
 
@@ -188,7 +188,7 @@ def test_flat_ground_assumption_is_documented():
     requirement: an unstated assumption is the failure mode.
     """
     text = " ".join(
-        (REPO_ROOT / "docs" / name).read_text().lower()
+        (REPO_ROOT / "docs" / name).read_text(encoding="utf-8").lower()
         for name in ("spec.md", "DECISION.md")
     )
 

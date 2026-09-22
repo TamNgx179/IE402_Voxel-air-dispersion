@@ -18,9 +18,14 @@ Never commit the API key into the repository.
 
 from __future__ import annotations
 
+import json
+import os
 import sys
 
 from pathlib import Path
+from typing import Any
+
+from dotenv import load_dotenv
 
 
 SRC_DIR = (
@@ -33,6 +38,12 @@ SRC_DIR = (
 
 ROOT_DIR = (
     SRC_DIR.parent
+)
+
+# Load secrets from the repository-root .env file.
+# This lets os.getenv("OPENAQ_API_KEY") work when the script is run normally.
+load_dotenv(
+    ROOT_DIR / ".env"
 )
 
 
@@ -73,6 +84,51 @@ STUDY_LONGITUDE = (
 NEARBY_RADIUS_M = (
     25_000
 )
+
+B1_4_STATUS_PATH = (
+    ROOT_DIR
+    / "output"
+    / "analysis"
+    / "openaq_b1_4_status.json"
+)
+
+
+def _write_b1_4_status(
+    path: Path,
+    *,
+    status: str,
+    reason: str | None = None,
+    results: dict[str, Any] | None = None,
+) -> Path:
+    """Persist B1.4 execution evidence without storing the API key."""
+
+    payload: dict[str, Any] = {
+        "task": "B1.4",
+        "api": "OpenAQ v3",
+        "request": "GET /v3/locations?iso=VN",
+        "country_iso": VIETNAM_ISO,
+        "status": status,
+        "api_key_stored": False,
+        "reason": reason,
+        "results": results,
+    }
+
+    path = Path(path)
+    path.parent.mkdir(
+        parents=True,
+        exist_ok=True,
+    )
+    path.write_text(
+        json.dumps(
+            payload,
+            ensure_ascii=False,
+            indent=2,
+        )
+        + "\n",
+        encoding="utf-8",
+    )
+
+    return path
 
 
 def _print_nearest_pm25(
@@ -124,8 +180,8 @@ def _print_nearest_pm25(
     )
 
 
-def main() -> None:
-    """Run the complete Week-1 OpenAQ inventory."""
+def _run_inventory() -> dict[str, Any]:
+    """Run the complete Week-1 OpenAQ inventory and return B1.4 results."""
 
     output_dir = (
         ROOT_DIR
@@ -497,6 +553,105 @@ def main() -> None:
         "=" * 72
     )
 
+    return {
+        "vietnam_location_count": int(all_count),
+        "vietnam_pm25_location_count": int(pm25_count),
+        "nguyen_hue_pm25_within_25_km": int(len(nearby)),
+        "nguyen_hue_reference_monitors_within_25_km": int(
+            len(nearby_reference)
+        ),
+        "tier3_qualitative_comparison_possible": bool(
+            tier3_possible
+        ),
+        "generated_files": {
+            "all_locations_csv": str(
+                all_path.relative_to(ROOT_DIR)
+            ),
+            "pm25_locations_csv": str(
+                pm25_path.relative_to(ROOT_DIR)
+            ),
+            "summary_csv": str(
+                summary_path.relative_to(ROOT_DIR)
+            ),
+        },
+    }
+
+
+def main(
+    *,
+    status_path: Path = B1_4_STATUS_PATH,
+) -> int:
+    """Run B1.4 and always leave an explicit status artifact."""
+
+    key = os.getenv(
+        "OPENAQ_API_KEY"
+    )
+
+    if (
+        key is None
+        or not key.strip()
+    ):
+        path = _write_b1_4_status(
+            status_path,
+            status="NOT_RUN_MISSING_API_KEY",
+            reason=(
+                "OPENAQ_API_KEY is not set, so the live "
+                "OpenAQ B1.4 request was not executed."
+            ),
+        )
+
+        print(
+            "B1.4 NOT RUN: OPENAQ_API_KEY is not set."
+        )
+        print(
+            "Status written to: "
+            f"{path}"
+        )
+        print(
+            "Set the key in the current shell and rerun "
+            "src/00_prepare_openaq.py."
+        )
+
+        return 2
+
+    try:
+        results = _run_inventory()
+
+    except Exception as exc:
+        path = _write_b1_4_status(
+            status_path,
+            status="FAILED",
+            reason=(
+                f"{type(exc).__name__}: {exc}"
+            ),
+        )
+
+        print(
+            "B1.4 FAILED before a verified inventory "
+            "could be produced."
+        )
+        print(
+            "Status written to: "
+            f"{path}"
+        )
+
+        raise
+
+    path = _write_b1_4_status(
+        status_path,
+        status="COMPLETED",
+        results=results,
+    )
+
+    print(
+        "B1.4 evidence written to: "
+        f"{path}"
+    )
+
+    return 0
+
 
 if __name__ == "__main__":
-    main()
+    raise SystemExit(
+        main()
+    )

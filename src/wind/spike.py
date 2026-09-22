@@ -2,7 +2,9 @@
 
 from __future__ import annotations
 
+import json
 from pathlib import Path
+from typing import Any
 
 import numpy as np
 
@@ -404,6 +406,33 @@ def save_week1_plot(
     return path
 
 
+def save_week1_result_json(
+    report: dict[str, Any],
+    path,
+) -> Path:
+    """Persist the Week-1 spike evidence as tracked, machine-readable JSON."""
+
+    path = Path(path)
+
+    path.parent.mkdir(
+        parents=True,
+        exist_ok=True,
+    )
+
+    path.write_text(
+        json.dumps(
+            report,
+            indent=2,
+            ensure_ascii=False,
+            sort_keys=False,
+        )
+        + "\n",
+        encoding="utf-8",
+    )
+
+    return path
+
+
 def _max_local_vertical_speed(
     result: WindResult,
     solid: np.ndarray,
@@ -429,8 +458,32 @@ def _max_local_vertical_speed(
     )
 
 
-def run_week1_spike() -> WindResult:
-    """Run the Week-1 ROADMAP gate and robustness validation."""
+def run_week1_spike(
+    *,
+    result_json_path=(
+        Path("output")
+        / "analysis"
+        / "wind_spike_result.json"
+    ),
+    figure_dir=(
+        Path("output")
+        / "figures"
+    ),
+) -> WindResult:
+    """Run the Week-1 ROADMAP gate and persist its evidence.
+
+    The default result file is ``output/analysis/wind_spike_result.json``.
+    It records the answers to the three B1.5 ROADMAP questions, the numerical
+    values supporting those answers, and the supplemental robustness check.
+    """
+
+    result_json_path = Path(
+        result_json_path
+    )
+
+    figure_dir = Path(
+        figure_dir
+    )
 
     # =========================================================
     # FORMAL ROADMAP CASE
@@ -537,14 +590,74 @@ def run_week1_spike() -> WindResult:
         dx=dx,
         dz=dz,
         path=(
-            Path("output")
-            / "figures"
+            figure_dir
             / "wind_sor_week1_spike.png"
         ),
         title=(
             "Week-1 SOR spike: "
             "one centred ground-connected building"
         ),
+    )
+
+    formal_pass = (
+        q1
+        and q2
+        and q3
+    )
+
+    report: dict[str, Any] = {
+        "task": "B1.5",
+        "name": "Week-1 ROADMAP 2D x-z SOR spike",
+        "overall_status": (
+            "PASS"
+            if formal_pass
+            else "FAIL"
+        ),
+        "formal_case": {
+            "grid": {
+                "nx": int(solid.shape[2]),
+                "ny": int(solid.shape[1]),
+                "nz": int(solid.shape[0]),
+                "dx_m": float(dx),
+                "dy_m": float(dy),
+                "dz_m": float(dz),
+            },
+            "solver": {
+                "omega": 1.78,
+                "tolerance": 1.0e-4,
+                "max_iter": 10_000,
+            },
+            "questions": {
+                "q1_sor_converges": {
+                    "answer": bool(q1),
+                    "iterations": int(result.iterations),
+                    "final_sum_abs_delta_lambda": float(
+                        result.sor_residual
+                    ),
+                },
+                "q2_divergence_below_threshold_in_every_air_voxel": {
+                    "answer": bool(q2),
+                    "threshold_1_s": 1.0e-3,
+                    "max_abs_div_before_1_s": max_before,
+                    "max_abs_div_after_1_s": max_after,
+                    "mean_abs_div_after_1_s": mean_after,
+                },
+                "q3_flow_deflects_around_building": {
+                    "answer": bool(q3),
+                    "max_abs_vertical_speed_near_block_m_s": max_w,
+                    "velocity_zero_inside_solid": zero_solid,
+                    "vector_plot": str(plot_path),
+                },
+            },
+        },
+        "supplemental_robustness": None,
+    }
+
+    # Write the formal result before any exception is raised. Even a failed
+    # spike must leave machine-readable evidence instead of terminal-only text.
+    save_week1_result_json(
+        report,
+        result_json_path,
     )
 
     print("=" * 72)
@@ -659,11 +772,12 @@ def run_week1_spike() -> WindResult:
 
     print()
 
-    formal_pass = (
-        q1
-        and q2
-        and q3
+    print(
+        f"result JSON            : "
+        f"{result_json_path}"
     )
+
+    print()
 
     print(
         f"SPIKE RESULT           : "
@@ -808,14 +922,46 @@ def run_week1_spike() -> WindResult:
         dx=mdx,
         dz=mdz,
         path=(
-            Path("output")
-            / "figures"
+            figure_dir
             / "wind_sor_week1_interior_obstacles.png"
         ),
         title=(
             "Supplemental robustness: "
             "horizontal, vertical and rotated interior obstacles"
         ),
+    )
+
+    report["supplemental_robustness"] = {
+        "status": (
+            "PASS"
+            if mpass
+            else "FAIL"
+        ),
+        "solver": {
+            "iterations": int(multi.iterations),
+            "final_sum_abs_delta_lambda": float(
+                multi.sor_residual
+            ),
+        },
+        "max_abs_div_before_1_s": mbefore,
+        "max_abs_div_after_1_s": mafter,
+        "velocity_zero_inside_all_solids": mzero,
+        "max_abs_vertical_speed_near_obstacles_m_s": [
+            float(value)
+            for value in local_w
+        ],
+        "vector_plot": str(multi_plot),
+    }
+
+    report["overall_status"] = (
+        "PASS"
+        if formal_pass and mpass
+        else "FAIL"
+    )
+
+    save_week1_result_json(
+        report,
+        result_json_path,
     )
 
     print()
