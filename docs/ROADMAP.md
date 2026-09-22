@@ -80,6 +80,75 @@ Web tốn ~6 người-ngày trên ngân sách vốn không có đệm.
 
 ---
 
+## 3.5. Tiến độ thực tế — cập nhật 22/09/2026
+
+Đối chiếu từng việc trong §4 và §5 với những gì **thật sự có trên đĩa**. Mọi dòng dưới đây
+kiểm được bằng cách mở file hoặc chạy lệnh.
+
+### Người A — GIS, Dữ liệu, Web
+
+| Tuần | Việc | Trạng thái | Bằng chứng / ghi chú |
+|---|---|---|---|
+| 1 | Chọn 3 địa bàn + Overpass + chốt địa bàn | ✅ **xong** | `study_area_candidates.csv`, chốt Nguyen Hue theo 4,82 voxel/cạnh |
+| 1 | Chiều cao toà nhà | ✅ **xong** | Google Open Buildings 2.5D, **62/62**, 0 suy ra |
+| 1 | Mạng đường OSM | ✅ **xong** | `roads.geojson` — 91 cạnh, 8.777 m, 4 cấp |
+| 1 | DEM GLO-30 | ✅ **đã quyết: BỎ** | Giả định đất phẳng z = 0 — `DECISION.md` *Amendment 22/09* §B. ⚠️ **giả định chưa đo** |
+| 1 | Tiêu chí "gần trạm quan trắc" | ✅ **đạt** | Lãnh sự quán Mỹ 931 m |
+| 2 | Tầng 0 voxel hoá | ✅ **xong sớm** | `01_voxelize.py` + `src/voxel/`, chạy thật 41.084 voxel đặc |
+| 3 | `emissions.py` — mạng đường → nguồn thải | ❌ **chưa** | File 14 dòng, chỉ có `build_source_term()` nhận sẵn chỉ số voxel. **Dữ liệu đầu vào đã sẵn sàng** |
+| 3 | Spike khung web | ❌ **chưa** | `web/` **chưa tồn tại** |
+| 6 | `04_analysis.py` Tầng 3 | ❌ **chưa** | stub 16 dòng |
+| 6 | `06_export_web.py` | ❌ **chưa** | stub 16 dòng |
+| 6 | `05_viz.py` | ❌ **chưa** | stub 14 dòng |
+| 7–8 | Ứng dụng web W1–W8 | ❌ **chưa bắt đầu** | Không có `web/index.html` |
+
+### Người B — Mô hình, Số trị
+
+| Tuần | Việc | Trạng thái | Bằng chứng / ghi chú |
+|---|---|---|---|
+| 1 | Dựng repo và môi trường | ✅ **xong** | `.venv` Python 3.12.14, 67 test chạy được |
+| 1 | Open-Meteo — profile gió 19 mực + PBL | ❌ **chưa** | Không có `wind_profile.csv` ở đâu trong repo |
+| 1 | Hoa gió 2 mùa, chốt 2 hướng gió | ❌ **chưa** | Không có hình hoa gió |
+| 1 | OpenAQ — đếm thật số trạm Việt Nam | ❌ **chưa** | Chưa có khoá, chưa có kết quả. Việc này quyết định Bậc 3 §6 có làm được không |
+| 1 | ⭐ **Spike SOR 2D** | 🟡 **làm dở** | `notebooks/02_wind_2d_debug.ipynb` có khung; **cell 5 chưa chạy**, `sor_poisson` vẫn `NotImplementedError`. **Ba câu hỏi của spike đều chưa có câu trả lời** |
+| 2 | Gaussian giải tích | ✅ **xong** | `gaussian.py` 852 dòng + `src/dispersion/`, 3 hình trong `output/figures/` |
+| 3 | Bộ giải FV 2D | ✅ **xong** | `03_transport.py`, **12 test** verification |
+| 4 | FV lên 3D | ✅ **thực chất đã xong** | `transport_step()` nhận velocity 3 thành phần trên `[z,y,x]`; 2D chỉ là trường hợp một trục dày 1 ô |
+| 5 | Trường gió mass-consistent | ❌ **chưa** | `02_wind.py` 34 dòng; `sor_poisson()` `raise NotImplementedError`. **Đây là đường găng** |
+
+### Đã làm nhưng còn thiếu — ghi lại để không quên
+
+| # | Việc | Thiếu gì |
+|---|---|---|
+| 1 | **Xung đột thứ tự thành phần gió** | `02_wind.py` dùng `(u,v,w) = (x,y,z)`, `03_transport.py` dùng `(w,v,u)` khớp `[z,y,x]`. Docstring đã cảnh báo nhưng **chưa ai chốt**. Phải chốt **trước khi** nối Tầng 1 với Tầng 2, nếu không sẽ ra một trường gió xoay trục mà mọi test đơn lẻ vẫn xanh |
+| 2 | **Tầng 0 báo sai provenance** | `src/voxel/heights.py` in `height_source: direct:height 62` cho cả 62 toà, vì bước 00 đã điền số cho mọi toà. Dữ liệu từng toà đúng (`prepared_height_source` sống sót vào GeoJSON), chỉ **dòng log và thuộc tính netCDF sai** |
+| 3 | **Chưa phân tích độ nhạy chiều cao** | `RESEARCH.md` §1007 yêu cầu. Nay **rẻ hơn nhiều** vì đã có hai trường chiều cao độc lập cho cùng địa bàn — chỉ cần chạy mô hình hai lần và so |
+| 4 | **Giả định đất phẳng chưa đo** | Chưa ai tính độ chênh cao trong ô 500 m. Phải nằm trong chương Hạn chế như **giả định**, không phải kết luận |
+| 5 | **H/W của địa bàn chưa đo** | §4 `DECISION.md` đòi "khu có hẻm phố rõ rệt"; Nguyễn Huệ là đại lộ rộng. `RESEARCH.md` §5.1 cấm trích ngưỡng Oke từ nguồn thứ cấp nên không kết luận bằng suy đoán được |
+| 6 | **`maxspeed` chỉ phủ 47 %** | Đã đo và đã thành BR-28: tuần 3 phân bổ phát thải theo **cấp đường**, không theo tốc độ |
+| 7 | **Notebook 01 đã chạy, notebook 02 chưa xong** | `01_fv_2d_debug.ipynb` có output ở 4 cell; `02_wind_2d_debug.ipynb` cũng 4 cell nhưng **cell spike chưa chạy** |
+| 8 | **Landmark 81 hiện ghi `failed` trong CSV** | Overpass chặn tần suất ngày 22/09. Không phải lỗi code, không ảnh hưởng lựa chọn. Chạy lại `00_prepare_osm_data.py` khi Overpass hồi là khôi phục |
+
+### Đọc thẳng
+
+**Nhánh dữ liệu đi trước lịch, nhánh số trị đi sau.**
+
+Tầng 0 và Tầng 2 — hai phần nhiều code nhất — đã xong và có test thật. Đầu vào đã đủ cho
+tới tuần 3.
+
+Nhưng **Tầng 1 vẫn là một dòng `NotImplementedError`**, và nó chặn mọi thứ phía sau: không
+có gió thì Tầng 2 không chạy được trên dữ liệu thật, không có kết quả thì không có gì để
+phân tích hay đẩy lên web. **Web — thứ bị chấm điểm — chưa có một dòng nào.**
+
+**Hai việc cấp nhất, độc lập nhau nên làm song song được:**
+
+| Người | Việc | Vì sao gấp |
+|---|---|---|
+| **B** | Chạy nốt **spike SOR 2D** ở `notebooks/02_wind_2d_debug.ipynb` | Rủi ro số 1 của cả đồ án, và đã trễ so với kế hoạch đưa nó lên tuần 1 |
+| **A** | `emissions.py` + **spike khung web** | Dữ liệu đường đã sẵn; web là thứ bị chấm mà chưa động tới |
+
+---
+
 ## 4. Giai đoạn 1 — tới seminar
 
 ### Tuần 1 — Dữ liệu và chọn địa bàn
@@ -89,7 +158,7 @@ Tuần này quyết định một thứ **không sửa lại được: chọn đ
 | | Người A | Người B |
 |---|---|---|
 | **Việc** | Chọn 3 địa bàn ứng viên ở Hà Nội / TP.HCM — có hẻm phố rõ, gần trạm quan trắc, giao thông đông. Chạy Overpass đếm `building` vs `building:levels` vs `height` cho từng cái. **Chốt địa bàn mà khối nhà trung vị phân giải được ở Δ = 5 m (≥ 4 voxel mỗi cạnh)**; độ phủ thẻ chỉ là tiêu chí phụ. **Ghép chiều cao từ Google Open Buildings 2.5D.** Tải OSM extract, footprint, mạng đường, DEM GLO-30 | Dựng repo và môi trường. Kéo Open-Meteo lấy profile gió 19 mực áp suất + PBL height. Vẽ hoa gió theo mùa, chốt 2 hướng gió đại diện. Lấy API key OpenAQ, đếm trạm Việt Nam thật. **Chạy spike SOR 2D** (xem dưới) |
-| **Output** | `data/raw/study_area.geojson`<br>`study_area_candidates.csv` — 3 ứng viên kèm độ phủ thẻ, λ_P, số voxel mỗi cạnh **và provenance chiều cao cuối cùng**<br>**Bảng đối chứng chéo OSM vs Google 2.5D**<br>Thư mục dữ liệu thô đã tải | `wind_profile.csv`<br>Hình hoa gió 2 mùa<br>**Kết luận spike: SOR có hội tụ không, sau bao nhiêu vòng lặp**<br>Repo chạy được trên cả 2 máy |
+| **Output** | `data/raw/study_area.geojson`<br>`study_area_candidates.csv` — 3 ứng viên kèm độ phủ thẻ, λ_P, số voxel mỗi cạnh **và provenance chiều cao cuối cùng**<br>**Bảng đối chứng chéo OSM vs Google 2.5D**<br>`data/raw/roads.geojson` — 91 cạnh, 8.777 m, phân 4 cấp | `wind_profile.csv`<br>Hình hoa gió 2 mùa<br>**Kết luận spike: SOR có hội tụ không, sau bao nhiêu vòng lặp**<br>Repo chạy được trên cả 2 máy |
 
 **Spike tuần 1 — kéo bài toán rủi ro nhất lên sớm 4 tuần.** Chưa ai biết SOR Poisson có hội tụ trên mask toà nhà thật hay không. Nó nằm trên đường găng với hai stage phụ thuộc phía sau, mà lịch cũ để tận tuần 5.
 
@@ -100,7 +169,13 @@ Tuần này quyết định một thứ **không sửa lại được: chọn đ
 
 **Nếu cả 3 địa bàn đều thưa thẻ chiều cao:** dùng Google Open Buildings 2.5D Temporal làm nguồn chính + số hoá tay ~50 toà nhà ở lõi miền. Cộng 2 người-ngày.
 
-> **Trạng thái 21/09/2026 — phần Người A đã xong.** Cả 3 địa bàn **đều** thưa thật
+> **Trạng thái 22/09/2026 — phần Người A ĐÃ XONG TRỌN VẸN.** Mạng đường: **91 cạnh,
+> 8.777 m** (residential 4.789 · tertiary 3.132 · primary 553 · secondary 302), khai ở
+> `paths.roads`. **DEM GLO-30: bỏ khỏi phạm vi** — mô hình giả định đất phẳng z = 0, lý do ở
+> `docs/DECISION.md` *Amendment 22/09/2026* §B. **Tiêu chí "gần trạm quan trắc": ĐẠT** —
+> Lãnh sự quán Mỹ cách **931 m**, tuy OSM không có trạm không khí nào trong 30 km.
+>
+> **Trạng thái 21/09/2026 — chọn địa bàn và chiều cao.** Cả 3 địa bàn **đều** thưa thật
 > (33,8 % / 33,9 % / 4,9 %), nên đã đi đúng nhánh dự phòng này. Chốt **Nguyen Hue**
 > (4,82 voxel/cạnh; Ben Thanh 2,00 và Landmark 81 2,90 đều không phân giải được).
 > **Google Open Buildings 2.5D phủ 62/62 toà nhà — không còn toà nào phải suy ra chiều cao.**

@@ -11,6 +11,12 @@ paths:
 
   study_area: "data/raw/study_area.geojson"
 
+  # Road centrelines with an OSM class and a length in metres.
+  # The emission step distributes traffic across these by class,
+  # because no open traffic count exists for HCMC - see
+  # docs/DECISION.md section 5. Written by 00_prepare_osm_data.py.
+  roads: "data/raw/roads.geojson"
+
   voxel_netcdf: "data/processed/voxel_grid.nc"
 
   processed_buildings: "data/processed/buildings_with_height.geojson"

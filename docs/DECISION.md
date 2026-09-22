@@ -451,3 +451,77 @@ lý do, và làm nó đúng.
 - **Tỉ lệ H/W của địa bàn chưa đo.** §4 đòi "một khu có hẻm phố rõ rệt"; Nguyen Hue là đại lộ
   rộng. `docs/RESEARCH.md` §5.1 ghi 🔴 rằng ngưỡng H/W của Oke (1988) chỉ có trong search
   snippet và **không được trích nếu chưa mở bài gốc**, nên không thể kết luận bằng suy đoán.
+
+---
+
+## Amendment, 22/09/2026 — mạng đường, và quyết định BỎ địa hình
+
+Ghi thêm, **không sửa** các mục trên. Đây là phần còn lại tuần 1 của Người A.
+
+### A. Mạng đường đã tải và phân cấp
+
+`data/raw/roads.geojson`, khai trong `config/project.yaml` → `paths.roads`.
+
+| `highway=` | cạnh | chiều dài |
+|---|---|---|
+| residential | 45 | 4.789 m |
+| tertiary | 32 | 3.132 m |
+| primary | 6 | 553 m |
+| secondary | 8 | 302 m |
+| **tổng** | **91** | **8.777 m** |
+
+Mỗi cạnh mang `highway`, `length_m` (đo ở **UTM**, không đo ở độ), `name`, `oneway`,
+`lanes`, `maxspeed`.
+
+**Phân bổ phát thải ở tuần 3 phải dựa trên CẤP ĐƯỜNG, không dựa trên `maxspeed`.** Đo được:
+`name` và `oneway` phủ 100 %, `lanes` 75 %, nhưng **`maxspeed` chỉ 47 %** — một nửa số đường
+không có dữ liệu tốc độ.
+
+`network_type="drive"` là cố ý. Lòng đường Nguyễn Huệ nằm trong mạng (gắn `tertiary`);
+quảng trường đi bộ là feature riêng `highway=pedestrian` và **bị loại đúng chủ ý** — không
+có xe thì không có phát thải.
+
+### B. 🔴 GIẢ ĐỊNH ĐẤT PHẲNG — mô hình đặt mọi toà nhà trên mặt phẳng z = 0
+
+**Copernicus DEM GLO-30 bị bỏ khỏi phạm vi.** Đây là quyết định, không phải bỏ sót. Ba lý do
+độc lập, mỗi lý do tự nó đã đủ:
+
+1. **Pipeline không có khái niệm địa hình.** `src/voxel/rasterizer.py:326` dựng mask bằng
+   `z_centers[:, None, None] < height_field[None, :, :]`. Grep `terrain|ground_level|dem`
+   toàn bộ `src/` không ra kết quả nào. Thêm địa hình là sửa Tầng 0 đã xong và đã có test.
+2. **Chiều cao Google Open Buildings là *"relative to the terrain"***, tức **đã trừ nền đi
+   rồi**. Đó đúng là đại lượng mô hình đất phẳng cần. Cộng thêm cao độ nền vào là **làm sai
+   đi**, không phải làm đúng hơn.
+3. **GLO-30 là DSM đã chứa nhà.** §5 của chính tài liệu này đã cảnh báo *"KHÔNG extrude nhà
+   lên trên nó (đếm 2 lần)"*. Dùng đúng thì cần một DTM riêng — tức thêm một nguồn nữa.
+
+**Đây là GIẢ ĐỊNH, không phải kết luận đã đo.** Chưa ai đo độ chênh cao trong ô 500 m. Phương
+án "tải DEM chỉ để đo rồi vẫn bỏ" đã được cân nhắc và **loại**, vì kết quả đo không đổi được
+quyết định: lý do 2 và 3 đúng bất kể chênh cao là 1 m hay 5 m. **Phải nêu trong chương Hạn
+chế** như một giả định.
+
+### C. Tiêu chí "gần trạm quan trắc" — ĐẠT, nhưng không như ROADMAP tưởng
+
+| | Khoảng cách tới tâm địa bàn |
+|---|---|
+| **Tổng Lãnh sự quán Hoa Kỳ** — feed AirNow, §5 chốt làm ground truth | **931 m** ✅ |
+| Trạm thuỷ văn Phú An | 419 m — đo **thuỷ văn** |
+| Trạm Khí tượng Tân Sơn Hoà | 4.707 m — đo **khí tượng** |
+
+⚠️ **Truy vấn `monitoring:air_quality=yes` bán kính 30 km: OSM không có trạm nào gắn thẻ.**
+Hai "trạm" gần nhất trong OSM đo thuỷ văn và khí tượng.
+
+🔴 **Đọc cho đúng: đây là phát biểu về ĐỘ ĐẦY ĐỦ CỦA OSM, không phải về thực tế.** Trạm
+tham chiếu vẫn tồn tại và vẫn hoạt động — chính §5 của tài liệu này chốt nó là **feed AirNow
+của Lãnh sự quán Mỹ**, và nó cách địa bàn 931 m. OSM chỉ là chưa ai gắn thẻ.
+
+**Hệ quả với phạm vi: không có.** §6 chỉ cần trạm cho **Bậc 3 (so định tính)**, vốn đã ghi
+là *"LÀM NẾU KỊP"*. Bậc 1 verification — phần bắt buộc — không cần trạm nào.
+
+**Việc thật sự phải làm nếu muốn Bậc 3** không phải gắn thẻ OSM mà là kiểm dữ liệu có tải
+được không: §8 giao Người B *"lấy API key OpenAQ, chạy `GET /v3/locations?iso=VN`, đếm thật"*
+— **vẫn chưa làm**.
+
+Nguồn đối chiếu khả dĩ duy nhất là AirNow của Lãnh sự quán Mỹ, và **931 m là khoảng cách
+tốt**. Nhưng có trạm gần **không** biến verification thành validation — `docs/spec.md` BR-15
+vẫn nguyên, và §6 của tài liệu này vẫn đặt validation ngoài phạm vi.

@@ -399,3 +399,70 @@ Buildings read, 2026-09-21), `src/01_voxelize.py` (41 084 solid voxels), `pytest
 **External links:** the Open Buildings 2.5D dataset page and the Earth Engine catalog entry,
 both already recorded in `docs/RESEARCH.md` §1002 and §19 item 178. The accuracy caveat is
 quoted from those pages verbatim; the 23.2 m MAE is this project's own measurement.
+
+---
+
+## Amendment, 2026-09-22 — road network, and the flat-ground assumption
+
+Appended, not edited. The rest of Person A's week-1 work. Reasoning:
+`docs/DECISION.md`, *Amendment 22/09/2026*.
+
+### New source ids
+
+| Source id | Kind | Supports |
+| --- | --- | --- |
+| `OBS-15` | observed | The study area holds **91 road edges, 8 777 m**, across residential / tertiary / primary / secondary |
+| `OBS-16` | observed | Tag coverage: `name` and `oneway` 100 %, `lanes` 75 %, **`maxspeed` only 47 %** |
+| `OBS-17` | observed | **OSM tags no `monitoring:air_quality` station within 30 km** — a statement about OSM's completeness, **not** about whether stations exist. The nearest OSM monitoring stations measure hydrology (419 m) and meteorology (4 707 m). The reference station in `DECISION.md` §5, the US Consulate AirNow feed, is real and 931 m away |
+| `OBS-18` | observed | The **US Consulate General**, whose AirNow feed is the reference in `DECISION.md` §5, is **931 m** from the study-area centre |
+| `DEC-8` | MVP decision | **Copernicus DEM GLO-30 is out of scope.** The model places every building on a flat z = 0 plane |
+
+### Added business rules
+
+| | Rule | Source |
+| --- | --- | --- |
+| **BR-26** | **The model assumes flat ground at z = 0.** This is a stated assumption, never measured: nobody has computed the relief across the 500 m block. It belongs in the limitations chapter of every report | `DEC-8` |
+| **BR-27** | **Building heights are already relative to terrain**, so a ground elevation is never added to them. Doing so would double-count the ground, not improve the geometry | `DEC-8`, `EXT-8` |
+| **BR-28** | **Traffic emission is allocated by OSM road class, never by `maxspeed`.** Class covers 100 % of edges; `maxspeed` covers 47 %, so a speed weighting would silently drop half the network | `OBS-15`, `OBS-16` |
+| **BR-29** | **Road length is measured in the local UTM zone, never in degrees.** The emission factor is per kilometre, and a degree is not a length | `OBS-15` |
+| **BR-30** | **A study area with no road edges is an error.** No roads means no emission source, and an empty file would only surface in week 3 | `OBS-15` |
+| **BR-31** | **Proximity to a reference station is not validation.** The Consulate is 931 m away, which makes a future comparison *possible*; it does not make the model validated. BR-15 stands | `OBS-18` |
+| **BR-32** | **An absent OSM tag is never reported as an absent thing.** OSM completeness and physical reality are different claims, and conflating them turns a gap in a volunteer database into a false statement about the world | `OBS-17` |
+
+### Added edge cases
+
+| Situation | Expected | Source |
+| --- | --- | --- |
+| An OSM edge merges two ways, so `highway` is a list | collapsed to a single class; a list cannot be a GeoJSON property or a group key | BR-28 |
+| A road edge runs past the domain boundary | kept — the part inside still emits. Clipping belongs to the week-3 rasterisation step | BR-30 |
+| The pedestrian plaza on Nguyen Hue | deliberately absent from the network: `highway=pedestrian` carries no vehicles, so no emission. The carriageway beside it **is** present as `tertiary` | BR-28 |
+| `lanes` or `maxspeed` absent on an edge | serialised as null and **not** used as a weight | BR-28, `OBS-16` |
+| Overpass fails for one candidate | recorded as `failed: …` in the candidate CSV and the run continues. Observed live on 2026-09-22 for Landmark 81 | BR-30 |
+
+### Added acceptance criteria
+
+| ID | Criterion | Traces to |
+| --- | --- | --- |
+| AC-31 | Every road edge written carries a non-empty `highway` class and a `length_m` greater than zero | BR-28, BR-29 |
+| AC-32 | `length_m` equals the edge's geometric length in the local UTM zone within 1 % | BR-29 |
+| AC-33 | A study area returning no road edges stops the preparation stage with an error naming the candidate | BR-30 |
+| AC-34 | `config/project.yaml` declares `paths.roads`, so no consumer has to guess the location | BR-28 |
+| AC-35 | The flat-ground assumption and the reason for skipping the DEM are stated in the project documents | BR-26, `DEC-8` |
+
+### Known gaps this amendment does not close
+
+- **The flat-ground assumption is unmeasured.** No relief figure exists for the block.
+- **No traffic count exists.** `DECISION.md` §5 already records this as the largest
+  uncertainty; road class is a relative allocator only.
+- **Week 3 still has to build the emission field.** This amendment delivers the input data,
+  not `emissions.py`.
+
+### Sources
+
+**Local files inspected:** `src/emissions.py`, `src/voxel/rasterizer.py:326`,
+`config/project.yaml`, `docs/ROADMAP.md` §4, `docs/DECISION.md` §5 §6, `docs/RESEARCH.md` §1002.
+
+**Real runs:** `.harness/tasks/a-w1-road-network/probe.py`, `probe2.py`, `probe3.py`
+(Overpass, 2026-09-22), `src/00_prepare_osm_data.py`, `pytest`.
+
+**External links:** none. Every figure is a measurement taken in this repository.

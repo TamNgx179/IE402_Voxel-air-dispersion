@@ -34,7 +34,7 @@ Kèm **chùm khói Gaussian giải tích** (hệ số Briggs đô thị) làm ba
 
 | File | Nội dung |
 |---|---|
-| [`docs/spec.md`](docs/spec.md) | Đặc tả: 25 business rule, 19 edge case, 30 acceptance criteria |
+| [`docs/spec.md`](docs/spec.md) | Đặc tả: 31 business rule, 24 edge case, 35 acceptance criteria |
 | [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md) | Kiến trúc, luồng dữ liệu, **các phương án bị loại và lý do** |
 | [`docs/DECISION.md`](docs/DECISION.md) | Chọn mô hình nào, trade-off, so sánh với 8 họ mô hình khác |
 | [`docs/RESEARCH.md`](docs/RESEARCH.md) | Khảo sát có nguồn, 339 link |
@@ -56,7 +56,7 @@ src/
 ├── voxel/                lưới, chiều cao, raster, GIS, output
 │   └── gob_heights.py    chiều cao từ Google Open Buildings 2.5D
 └── dispersion/           Gaussian + vẽ hình
-tests/                    50 test, chạy bằng pytest
+tests/                    67 test, chạy bằng pytest
 notebooks/                debug 2D — viết và sửa ở 2D TRƯỚC khi lên 3D
 config/project.yaml       miền, bước lưới, quy tắc chiều cao, dtype
 ```
@@ -72,6 +72,10 @@ Tầng 0, baseline Gaussian và Tầng 2 đã xong và có test. Tầng 1 và T�
 **Chiều cao nhà:** Google Open Buildings 2.5D Temporal (2023) phủ **62/62 toà nhà** — không toà nào phải suy ra. OSM cấp hình học footprint và đóng vai đối chứng chéo, đúng [`docs/DECISION.md`](docs/DECISION.md) §5. Truy cập ẩn danh qua HTTPS, **không cần tài khoản Earth Engine**.
 
 > 🔴 **Đừng trích con số MAE 1,5 m của Google.** Google ghi rõ độ chính xác đó *"chỉ đánh giá ở Bắc Mỹ, châu Âu và Nhật Bản — không phải Global South"*. Đối chứng tại chỗ với 21 toà nhà có thẻ OSM cho **MAE 23,2 m** (sai lệch tuyệt đối trung vị 7,0 m, r = 0,74). **Dùng 23,2 m trong báo cáo.** Sản phẩm cũng **chặn trần 100 m**, nên ba toà tháp mà OSM ghi 154 / 164,9 / 186 m trả về 88,5 / 62,5 / 91,0 m — đó là cận dưới, không phải phép đo.
+
+**Mạng đường:** `data/raw/roads.geojson` — 91 cạnh, 8.777 m, 4 cấp `highway`. Phân bổ phát thải ở tuần 3 dùng **cấp đường**, không dùng `maxspeed` (chỉ phủ 47 %).
+
+> ⚠️ **Mô hình giả định mặt đất phẳng z = 0.** Copernicus DEM GLO-30 nằm ngoài phạm vi: pipeline không có khái niệm địa hình, chiều cao Google vốn đã *relative to terrain*, và GLO-30 là DSM đã chứa nhà. **Đây là giả định chưa đo** — xem [`docs/DECISION.md`](docs/DECISION.md) *Amendment 22/09/2026* §B.
 
 **Kiểm định:** mới ở mức verification — so với nghiệm giải tích và các định luật bảo toàn. **Chưa validation** với số liệu hầm gió hay hiện trường; lý do ghi ở [`docs/DECISION.md`](docs/DECISION.md) §6.
 

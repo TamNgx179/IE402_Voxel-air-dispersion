@@ -1126,6 +1126,211 @@ def prepare_building_output(
 
 
 # ============================================================
+# ROAD NETWORK
+# ============================================================
+#
+# Traffic is the emission source for this model, and the road
+# class is how it gets distributed: docs/DECISION.md section 5
+# records that no open traffic count exists for HCMC, so the
+# OSM class is a RELATIVE allocator, not a measurement.
+#
+# network_type="drive" on purpose. It carries the Nguyen Hue
+# carriageways as `tertiary`, and leaves out the pedestrian
+# plaza, which has no vehicles and therefore no emissions.
+
+ROAD_TAG_COLUMNS = (
+    "name",
+    "oneway",
+    "lanes",
+    "maxspeed",
+)
+
+
+def normalise_highway_class(
+    value: Any,
+) -> str | None:
+    """
+    One road class per edge.
+
+    osmnx returns a LIST when two OSM ways merge into a single
+    edge, e.g. ['residential', 'unclassified']. A list cannot
+    go into a GeoJSON property and cannot be grouped on, so
+    take the first entry and keep it deterministic.
+    """
+
+    if isinstance(
+        value,
+        (
+            list,
+            tuple,
+        ),
+    ):
+        for item in value:
+            if item:
+                return str(item)
+
+        return None
+
+    try:
+        if pd.isna(value):
+            return None
+    except (
+        TypeError,
+        ValueError,
+    ):
+        pass
+
+    text = str(value).strip()
+
+    return text or None
+
+
+def download_road_network(
+    study_area: gpd.GeoDataFrame,
+    *,
+    network_type: str = "drive",
+) -> gpd.GeoDataFrame:
+    """Road centrelines inside the study-area polygon."""
+
+    polygon = (
+        study_area
+        .to_crs(
+            "EPSG:4326"
+        )
+        .geometry
+        .iloc[0]
+    )
+
+    LOGGER.info(
+        "Requesting OSM road network (%s)...",
+        network_type,
+    )
+
+    graph = ox.graph_from_polygon(
+        polygon,
+        network_type=network_type,
+        truncate_by_edge=True,
+        retain_all=True,
+    )
+
+    _, edges = ox.graph_to_gdfs(
+        graph
+    )
+
+    return edges
+
+
+def prepare_road_output(
+    edges: gpd.GeoDataFrame,
+    *,
+    candidate_name: str,
+) -> gpd.GeoDataFrame:
+    """
+    Prepare road centrelines for the emission step.
+
+    Adds `length_m`, measured in the local UTM zone. Measuring
+    in degrees would make a metre mean different things at
+    different latitudes, and the emission factor is per km.
+    """
+
+    if len(edges) == 0:
+        raise ValueError(
+            f"Candidate '{candidate_name}' returned no road edges. "
+            "Without roads there is no traffic emission source, so "
+            "refusing to write an empty network."
+        )
+
+    utm = edges.estimate_utm_crs()
+    projected = edges.to_crs(utm)
+
+    records: list[
+        dict[
+            str,
+            Any,
+        ]
+    ] = []
+
+    for (
+        index,
+        row,
+    ), geometry_m in zip(
+        edges.iterrows(),
+        projected.geometry,
+    ):
+        record: dict[str, Any] = {
+            "osm_u": str(index[0]),
+            "osm_v": str(index[1]),
+            "highway": normalise_highway_class(
+                row.get("highway")
+            ),
+            "length_m": float(
+                geometry_m.length
+            ),
+        }
+
+        for column in ROAD_TAG_COLUMNS:
+            value = row.get(column)
+
+            try:
+                if pd.isna(value):
+                    value = None
+            except (
+                TypeError,
+                ValueError,
+            ):
+                pass
+
+            record[column] = (
+                None
+                if value is None
+                else str(value)
+            )
+
+        record["geometry"] = row.geometry
+        records.append(record)
+
+    return (
+        gpd.GeoDataFrame(
+            records,
+            geometry="geometry",
+            crs=edges.crs,
+        )
+        .reset_index(
+            drop=True
+        )
+    )
+
+
+def summarise_roads(
+    roads: gpd.GeoDataFrame,
+) -> pd.DataFrame:
+    """Length per road class - the allocator the emission step uses."""
+
+    return (
+        roads
+        .groupby(
+            "highway",
+            dropna=False,
+        )
+        .agg(
+            edges=(
+                "length_m",
+                "size",
+            ),
+            length_m=(
+                "length_m",
+                "sum",
+            ),
+        )
+        .sort_values(
+            "length_m",
+            ascending=False,
+        )
+        .round(1)
+    )
+
+
+# ============================================================
 # MAIN
 # ============================================================
 
@@ -1664,6 +1869,40 @@ def main() -> None:
         driver="GeoJSON",
     )
 
+    # --------------------------------------------------------
+    # ROAD NETWORK
+    # --------------------------------------------------------
+
+    roads_path = (
+        raw_dir
+        / "roads.geojson"
+    )
+
+    prepared_roads = (
+        prepare_road_output(
+            download_road_network(
+                study_area
+            ),
+            candidate_name=winner_name,
+        )
+    )
+
+    prepared_roads.to_file(
+        roads_path,
+        driver="GeoJSON",
+    )
+
+    road_summary = summarise_roads(
+        prepared_roads
+    )
+
+    LOGGER.info(
+        "%s: %d road edges, %.0f m total",
+        winner_name,
+        len(prepared_roads),
+        prepared_roads.length_m.sum(),
+    )
+
     # The real provenance, after every source has had its turn.
     source_counts = (
         prepared_buildings["prepared_height_source"]
@@ -1733,6 +1972,11 @@ def main() -> None:
     )
 
     print(
+        f"Roads: "
+        f"{roads_path}"
+    )
+
+    print(
         f"Candidate report: "
         f"{report_path}"
     )
@@ -1741,6 +1985,16 @@ def main() -> None:
         f"Prepared buildings: "
         f"{len(prepared_buildings)}"
     )
+
+    print(
+        f"Prepared road edges: "
+        f"{len(prepared_roads)}, "
+        f"{prepared_roads.length_m.sum():.0f} m total"
+    )
+
+    print()
+    print("Road length by class (the emission allocator):")
+    print(road_summary.to_string())
 
     print()
     print("Height provenance:")
