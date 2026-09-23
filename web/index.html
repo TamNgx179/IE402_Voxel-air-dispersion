@@ -1,0 +1,1380 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+  <meta charset="UTF-8" />
+
+  <meta
+    name="viewport"
+    content="width=device-width, initial-scale=1.0"
+  />
+
+  <title>
+    A3.6 Web Spike - Voxel Air Dispersion
+  </title>
+
+  <link
+    rel="stylesheet"
+    href="https://unpkg.com/maplibre-gl@5.24.0/dist/maplibre-gl.css"
+  />
+
+  <style>
+    * {
+      box-sizing: border-box;
+    }
+
+    html,
+    body {
+      width: 100%;
+      height: 100%;
+      margin: 0;
+      overflow: hidden;
+      font-family:
+        Inter,
+        system-ui,
+        -apple-system,
+        BlinkMacSystemFont,
+        "Segoe UI",
+        sans-serif;
+      background: #08111f;
+    }
+
+    #map {
+      position: absolute;
+      inset: 0;
+    }
+
+    .panel {
+      position: absolute;
+      z-index: 20;
+
+      top: 20px;
+      left: 20px;
+
+      width: 370px;
+      max-width: calc(100vw - 40px);
+
+      padding: 18px;
+
+      border:
+        1px solid
+        rgba(255, 255, 255, 0.13);
+
+      border-radius: 16px;
+
+      background:
+        rgba(8, 17, 31, 0.92);
+
+      color: #e5e7eb;
+
+      box-shadow:
+        0 18px 45px
+        rgba(0, 0, 0, 0.35);
+
+      backdrop-filter:
+        blur(12px);
+    }
+
+    h1 {
+      margin: 0 0 6px;
+
+      font-size: 18px;
+      line-height: 1.3;
+    }
+
+    .subtitle {
+      margin: 0 0 18px;
+
+      color: #9ca3af;
+
+      font-size: 13px;
+      line-height: 1.45;
+    }
+
+    .row {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+
+      gap: 12px;
+
+      margin-bottom: 8px;
+    }
+
+    .row label {
+      font-size: 13px;
+      font-weight: 700;
+    }
+
+    #height-value {
+      padding: 5px 12px;
+
+      border-radius: 999px;
+
+      background:
+        rgba(59, 130, 246, 0.2);
+
+      color: #bfdbfe;
+
+      font-size: 13px;
+      font-weight: 700;
+    }
+
+    #height-slider {
+      width: 100%;
+
+      margin: 3px 0 4px;
+
+      accent-color: #3b82f6;
+
+      cursor: pointer;
+    }
+
+    .ticks {
+      display: flex;
+      justify-content: space-between;
+
+      margin-bottom: 16px;
+
+      color: #7f8ca1;
+
+      font-size: 11px;
+    }
+
+    .stats {
+      display: grid;
+
+      grid-template-columns:
+        repeat(3, 1fr);
+
+      gap: 8px;
+
+      margin-bottom: 15px;
+    }
+
+    .stat {
+      padding: 10px;
+
+      border:
+        1px solid
+        rgba(255, 255, 255, 0.08);
+
+      border-radius: 10px;
+
+      background:
+        rgba(255, 255, 255, 0.045);
+    }
+
+    .stat-label {
+      display: block;
+
+      margin-bottom: 4px;
+
+      color: #8290a6;
+
+      font-size: 10px;
+
+      text-transform: uppercase;
+
+      letter-spacing: 0.05em;
+    }
+
+    .stat-value {
+      font-size: 15px;
+      font-weight: 700;
+    }
+
+    .legend-title {
+      margin-bottom: 7px;
+
+      font-size: 12px;
+      font-weight: 700;
+    }
+
+    .legend {
+      height: 10px;
+
+      border-radius: 999px;
+
+      background:
+        linear-gradient(
+          90deg,
+          rgb(34, 197, 94),
+          rgb(250, 204, 21),
+          rgb(249, 115, 22),
+          rgb(239, 68, 68),
+          rgb(126, 34, 206)
+        );
+    }
+
+    .legend-labels {
+      display: flex;
+      justify-content: space-between;
+
+      margin-top: 5px;
+
+      color: #8290a6;
+
+      font-size: 10px;
+    }
+
+    #status-box {
+      position: absolute;
+      z-index: 30;
+
+      right: 18px;
+      bottom: 18px;
+
+      max-width: 340px;
+
+      padding: 9px 12px;
+
+      border:
+        1px solid
+        rgba(255, 255, 255, 0.12);
+
+      border-radius: 10px;
+
+      background:
+        rgba(8, 17, 31, 0.92);
+
+      color: #cbd5e1;
+
+      font-size: 12px;
+
+      backdrop-filter:
+        blur(10px);
+    }
+
+    #status {
+      font-weight: 700;
+      color: #facc15;
+    }
+
+    #status.pass {
+      color: #86efac;
+    }
+
+    #status.error {
+      color: #fca5a5;
+    }
+
+    @media (
+      max-width: 600px
+    ) {
+      .panel {
+        top: 10px;
+        left: 10px;
+
+        width:
+          calc(100vw - 20px);
+      }
+
+      #status-box {
+        right: 10px;
+        bottom: 25px;
+      }
+    }
+  </style>
+</head>
+
+<body>
+  <div id="map"></div>
+
+  <section class="panel">
+    <h1>
+      A3.6 · Web technology spike
+    </h1>
+
+    <p class="subtitle">
+      MapLibre + deck.gl ·
+      mock grid 10×10 ·
+      Nguyễn Huệ, TP.HCM
+    </p>
+
+    <div class="row">
+      <label for="height-slider">
+        Độ cao hiển thị
+      </label>
+
+      <span id="height-value">
+        1.5 m
+      </span>
+    </div>
+
+    <input
+      id="height-slider"
+      type="range"
+      min="0"
+      max="2"
+      step="1"
+      value="0"
+    />
+
+    <div class="ticks">
+      <span>1.5 m</span>
+      <span>15 m</span>
+      <span>30 m</span>
+    </div>
+
+    <div class="stats">
+      <div class="stat">
+        <span class="stat-label">
+          Cells
+        </span>
+
+        <span
+          id="cell-count"
+          class="stat-value"
+        >
+          100
+        </span>
+      </div>
+
+      <div class="stat">
+        <span class="stat-label">
+          Mean
+        </span>
+
+        <span
+          id="mean-value"
+          class="stat-value"
+        >
+          --
+        </span>
+      </div>
+
+      <div class="stat">
+        <span class="stat-label">
+          Max
+        </span>
+
+        <span
+          id="max-value"
+          class="stat-value"
+        >
+          --
+        </span>
+      </div>
+    </div>
+
+    <div class="legend-title">
+      Mock PM2.5 concentration (µg/m³)
+    </div>
+
+    <div class="legend"></div>
+
+    <div class="legend-labels">
+      <span>0</span>
+      <span>25</span>
+      <span>50</span>
+      <span>75</span>
+      <span>100+</span>
+    </div>
+  </section>
+
+  <div id="status-box">
+    A3.6:
+    <span id="status">
+      loading libraries...
+    </span>
+  </div>
+
+
+  <!--
+    MapLibre v5 is intentionally used here.
+
+    v5 still exposes the global `maplibregl`
+    object and therefore works cleanly in a
+    one-file no-build technology spike.
+  -->
+  <script
+    src="https://unpkg.com/maplibre-gl@5.24.0/dist/maplibre-gl.js"
+  ></script>
+
+  <!-- deck.gl standalone scripting bundle -->
+  <script
+    src="https://unpkg.com/deck.gl@^9.0.0/dist.min.js"
+  ></script>
+
+
+  <script>
+    "use strict";
+
+
+    /*
+     * =========================================================
+     * A3.6 WEB TECHNOLOGY SPIKE
+     * =========================================================
+     *
+     * Goal:
+     *
+     * MapLibre
+     *   +
+     * deck.gl
+     *   +
+     * fake 10x10 concentration grid
+     *   +
+     * 3 height levels
+     *   +
+     * slider
+     *
+     * No real model output is used here.
+     * =========================================================
+     */
+
+
+    const STUDY_AREA = {
+      latitude: 10.7746,
+      longitude: 106.7035
+    };
+
+
+    const HEIGHTS_M = [
+      1.5,
+      15,
+      30
+    ];
+
+
+    const GRID_SIZE = 10;
+
+
+    const CELL_SIZE_M = 42;
+
+
+    const slider =
+      document.getElementById(
+        "height-slider"
+      );
+
+
+    const heightValue =
+      document.getElementById(
+        "height-value"
+      );
+
+
+    const cellCount =
+      document.getElementById(
+        "cell-count"
+      );
+
+
+    const meanValue =
+      document.getElementById(
+        "mean-value"
+      );
+
+
+    const maxValue =
+      document.getElementById(
+        "max-value"
+      );
+
+
+    const statusElement =
+      document.getElementById(
+        "status"
+      );
+
+
+    let overlay = null;
+
+
+    let selectedLayerIndex = 0;
+
+
+    const mockLayers =
+      HEIGHTS_M.map(
+        (
+          heightM,
+          heightIndex
+        ) => ({
+          heightM,
+
+          cells:
+            buildMockGrid(
+              heightIndex
+            )
+        })
+      );
+
+
+    /*
+     * Update mock statistics immediately.
+     *
+     * Therefore if the basemap fails,
+     * we can still distinguish a map
+     * problem from a data problem.
+     */
+    updateUi(
+      0
+    );
+
+
+    initialize();
+
+
+    function initialize() {
+      /*
+       * Explicit dependency checks.
+       *
+       * The old file failed before any
+       * useful message could be shown.
+       */
+
+      if (
+        typeof maplibregl
+        ===
+        "undefined"
+      ) {
+        setStatus(
+          "ERROR - MapLibre CDN không tải được",
+          "error"
+        );
+
+        return;
+      }
+
+
+      if (
+        typeof deck
+        ===
+        "undefined"
+      ) {
+        setStatus(
+          "ERROR - deck.gl CDN không tải được",
+          "error"
+        );
+
+        return;
+      }
+
+
+      if (
+        typeof deck.MapboxOverlay
+        ===
+        "undefined"
+      ) {
+        setStatus(
+          "ERROR - deck.gl MapboxOverlay không có",
+          "error"
+        );
+
+        return;
+      }
+
+
+      setStatus(
+        "MapLibre loaded - loading map..."
+      );
+
+
+      try {
+        createMap();
+      }
+
+      catch (
+        error
+      ) {
+        console.error(
+          error
+        );
+
+
+        setStatus(
+          "ERROR - không khởi tạo được map",
+          "error"
+        );
+      }
+    }
+
+
+    function createMap() {
+      const map =
+        new maplibregl.Map({
+          container:
+            "map",
+
+          /*
+           * Official MapLibre demo style.
+           *
+           * No API key is required.
+           */
+          style:
+            "https://demotiles.maplibre.org/style.json",
+
+          center: [
+            STUDY_AREA.longitude,
+            STUDY_AREA.latitude
+          ],
+
+          zoom:
+            15.4,
+
+          pitch:
+            42,
+
+          bearing:
+            -18,
+
+          antialias:
+            true
+        });
+
+
+      map.addControl(
+        new maplibregl.NavigationControl(),
+        "top-right"
+      );
+
+
+      map.addControl(
+        new maplibregl.ScaleControl({
+          unit:
+            "metric",
+
+          maxWidth:
+            120
+        }),
+
+        "bottom-left"
+      );
+
+
+      /*
+       * Log tile/style errors.
+       *
+       * Do not immediately kill the app
+       * because an individual tile failure
+       * does not necessarily make the map
+       * unusable.
+       */
+      map.on(
+        "error",
+        (
+          event
+        ) => {
+          console.error(
+            "MapLibre:",
+            event.error || event
+          );
+        }
+      );
+
+
+      map.once(
+        "load",
+        () => {
+          setStatus(
+            "map loaded - loading deck.gl..."
+          );
+
+
+          try {
+            overlay =
+              new deck.MapboxOverlay({
+                interleaved:
+                  false,
+
+                layers: [
+                  createConcentrationLayer(
+                    selectedLayerIndex
+                  )
+                ]
+              });
+
+
+            map.addControl(
+              overlay
+            );
+
+
+            updateUi(
+              selectedLayerIndex
+            );
+
+
+            setStatus(
+              "PASS - map + deck.gl + slider ready",
+              "pass"
+            );
+          }
+
+          catch (
+            error
+          ) {
+            console.error(
+              "deck.gl:",
+              error
+            );
+
+
+            setStatus(
+              "ERROR - deck.gl overlay thất bại",
+              "error"
+            );
+          }
+        }
+      );
+
+
+      /*
+       * Make a stalled map obvious.
+       */
+      window.setTimeout(
+        () => {
+          if (
+            !map.loaded()
+          ) {
+            setStatus(
+              "ERROR - map chưa load sau 15 giây",
+              "error"
+            );
+          }
+        },
+
+        15000
+      );
+    }
+
+
+    slider.addEventListener(
+      "input",
+      (
+        event
+      ) => {
+        const index =
+          Number(
+            event.target.value
+          );
+
+
+        if (
+          !Number.isInteger(
+            index
+          )
+          ||
+          index < 0
+          ||
+          index >= HEIGHTS_M.length
+        ) {
+          return;
+        }
+
+
+        selectedLayerIndex =
+          index;
+
+
+        updateUi(
+          index
+        );
+
+
+        if (
+          overlay
+        ) {
+          overlay.setProps({
+            layers: [
+              createConcentrationLayer(
+                index
+              )
+            ]
+          });
+        }
+      }
+    );
+
+
+    function createConcentrationLayer(
+      layerIndex
+    ) {
+      const selected =
+        mockLayers[
+          layerIndex
+        ];
+
+
+      return new deck.PolygonLayer({
+        id:
+          `mock-pm25-${selected.heightM}m`,
+
+        data:
+          selected.cells,
+
+        pickable:
+          true,
+
+        filled:
+          true,
+
+        stroked:
+          true,
+
+        getPolygon:
+          (
+            cell
+          ) => cell.polygon,
+
+        getFillColor:
+          (
+            cell
+          ) =>
+            concentrationColor(
+              cell.value
+            ),
+
+        getLineColor: [
+          255,
+          255,
+          255,
+          90
+        ],
+
+        getLineWidth:
+          1,
+
+        lineWidthUnits:
+          "pixels",
+
+        opacity:
+          0.82,
+
+        autoHighlight:
+          true,
+
+        highlightColor: [
+          255,
+          255,
+          255,
+          90
+        ]
+      });
+    }
+
+
+    function buildMockGrid(
+      heightIndex
+    ) {
+      const cells = [];
+
+
+      const halfGrid =
+        GRID_SIZE / 2;
+
+
+      for (
+        let row = 0;
+        row < GRID_SIZE;
+        row += 1
+      ) {
+        for (
+          let col = 0;
+          col < GRID_SIZE;
+          col += 1
+        ) {
+          const x0 =
+            (
+              col - halfGrid
+            )
+            * CELL_SIZE_M;
+
+
+          const x1 =
+            x0
+            +
+            CELL_SIZE_M;
+
+
+          const y0 =
+            (
+              row - halfGrid
+            )
+            * CELL_SIZE_M;
+
+
+          const y1 =
+            y0
+            +
+            CELL_SIZE_M;
+
+
+          const centerX =
+            (
+              x0 + x1
+            )
+            / 2;
+
+
+          const centerY =
+            (
+              y0 + y1
+            )
+            / 2;
+
+
+          cells.push({
+            row,
+            col,
+
+            value:
+              mockConcentration(
+                centerX,
+                centerY,
+                heightIndex,
+                row,
+                col
+              ),
+
+            polygon: [
+              offsetLngLat(
+                x0,
+                y0
+              ),
+
+              offsetLngLat(
+                x1,
+                y0
+              ),
+
+              offsetLngLat(
+                x1,
+                y1
+              ),
+
+              offsetLngLat(
+                x0,
+                y1
+              )
+            ]
+          });
+        }
+      }
+
+
+      return cells;
+    }
+
+
+    function mockConcentration(
+      x,
+      y,
+      heightIndex,
+      row,
+      col
+    ) {
+      /*
+       * Fake plume only.
+       *
+       * This is NOT a dispersion model.
+       */
+
+      const sourceX =
+        x + 80;
+
+
+      const sourceY =
+        y - 20;
+
+
+      const gaussianShape =
+        Math.exp(
+          -(
+            (
+              sourceX
+              *
+              sourceX
+            )
+            /
+            (
+              2
+              *
+              145
+              *
+              145
+            )
+
+            +
+
+            (
+              sourceY
+              *
+              sourceY
+            )
+            /
+            (
+              2
+              *
+              70
+              *
+              70
+            )
+          )
+        );
+
+
+      const downwind =
+        0.5
+        +
+        0.5
+        *
+        Math.max(
+          0,
+
+          Math.min(
+            1,
+
+            (
+              x + 210
+            )
+            /
+            420
+          )
+        );
+
+
+      const attenuation = [
+        1.0,
+        0.63,
+        0.34
+      ][
+        heightIndex
+      ];
+
+
+      const noise =
+        deterministicNoise(
+          row,
+          col,
+          heightIndex
+        );
+
+
+      return Math.max(
+        0,
+
+        7
+
+        +
+
+        108
+        *
+        gaussianShape
+        *
+        downwind
+        *
+        attenuation
+
+        +
+
+        noise
+        *
+        9
+      );
+    }
+
+
+    function deterministicNoise(
+      row,
+      col,
+      heightIndex
+    ) {
+      const raw =
+        Math.sin(
+          (
+            row + 1
+          )
+          * 12.9898
+
+          +
+
+          (
+            col + 1
+          )
+          * 78.233
+
+          +
+
+          (
+            heightIndex + 1
+          )
+          * 37.719
+        )
+        *
+        43758.5453;
+
+
+      return raw
+        -
+        Math.floor(
+          raw
+        );
+    }
+
+
+    function offsetLngLat(
+      eastM,
+      northM
+    ) {
+      const latitudeRad =
+        STUDY_AREA.latitude
+        *
+        Math.PI
+        /
+        180;
+
+
+      const metresPerLatitudeDegree =
+        111320;
+
+
+      const metresPerLongitudeDegree =
+        111320
+        *
+        Math.cos(
+          latitudeRad
+        );
+
+
+      return [
+        STUDY_AREA.longitude
+        +
+        eastM
+        /
+        metresPerLongitudeDegree,
+
+        STUDY_AREA.latitude
+        +
+        northM
+        /
+        metresPerLatitudeDegree
+      ];
+    }
+
+
+    function concentrationColor(
+      value
+    ) {
+      const stops = [
+        {
+          value: 0,
+          color: [
+            34,
+            197,
+            94,
+            210
+          ]
+        },
+
+        {
+          value: 25,
+          color: [
+            250,
+            204,
+            21,
+            215
+          ]
+        },
+
+        {
+          value: 50,
+          color: [
+            249,
+            115,
+            22,
+            220
+          ]
+        },
+
+        {
+          value: 75,
+          color: [
+            239,
+            68,
+            68,
+            225
+          ]
+        },
+
+        {
+          value: 100,
+          color: [
+            126,
+            34,
+            206,
+            230
+          ]
+        }
+      ];
+
+
+      if (
+        value
+        <=
+        stops[
+          0
+        ].value
+      ) {
+        return stops[
+          0
+        ].color;
+      }
+
+
+      for (
+        let index = 1;
+        index < stops.length;
+        index += 1
+      ) {
+        const lower =
+          stops[
+            index - 1
+          ];
+
+
+        const upper =
+          stops[
+            index
+          ];
+
+
+        if (
+          value
+          <=
+          upper.value
+        ) {
+          const ratio =
+            (
+              value
+              -
+              lower.value
+            )
+            /
+            (
+              upper.value
+              -
+              lower.value
+            );
+
+
+          return interpolateColor(
+            lower.color,
+            upper.color,
+            ratio
+          );
+        }
+      }
+
+
+      return stops[
+        stops.length - 1
+      ].color;
+    }
+
+
+    function interpolateColor(
+      start,
+      end,
+      ratio
+    ) {
+      return start.map(
+        (
+          channel,
+          index
+        ) =>
+          Math.round(
+            channel
+            +
+            (
+              end[
+                index
+              ]
+              -
+              channel
+            )
+            *
+            ratio
+          )
+      );
+    }
+
+
+    function updateUi(
+      layerIndex
+    ) {
+      const selected =
+        mockLayers[
+          layerIndex
+        ];
+
+
+      const values =
+        selected.cells.map(
+          (
+            cell
+          ) => cell.value
+        );
+
+
+      const total =
+        values.reduce(
+          (
+            sum,
+            value
+          ) =>
+            sum + value,
+
+          0
+        );
+
+
+      const mean =
+        total
+        /
+        values.length;
+
+
+      const maximum =
+        Math.max(
+          ...values
+        );
+
+
+      heightValue.textContent =
+        `${selected.heightM} m`;
+
+
+      cellCount.textContent =
+        String(
+          values.length
+        );
+
+
+      meanValue.textContent =
+        mean.toFixed(
+          1
+        );
+
+
+      maxValue.textContent =
+        maximum.toFixed(
+          1
+        );
+    }
+
+
+    function setStatus(
+      text,
+      type = ""
+    ) {
+      statusElement.textContent =
+        text;
+
+
+      statusElement.className =
+        type;
+    }
+  </script>
+</body>
+</html>

@@ -11,11 +11,27 @@ paths:
 
   study_area: "data/raw/study_area.geojson"
 
-  # Road centrelines with an OSM class and a length in metres.
-  # The emission step distributes traffic across these by class,
-  # because no open traffic count exists for HCMC - see
-  # docs/DECISION.md section 5. Written by 00_prepare_osm_data.py.
   roads: "data/raw/roads.geojson"
+
+  # A3.1
+  road_class_summary: "output/analysis/road_class_summary.csv"
+
+  # A3.2
+  road_emissions: "data/processed/road_emissions.geojson"
+
+  # A3.3 - dimensionless relative spatial allocation
+  emission_source_netcdf: "data/processed/emission_source.nc"
+
+  # A3.4 - EDGAR raw/cache files
+  edgar_archive: "data/raw/edgar/v8.1_FT2022_AP_PM2.5_2022_TRO_flx_nc.zip"
+
+  edgar_extract_dir: "data/raw/edgar/extracted"
+
+  # A3.4 - final transport-ready source
+  emission_source_transport_netcdf: "data/processed/emission_source_transport.nc"
+
+  # A3.4 - auditable normalization factor/report
+  edgar_normalization_report: "output/analysis/edgar_normalization.json"
 
   voxel_netcdf: "data/processed/voxel_grid.nc"
 
@@ -27,19 +43,8 @@ paths:
 # ============================================================
 
 crs:
-  # auto_utm:
-  # Automatically select the UTM zone from the study area.
-  #
-  # This is preferred because rasterization and voxel dimensions
-  # must be calculated in metres.
   target: "auto_utm"
 
-  # Keep these null if the input files already contain CRS metadata.
-  #
-  # Only fill them if the original source CRS is KNOWN.
-  #
-  # Example:
-  # buildings_if_missing: "EPSG:4326"
   buildings_if_missing: null
 
   study_area_if_missing: null
@@ -53,30 +58,11 @@ domain:
 
   horizontal:
 
-    # Supported modes:
-    #
-    # fixed_size_centered_on_study_area
-    # study_area_bounds
     mode: "fixed_size_centered_on_study_area"
-
-
-    # --------------------------------------------------------
-    # Used by:
-    # fixed_size_centered_on_study_area
-    # --------------------------------------------------------
 
     width_m: 500.0
 
     height_m: 500.0
-
-
-    # --------------------------------------------------------
-    # Used by:
-    # study_area_bounds
-    #
-    # Extra horizontal distance around the study-area polygon
-    # before the final domain is snapped to complete grid cells.
-    # --------------------------------------------------------
 
     padding_m: 0.0
 
@@ -107,30 +93,166 @@ grid:
 
 meteorology:
 
-  # These are the two representative seasonal scenarios selected
-  # from the 2025 Open-Meteo analysis. They live in tracked config
-  # because data/processed and output/analysis are gitignored.
-  #
-  # Direction follows the meteorological convention: degrees clockwise
-  # from north and denotes where the wind comes FROM. The transport
-  # vector therefore points TO (direction_from_deg + 180) % 360.
   source: "Open-Meteo Historical Forecast"
 
   analysis_period:
+
     start_date: "2025-01-01"
+
     end_date: "2025-12-31"
 
+
   direction_convention: "meteorological_from_deg_clockwise_from_north"
+
 
   scenarios:
 
     dry_nov_apr:
+
       direction_from_deg: 112.0
+
       speed_m_s: 1.62
 
+
     wet_may_oct:
+
       direction_from_deg: 227.0
+
       speed_m_s: 1.84
+
+
+# ============================================================
+# TRAFFIC EMISSIONS
+# ============================================================
+
+emissions:
+
+  # Spatial proxy pollutant from Tran et al.
+  #
+  # It remains labelled PM because the cited 0.053 value
+  # must not silently be relabelled as PM2.5.
+  pollutant: "PM"
+
+
+  # ----------------------------------------------------------
+  # A3.2 - MOTORCYCLE EMISSION FACTOR
+  # ----------------------------------------------------------
+
+  emission_factor:
+
+    value_g_per_vehicle_km: 0.053
+
+    source: "Tran et al. (2024), IOP Conference Series: Earth and Environmental Science 1391 012007"
+
+    doi: "10.1088/1755-1315/1391/1/012007"
+
+
+  # ----------------------------------------------------------
+  # A3.2 - RELATIVE ROAD ALLOCATION
+  # ----------------------------------------------------------
+
+  allocation:
+
+    basis: "osm_highway_class"
+
+    # These are modelling assumptions, not traffic counts.
+    #
+    # Only relative ratios matter before EDGAR normalization.
+    road_class_weights:
+
+      primary: 1.00
+
+      secondary: 0.75
+
+      tertiary: 0.50
+
+      residential: 0.25
+
+
+  # ----------------------------------------------------------
+  # A3.3 - ROAD -> VOXEL
+  # ----------------------------------------------------------
+
+  rasterization:
+
+    source_height_m: 1.0
+
+    geometry_length_relative_tolerance: 0.01
+
+    output_dtype: "float32"
+
+    netcdf_engine: "netcdf4"
+
+    compression_level: 4
+
+
+  # ----------------------------------------------------------
+  # A3.4 - EDGAR ABSOLUTE NORMALIZATION
+  # ----------------------------------------------------------
+
+  normalization:
+
+    method: "EDGAR_v8.1_annual_road_transport_flux_area_weighted"
+
+    # Absolute pollutant represented by the transport-ready
+    # field after this normalization.
+    target_pollutant: "PM2.5"
+
+    source_release: "EDGAR v8.1"
+
+    # v8.1 air-pollutant data are available through 2022.
+    source_year: 2022
+
+    # EDGAR sector:
+    # IPCC 1A3b - Road transportation.
+    source_sector_code: "TRO"
+
+    source_sector_description: "IPCC 1A3b - Road transportation"
+
+    source_product: "annual_sector_specific_flux"
+
+    # Year-specific PM2.5 road-transport flux archive.
+    #
+    # Kept in config rather than Python so changing EDGAR
+    # release/year does not require source-code modification.
+    archive_url: "https://jeodpp.jrc.ec.europa.eu/ftp/jrc-opendata/EDGAR/datasets/v81_FT2022_AP_new/PM2.5/TRO/flx_nc/v8.1_FT2022_AP_PM2.5_2022_TRO_flx_nc.zip"
+
+    download_if_missing: true
+
+    download_timeout_s: 180.0
+
+    # null:
+    # require the downloaded annual ZIP to contain exactly
+    # one NetCDF file.
+    #
+    # If EDGAR changes archive structure, explicitly set the
+    # desired member here instead of guessing in Python.
+    member_name: null
+
+    variable_name: "fluxes"
+
+    latitude_coordinate: "lat"
+
+    longitude_coordinate: "lon"
+
+    expected_units: "kg m-2 s-1"
+
+    # Maximum allowed relative discrepancy between:
+    #
+    # model domain area
+    #
+    # and
+    #
+    # sum of EDGAR-cell/model-domain intersection areas.
+    area_coverage_relative_tolerance: 0.000001
+
+    output_dtype: "float32"
+
+    netcdf_engine: "netcdf4"
+
+    compression_level: 4
+
+    attribution: "European Commission, Joint Research Centre (JRC), EDGAR v8.1 Global Air Pollutant Emissions"
 
 
 # ============================================================
@@ -139,8 +261,6 @@ meteorology:
 
 voxelization:
 
-  # If true, buildings outside the study-area polygon are removed,
-  # even if they are inside the rectangular computational domain.
   clip_to_study_area: true
 
 
@@ -150,82 +270,40 @@ voxelization:
 
   height:
 
-    # Checked in this order.
-    #
-    # The first valid direct-height value is used.
     direct_fields:
+
       - "height"
 
 
-    # Used only when no valid direct height is available.
     levels_fields:
+
       - "building:levels"
 
 
-    # Conversion used for buildings that only contain a level count:
-    #
-    # building height =
-    # building:levels * meters_per_level
-    #
-    # This is a modelling assumption and is therefore stored here
-    # instead of being hardcoded inside Python.
     meters_per_level: 3.0
 
 
-    # Heights lower than this value are raised to this minimum.
     minimum_height_m: 0.0
 
 
-    # null means no artificial upper limit is applied.
     maximum_height_m: null
 
 
     fallback:
 
-      # Supported:
-      #
-      # error
-      # fixed
-      #
-      # "error":
-      # Stop if a building has neither a usable direct height nor
-      # a usable number of levels.
-      #
-      # "fixed":
-      # Use the configured height_m below.
-      #
-      # During initial data-quality checks, "error" is safer because
-      # missing building heights cannot silently enter the model.
       mode: "error"
 
-
-      # Used only when:
-      #
-      # mode: "fixed"
-      #
-      # Example:
-      #
-      # mode: "fixed"
-      # height_m: 9.0
       height_m: null
 
 
   # ----------------------------------------------------------
-  # RASTERIZATION
+  # BUILDING RASTERIZATION
   # ----------------------------------------------------------
 
   rasterization:
 
-    # false:
-    # use normal rasterization behaviour.
-    #
-    # true:
-    # mark every raster cell touched by the building geometry.
     all_touched: false
 
-
-    # When building polygons overlap, preserve the largest
-    # building height in the overlapping raster cell.
     overlap_rule: "maximum_height"
 
 
@@ -235,26 +313,14 @@ voxelization:
 
   output:
 
-    # Save a cleaned copy of the building polygons containing
-    # resolved_height_m and height_source for QA/debugging.
     save_processed_buildings: true
 
-
-    # CRS used only for the exported processed-building layer.
-    # EPSG:4326 is convenient for QGIS/web inspection.
     processed_buildings_crs: "EPSG:4326"
 
-
-    # xarray/netCDF backend.
     netcdf_engine: "netcdf4"
 
-
-    # netCDF compression level.
-    # Valid range: 0-9.
     compression_level: 4
 
-
-    # Storage types for the main voxel variables.
     height_dtype: "float32"
 
     mask_dtype: "uint8"
@@ -266,13 +332,6 @@ voxelization:
 
 runtime:
 
-  # Standard Python logging levels:
-  #
-  # DEBUG
-  # INFO
-  # WARNING
-  # ERROR
-  # CRITICAL
   log_level: "INFO"
 
 
