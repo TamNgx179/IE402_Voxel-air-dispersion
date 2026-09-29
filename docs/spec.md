@@ -411,7 +411,7 @@ Appended, not edited. The rest of Person A's week-1 work. Reasoning:
 
 | Source id | Kind | Supports |
 | --- | --- | --- |
-| `OBS-15` | observed | The study area holds **91 road edges, 8 777 m**, across residential / tertiary / primary / secondary |
+| `OBS-15` | observed | The study area holds **67 road edges, 6 395.5 m**, across residential / tertiary / primary / secondary. The first count (91 edges, 8 777 m, 22/09) took both directions of every two-way street from osmnx's directed graph; corrected 29/09 |
 | `OBS-16` | observed | Tag coverage: `name` and `oneway` 100 %, `lanes` 75 %, **`maxspeed` only 47 %** |
 | `OBS-17` | observed | **OSM tags no `monitoring:air_quality` station within 30 km** — a statement about OSM's completeness, **not** about whether stations exist. The nearest OSM monitoring stations measure hydrology (419 m) and meteorology (4 707 m). The reference station in `DECISION.md` §5, the US Consulate AirNow feed, is real and 931 m away |
 | `OBS-18` | observed | The **US Consulate General**, whose AirNow feed is the reference in `DECISION.md` §5, is **931 m** from the study-area centre |

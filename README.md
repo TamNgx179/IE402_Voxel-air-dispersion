@@ -45,27 +45,45 @@ Kèm **chùm khói Gaussian giải tích** (hệ số Briggs đô thị) làm ba
 
 ```
 src/
-├── 01_voxelize.py        Tầng 0 — voxel hoá thành phố          [xong]
-├── emissions.py          nguồn phát thải giao thông            [stub]
-├── gaussian.py           baseline Gaussian giải tích           [xong]
-├── 02_wind.py            Tầng 1 — trường gió, SOR Poisson      [stub]
-├── 03_transport.py       Tầng 2 — thể tích hữu hạn             [xong]
-├── 04_analysis.py        Tầng 3 — phân tích không gian         [stub]
-├── 05_viz.py             hình cho báo cáo                      [stub]
-├── 06_export_web.py      netCDF → JSON cho web                 [stub]
+├── 01_voxelize.py        Tầng 0 — voxel hoá thành phố                  [xong]
+├── emissions.py          A3.1–A3.2 phân bổ phát thải theo cấp đường     [xong]
+├── emission_rasterizer.py  A3.3 đường → S[z,y,x]                        [xong]
+├── edgar_normalizer.py   A3.4 chuẩn hoá EDGAR + ghi A3.5                [xong]
+├── gaussian.py           baseline Gaussian giải tích (nguồn giả)       [xong]
+├── 02_wind.py            Tầng 1 — trường gió, SOR Poisson              [xong, xem ROADMAP §4 F1]
+├── 03_transport.py       Tầng 2 — thể tích hữu hạn                     [xong]
+├── 04_analysis.py        Tầng 3 — phân tích không gian + baseline đường [xong]
+├── 05_viz.py             hình báo cáo 300 dpi                          [xong]
+├── 06_export_web.py      netCDF → web/data/*.js                        [xong]
+├── analysis/             toán tử, hợp đồng dữ liệu, export, hình
+├── emission/ · edgar/    phát thải giao thông
+├── wind/ · meteo/ · openaq/
 ├── voxel/                lưới, chiều cao, raster, GIS, output
-│   └── gob_heights.py    chiều cao từ Google Open Buildings 2.5D
-└── dispersion/           Gaussian + vẽ hình
-tests/                    67 test, chạy bằng pytest
+└── dispersion/           công thức Gaussian
+web/                      viewer 3D — mở web/index.html (không cần build)
+tests/                    176 test, chạy bằng pytest
 notebooks/                debug 2D — viết và sửa ở 2D TRƯỚC khi lên 3D
-config/project.yaml       miền, bước lưới, quy tắc chiều cao, dtype
+config/project.yaml       miền, lưới, phát thải, ngưỡng, kịch bản, web
+docs/emission_assumptions.md  mọi giả định phát thải — SINH TỰ ĐỘNG
+```
+
+### Chạy lại toàn bộ Tầng 3 và web
+
+```bash
+./.venv/bin/python src/emissions.py --config config/project.yaml
+./.venv/bin/python src/emission_rasterizer.py --config config/project.yaml
+./.venv/bin/python src/edgar_normalizer.py --config config/project.yaml   # tải EDGAR 1,9 MB lần đầu
+./.venv/bin/python src/04_analysis.py --config config/project.yaml --baselines
+./.venv/bin/python src/05_viz.py --config config/project.yaml --imagery   # --imagery: A2.4 trên ảnh vệ tinh, tải ~20 tile Esri lần đầu
+./.venv/bin/python src/06_export_web.py --config config/project.yaml
+python3 -m http.server 8402    # rồi mở http://localhost:8402/web/  (web/index.html không dùng fetch nên thiết kế để mở thẳng được; chưa thử bằng file://)
 ```
 
 Module tên `NN_name.py` **không import bằng `import` được** — tên không phải identifier hợp lệ. Nạp bằng `importlib.util.spec_from_file_location`, như test và notebook đang làm.
 
 ## Trạng thái
 
-Tầng 0, baseline Gaussian và Tầng 2 đã xong và có test. Tầng 1 và Tầng 3 còn stub. Sản phẩm cuối là một **web 3D** (deck.gl + MapLibre) và chưa bắt đầu.
+Mọi tầng đã có code và test (29/09/2026). **Web 3D chạy được W1–W7** (deck.gl 9.4 + MapLibre 5.24), hiện hiển thị **baseline Gaussian trên nguồn đường thật** cho hai kịch bản mùa; trường FV sẽ thay khi Tầng 1–2 được nối đúng (ROADMAP §4, F1).
 
 **Địa bàn:** Nguyen Hue, TP.HCM — 62 toà nhà, chốt ngày 21/09/2026 vì khối nhà trung vị phân giải được ở Δ = 5 m (4,82 voxel/cạnh), không phải vì độ phủ thẻ chiều cao.
 
@@ -73,7 +91,7 @@ Tầng 0, baseline Gaussian và Tầng 2 đã xong và có test. Tầng 1 và T�
 
 > 🔴 **Đừng trích con số MAE 1,5 m của Google.** Google ghi rõ độ chính xác đó *"chỉ đánh giá ở Bắc Mỹ, châu Âu và Nhật Bản — không phải Global South"*. Đối chứng tại chỗ với 21 toà nhà có thẻ OSM cho **MAE 23,2 m** (sai lệch tuyệt đối trung vị 7,0 m, r = 0,74). **Dùng 23,2 m trong báo cáo.** Sản phẩm cũng **chặn trần 100 m**, nên ba toà tháp mà OSM ghi 154 / 164,9 / 186 m trả về 88,5 / 62,5 / 91,0 m — đó là cận dưới, không phải phép đo.
 
-**Mạng đường:** `data/raw/roads.geojson` — 91 cạnh, 8.777 m, 4 cấp `highway`. Phân bổ phát thải ở tuần 3 dùng **cấp đường**, không dùng `maxspeed` (chỉ phủ 47 %).
+**Mạng đường:** `data/raw/roads.geojson` — **67 cạnh, 6.395,5 m** sau khi bỏ bản sao ngược chiều của 24 phố hai chiều (bản gốc ghi 91 cạnh / 8.777 m là đếm hai lần), 4 cấp `highway`. Phân bổ phát thải ở tuần 3 dùng **cấp đường**, không dùng `maxspeed` (chỉ phủ 47 %).
 
 > ⚠️ **Mô hình giả định mặt đất phẳng z = 0.** Copernicus DEM GLO-30 nằm ngoài phạm vi: pipeline không có khái niệm địa hình, chiều cao Google vốn đã *relative to terrain*, và GLO-30 là DSM đã chứa nhà. **Đây là giả định chưa đo** — xem [`docs/DECISION.md`](docs/DECISION.md) *Amendment 22/09/2026* §B.
 

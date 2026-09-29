@@ -525,3 +525,67 @@ là *"LÀM NẾU KỊP"*. Bậc 1 verification — phần bắt buộc — khôn
 Nguồn đối chiếu khả dĩ duy nhất là AirNow của Lãnh sự quán Mỹ, và **931 m là khoảng cách
 tốt**. Nhưng có trạm gần **không** biến verification thành validation — `docs/spec.md` BR-15
 vẫn nguyên, và §6 của tài liệu này vẫn đặt validation ngoài phạm vi.
+
+---
+
+## Amendment, 29/09/2026 — ba con số phải sửa, và một phát hiện về tổng phát thải
+
+### A. Ngưỡng QCVN PM2.5 24 h là **45**, không phải 50
+
+QCVN 05:2023/BTNMT Bảng 1: PM2.5 trung bình 24 h = 50 µg/Nm³, **và 45 µg/Nm³ từ 01/01/2026**
+(chú thích \*); trung bình năm = 25. Hôm nay là 09/2026 nên ngưỡng hiện hành là **45**. Mọi chỗ
+trong tài liệu này ghi "QCVN 50" là giá trị trước 2026. Web và `config/project.yaml`
+(`analysis.thresholds_ug_m3`) dùng 45. WHO 2021 không đổi: 24 h = 15, năm = 5. Nguồn đọc được là
+bản PDF đăng trên cổng Sở TN&MT Lạng Sơn — **nên đối chiếu một lần với Thông tư 01/2023/TT-BTNMT
+bản công báo** trước khi trích trong báo cáo.
+
+### B. Mạng đường là **67 cạnh / 6.395,5 m**, không phải 91 / 8.777 m
+
+osmnx trả đồ thị **có hướng**: một phố hai chiều là hai cạnh (u→v, v→u) cùng một đường tâm. Bản
+đầu cộng cả hai, nên 24 phố hai chiều bị đếm hai lần (+27,1 % chiều dài) và nặng gấp đôi phố một
+chiều — một trọng số không quy tắc nào ghi. Nay giữ một bản (`emission/roads.py::drop_reverse_duplicates`),
+áp ở cả bước tải lẫn bước nạp. Tỉ trọng phát thải đổi: tertiary 44 % → 58 %, residential 34 % → 25 %.
+
+### C. Tổng phát thải EDGAR là **cận dưới** cho lõi Quận 1
+
+Hệ số phát thải 0,053 g/(xe·km) triệt tiêu khi chuẩn hoá theo EDGAR, nên §5 "EDGAR chỉ để đối
+chiếu tổng" không còn đúng: EDGAR đang **đặt** tổng. Phép đối chiếu độc lập còn lại là đổi ngược
+tổng EDGAR ra lưu lượng xe: **~99 xe máy/h trên một tuyến primary**. Số liệu công bố gần nhất
+(nút Hàng Xanh, cao điểm ~22.000 xe/h, 85–90 % xe máy — Nguyen 2026, doi:10.18280/mmep.130509)
+lớn hơn rất nhiều; EDGAR v8.1 là trung bình ô 0,1° (~11 km) gồm cả vùng ít xe. Hệ quả:
+
+- phân bố không gian, gradient theo độ cao và so sánh giữa kịch bản **không đổi** (mô hình tuyến tính theo nguồn);
+- nồng độ µg/m³ tuyệt đối là **cận dưới**; ở × 1 không ô nào vượt WHO 15 — web có hệ số nhân và nồng độ nền để khảo sát;
+- toàn bộ giả định: [`emission_assumptions.md`](emission_assumptions.md), sinh tự động.
+
+### D. Tốc độ gió kịch bản là **một giờ ban đêm**
+
+1,62 và 1,84 m/s là tốc độ 10 m của đúng một giờ mỗi mùa (gần hướng TB vector và tốc độ trung
+vị), cả hai lúc đêm. Trung bình vector mùa chỉ **0,70 / 1,10 m/s**. Ghi vào chương Hạn chế và
+chạy thêm một ca gió yếu nếu kịp.
+
+### E. Địa bàn có hẻm phố không? — đã đo H/W (G5)
+
+§4 đòi "khu có hẻm phố rõ rệt". Đo trên chính hình học của mô hình
+(`output/analysis/street_canyon_hw.json`, phương pháp ở `src/analysis/morphology.py`): lấy mẫu
+mỗi 5 m dọc tim đường, dò vuông góc tới mặt nhà đầu tiên hai bên (tối đa 60 m).
+
+| | Mẫu hai bên có nhà | H/W trung vị | IQR |
+|---|---|---|---|
+| Cả miền | 228 / 998 | **0,64** | 0,54 – 1,08 |
+| Nguyễn Huệ | 79 | **0,55** | 0,48 – 0,69 |
+| Đồng Khởi | 32 | **1,27** | 0,67 – 1,68 |
+| Pasteur | 8 | 1,22 | 1,21 – 1,25 |
+| Đông Du | 18 | 1,01 | 0,84 – 1,09 |
+
+Đọc: **trục chính Nguyễn Huệ là đại lộ nông**, hẻm sâu nằm ở các phố ngang. Không xếp loại theo
+ngưỡng Oke (RESEARCH §5.1 cấm trích từ nguồn thứ cấp). Chiều cao là Google (MAE tự đo 23,2 m) nên
+H/W mang cùng bất định; 77 % mẫu "mở" gồm cả tia chạm biên miền.
+
+### F. Ảnh vệ tinh cho thấy OSM thiếu nhà thấp (A2.4)
+
+Chồng mask voxel lên Esri World Imagery (`output/figures/A2_4_voxel_check_satellite.png`): 62 toà
+trong mô hình khớp mái nhà trên ảnh, nhưng **nhiều nhà thấp không có footprint OSM**, rõ nhất ở
+khối phía nam (x ≈ 150–250 m, y ≈ 50–120 m). Mô hình vì vậy **thiếu vật cản ở tầng thấp** — ghi
+vào chương Hạn chế cạnh sai số chiều cao. Chưa đếm được số nhà thiếu: cần số hoá tay hoặc một
+nguồn footprint khác (Google Open Buildings polygons).
