@@ -3,84 +3,110 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Voxel PM2.5 — Nguyễn Huệ</title>
+  <meta name="description" content="Trường nồng độ PM2.5 3D trên lưới voxel 5 m quanh phố Nguyễn Huệ, TP.HCM" />
 
-  <title>A3.6 Web Spike - Voxel Air Dispersion</title>
-
-  <link
-    rel="stylesheet"
-    href="https://unpkg.com/maplibre-gl@5.24.0/dist/maplibre-gl.css"
-  />
+  <link rel="stylesheet" href="https://unpkg.com/maplibre-gl@5.24.0/dist/maplibre-gl.css" />
   <link rel="stylesheet" href="./styles.css" />
 </head>
 
 <body>
-  <div id="map"></div>
+  <div id="map" aria-label="Bản đồ 3D trường nồng độ"></div>
 
-  <section class="panel">
-    <h1>A3.6 · Web technology spike</h1>
+  <section class="panel" id="panel" aria-label="Điều khiển">
+    <header class="panel-head">
+      <div>
+        <h1>PM2.5 trên lưới voxel 3D</h1>
+        <p class="subtitle">Nguyễn Huệ, TP.HCM · 500 × 500 × 100 m · Δ 5 m × 5 m × 2 m</p>
+      </div>
+      <button id="panel-toggle" class="icon-button" type="button" aria-expanded="true" aria-controls="panel-body" title="Thu gọn">−</button>
+    </header>
 
-    <p class="subtitle">
-      MapLibre + deck.gl · mock grid 10×10 · Nguyễn Huệ, TP.HCM
-    </p>
+    <div id="panel-body">
+      <fieldset class="group">
+        <legend>Kịch bản gió <span class="tag">W4</span></legend>
+        <div id="scenario-list" class="choices"></div>
+        <p id="model-note" class="note"></p>
+      </fieldset>
 
-    <div class="row">
-      <label for="height-slider">Độ cao hiển thị</label>
-      <span id="height-value">1.5 m</span>
-    </div>
-
-    <input
-      id="height-slider"
-      type="range"
-      min="0"
-      max="2"
-      step="1"
-      value="0"
-    />
-
-    <div class="ticks">
-      <span>1.5 m</span>
-      <span>15 m</span>
-      <span>30 m</span>
-    </div>
-
-    <div class="stats">
-      <div class="stat">
-        <span class="stat-label">Cells</span>
-        <span id="cell-count" class="stat-value">100</span>
+      <div class="group">
+        <div class="row">
+          <label for="height-slider">Độ cao <span class="tag">W3</span></label>
+          <output id="height-value" for="height-slider">1 m</output>
+        </div>
+        <input id="height-slider" type="range" min="0" max="49" step="1" value="0" />
+        <div class="ticks" aria-hidden="true"><span>1 m</span><span>25 m</span><span>50 m</span><span>75 m</span><span>99 m</span></div>
       </div>
 
-      <div class="stat">
-        <span class="stat-label">Mean</span>
-        <span id="mean-value" class="stat-value">--</span>
+      <fieldset class="group">
+        <legend>Ngưỡng PM2.5 <span class="tag">W5</span></legend>
+        <div id="threshold-list" class="choices"></div>
+      </fieldset>
+
+      <fieldset class="group">
+        <legend>Độ nhạy phát thải</legend>
+        <div class="row">
+          <label for="multiplier">Hệ số nhân nguồn</label>
+          <select id="multiplier">
+            <option value="1" selected>× 1 (EDGAR)</option>
+            <option value="10">× 10</option>
+            <option value="30">× 30</option>
+            <option value="100">× 100</option>
+            <option value="300">× 300</option>
+          </select>
+        </div>
+        <div class="row">
+          <label for="background">Nồng độ nền (µg/m³)</label>
+          <input id="background" type="number" min="0" max="200" step="1" value="0" inputmode="decimal" />
+        </div>
+        <p class="note">Mô hình tuyến tính theo nguồn: C = k · C<sub>mô hình</sub> + nền. EDGAR ngụ ý chỉ ~99 xe/h trên đường primary — xem <a href="../docs/emission_assumptions.md" target="_blank" rel="noopener">giả định phát thải</a>.</p>
+      </fieldset>
+
+      <div class="group">
+        <div class="legend-title" id="legend-title">Nồng độ (µg/m³, thang log)</div>
+        <div class="legend" id="legend"></div>
+        <div class="legend-labels" id="legend-labels"></div>
       </div>
 
-      <div class="stat">
-        <span class="stat-label">Max</span>
-        <span id="max-value" class="stat-value">--</span>
-      </div>
-    </div>
+      <section class="group" aria-labelledby="stats-title">
+        <h2 id="stats-title">Tầng đang xem <span class="tag">W7</span></h2>
+        <div class="stats">
+          <div class="stat"><span class="stat-label">TB tầng</span><span id="stat-mean" class="stat-value">–</span></div>
+          <div class="stat"><span class="stat-label">Max tầng</span><span id="stat-max" class="stat-value">–</span></div>
+          <div class="stat"><span class="stat-label">Ô khí</span><span id="stat-cells" class="stat-value">–</span></div>
+        </div>
+        <table class="exceed" aria-label="Vượt ngưỡng">
+          <thead><tr><th scope="col">Ngưỡng</th><th scope="col">Diện tích tầng</th><th scope="col">Thể tích cả miền</th></tr></thead>
+          <tbody id="exceed-body"></tbody>
+        </table>
+      </section>
 
-    <div class="legend-title">
-      Mock PM2.5 concentration (µg/m³)
-    </div>
+      <section class="group" aria-labelledby="profile-title">
+        <h2 id="profile-title">Profile đứng <span class="tag">W6</span></h2>
+        <p id="profile-hint" class="note">Bấm một ô trên bản đồ để xem nồng độ theo độ cao.</p>
+        <div id="profile" class="profile"></div>
+      </section>
 
-    <div class="legend"></div>
+      <fieldset class="group">
+        <legend>Lớp hiển thị</legend>
+        <label class="check"><input id="show-buildings" type="checkbox" checked /> Toà nhà 3D <span class="tag">W1</span></label>
+        <label class="check"><input id="show-roads" type="checkbox" /> Đường (độ dày ∝ tỉ trọng phát thải)</label>
+      </fieldset>
 
-    <div class="legend-labels">
-      <span>0</span>
-      <span>25</span>
-      <span>50</span>
-      <span>75</span>
-      <span>100+</span>
+      <details class="group about">
+        <summary>Nguồn dữ liệu và giới hạn</summary>
+        <ul id="provenance"></ul>
+      </details>
     </div>
   </section>
 
-  <div id="status-box">
-    A3.6: <span id="status">loading libraries...</span>
-  </div>
+  <div id="status-box" role="status" aria-live="polite"><span id="status">Đang tải thư viện…</span></div>
 
   <script src="https://unpkg.com/maplibre-gl@5.24.0/dist/maplibre-gl.js"></script>
-  <script src="https://unpkg.com/deck.gl@^9.0.0/dist.min.js"></script>
+  <script src="https://unpkg.com/deck.gl@9.4.0/dist.min.js"></script>
+  <script src="./data/manifest.js"></script>
+  <script src="./data/buildings.js"></script>
+  <script src="./data/roads.js"></script>
   <script src="./app.js"></script>
 </body>
 </html>
