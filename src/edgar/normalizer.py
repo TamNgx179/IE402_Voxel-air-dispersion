@@ -17,6 +17,7 @@ from project_config import (
     resolve_repo_path,
 )
 
+from emission.assumptions import write_emission_assumptions
 from edgar.config import (
     EdgarCellContribution,
     EdgarNormalizationError,
@@ -899,6 +900,12 @@ def main() -> None:
     print(
         "A3.4 transport source units: "
         "kg/m^3/s"
+    )
+
+    assumptions = write_emission_assumptions(config)
+
+    print(
+        f"Saved A3.5 assumptions record: {assumptions}"
     )
 
 

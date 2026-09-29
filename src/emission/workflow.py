@@ -19,6 +19,7 @@ from project_config import (
     resolve_repo_path,
 )
 
+from emission.assumptions import write_emission_assumptions
 from emission.roads import (
     _required_text,
     assign_edge_emission_proxies,
@@ -451,7 +452,8 @@ def run_road_workflow(
 
     LOGGER.info(
         "Loaded %d road edges from %s "
-        "(%.1f m total)",
+        "(%.1f m total, after dropping %d reverse-direction "
+        "copies of two-way streets)",
         len(
             roads
         ),
@@ -459,6 +461,7 @@ def run_road_workflow(
         roads[
             "length_m"
         ].sum(),
+        roads.attrs.get("reverse_duplicates_dropped", 0),
     )
 
     road_summary = (
@@ -664,6 +667,11 @@ def road_main() -> None:
         "NOTE: A3.2 is a relative allocation "
         "only; A3.4 supplies the EDGAR "
         "normalisation."
+    )
+
+    print(
+        "Saved A3.5 assumptions record: "
+        f"{write_emission_assumptions(config)}"
     )
 
 
@@ -896,4 +904,9 @@ def raster_main() -> None:
         "Do not pass it to transport until "
         "A3.4 applies EDGAR and converts the "
         "source to kg/m^3/s."
+    )
+
+    print(
+        "Saved A3.5 assumptions record: "
+        f"{write_emission_assumptions(config)}"
     )

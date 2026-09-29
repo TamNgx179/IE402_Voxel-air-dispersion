@@ -33,6 +33,9 @@ paths:
   # A3.4 - auditable normalization factor/report
   edgar_normalization_report: "output/analysis/edgar_normalization.json"
 
+  # A3.5 - generated record of every emission assumption (committed; never hand-edited)
+  emission_assumptions: "docs/emission_assumptions.md"
+
   voxel_netcdf: "data/processed/voxel_grid.nc"
 
   processed_buildings: "data/processed/buildings_with_height.geojson"
@@ -168,6 +171,24 @@ emissions:
 
       residential: 0.25
 
+
+  # ----------------------------------------------------------
+  # A3.5 - PUBLISHED TRAFFIC FIGURES for the implied-flow check
+  #
+  # Context only: neither is a count on a road in this domain.
+  # ----------------------------------------------------------
+
+  flow_references:
+
+    - figure: "Nút giao Hàng Xanh: cao điểm ~22.000 xe/h (tổng mọi hướng), 85–90 % xe máy"
+      source: "Nguyen H.K. (2026), Mathematical Modelling of Engineering Problems 13(5):889-896"
+      doi: "10.18280/mmep.130509"
+      caveat: "tổng một nút giao lớn, số 'reported' từ Sở GTVT, không phải một đoạn đường; nút nằm ngoài miền mô hình"
+
+    - figure: "Xe máy chiếm 80 % số xe đếm trên 70 tuyến phố TP.HCM (06:00-19:00, 2021)"
+      source: "Ho et al. (2022), International Journal of Environmental Research and Public Health"
+      doi: "10.3390/ijerph192316156"
+      caveat: "tỉ lệ thành phần, không có lưu lượng theo từng tuyến"
 
   # ----------------------------------------------------------
   # A3.3 - ROAD -> VOXEL
@@ -350,3 +371,71 @@ metadata:
   coordinate_order: "z,y,x"
 
   description: "Rasterized building-height field and three-dimensional building occupancy mask"
+
+# ============================================================
+# TIER 3 - SPATIAL ANALYSIS (src/04_analysis.py, src/analysis/)
+# ============================================================
+
+analysis:
+
+  # Data contract with the model: one file per scenario,
+  # variable C [z,y,x] in ug m-3 (see src/analysis/fields.py).
+  concentration_pattern: "output/netcdf/concentration_{scenario}.nc"
+
+  report_pattern: "output/analysis/analysis_{scenario}.json"
+
+  # Horizontal slices: breathing height, 2nd floor, 15 m, 30 m
+  # (docs/DECISION.md section 7.1).
+  slice_heights_m: [1.5, 6.0, 15.0, 30.0]
+
+  # Building floor height for facade exposure, same as
+  # voxelization.height.meters_per_level.
+  floor_height_m: 3.0
+
+  # PM2.5, ug m-3. QCVN 05:2023/BTNMT Table 1: 24 h = 50, and 45
+  # from 01/01/2026 (footnote *); annual = 25. WHO 2021 AQG:
+  # 24 h = 15, annual = 5. Sources and caveats: docs/DECISION.md,
+  # Amendment 29/09/2026 section A.
+  thresholds_ug_m3:
+
+    qcvn_24h:
+      value: 45.0
+      label: "QCVN 05:2023 · 24 h (từ 01/01/2026)"
+
+    who_24h:
+      value: 15.0
+      label: "WHO 2021 · 24 h"
+
+  # Gaussian baseline on the REAL road source (A3.4 output) and the
+  # two meteorology scenarios. Plumes ignore buildings by design.
+  gaussian_baseline:
+
+    source_netcdf: "data/processed/emission_source_transport.nc"
+
+    stability: "D"
+
+    reference_height_m: 10.0
+
+    scenarios: ["dry_nov_apr", "wet_may_oct"]
+
+
+# ============================================================
+# WEB EXPORT (src/06_export_web.py) AND VIEWER (web/)
+# ============================================================
+
+web:
+
+  output_dir: "web/data"
+
+  # Every file is a <script> assigning a global, so the viewer also
+  # opens from file:// where fetch() of local JSON is refused.
+  size_budget_bytes: 5000000
+
+  # uint8 log scale: 0 = building / no data, 1 = below range,
+  # 2..255 = log10(C) over [max / 10^decades, max].
+  log_decades: 4.0
+
+  # Scenario ids to export; each needs concentration_{id}.nc.
+  scenarios:
+    - "dry_nov_apr_gaussian"
+    - "wet_may_oct_gaussian"
