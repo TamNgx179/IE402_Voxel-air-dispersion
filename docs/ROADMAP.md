@@ -19,7 +19,8 @@ Một **ứng dụng web 3D** chạy trong trình duyệt, hiển thị trườn
 | W5 | Bật/tắt ngưỡng QCVN 45 (24 h, từ 01/01/2026; 50 trước đó) và WHO 15 µg/m³ | Có |
 | W6 | Click một điểm → hiện profile đứng | Nên có |
 | W7 | Panel số liệu: thể tích vượt ngưỡng, trung bình theo tầng | Nên có |
-| W8 | Isosurface 3D | Nếu dư thời gian |
+| W8 | ~~Isosurface 3D~~ → **bong bóng vượt ngưỡng dựng từ mặt voxel** (đúng độ phân giải mô hình, theo hệ số nhân/nền) | Nên có — gộp vào W9 |
+| W9 | **Cảnh 3D dựng theo dữ liệu thật**: nhà xung quanh (footprint + chiều cao OSM), sông, công viên, đường, bóng đổ theo giờ; **khói voxel 3D**, mặt cắt đứng kéo được, **gió chạy động** | Nên có — lịch ở §4 |
 
 **W3 là tính năng mang toàn bộ luận điểm của đồ án.** Kéo thanh trượt là thấy ngay nồng độ đổi theo độ cao — chứng minh trực tiếp "phải 3D" ngay trên sản phẩm, không cần giải thích bằng lời.
 
@@ -88,8 +89,8 @@ phân tích và báo cáo.
 
 | | Xong | Làm dở | Chưa | Cắt | Tổng |
 |---|---|---|---|---|---|
-| **Người A** | 32 | 4 | 2 | 4 | 42 |
-| **Người B** | 20 | 3 | 9 | 0 | 32 |
+| **Người A** | 32 | 4 | 10 | 4 | 50 |
+| **Người B** | 20 | 3 | 10 | 0 | 33 |
 
 Suite: **176 test xanh** (`pytest -q`, 29/09). 53 test mới được kiểm độ phân biệt bằng cách cài
 10 lỗi có chủ đích — cả 10 đều làm test đỏ.
@@ -108,6 +109,7 @@ Suite: **176 test xanh** (`pytest -q`, 29/09). 53 test mới được kiểm đ�
 | F8 | Chính | Thiếu file giả định A3.5 | — | A | ✅ sinh tự động |
 | F9 | Phụ | `python-dotenv` thiếu trong `requirements.txt` → 2 test đỏ | — | A | ✅ |
 | F10 | Phụ | QCVN PM2.5 24 h là **45 µg/m³ từ 01/01/2026** (Bảng 1, chú thích \*), không phải 50 | — | A | ✅ web + config |
+| F11 | Chính | **Gió đứng quá lớn sát nhà**: \|w\| tới **4,2–4,5 m/s**, lớn hơn tốc độ ngang trung vị (2,6–3,0 m/s). Nghi do α₁ = α₂ = 1 (mặc định, chưa ai chỉnh) — **chưa tra nguồn, chưa kết luận** | đo 29/09 qua `wind.core.project_mass_consistent`, tol 1e-2 | B | ❌ |
 
 **Gợi ý sửa cho B:** F1 — thêm `uf, vf, wf` vào `WindResult` và cho `transport_step` nhận vận tốc
 mặt ô trực tiếp (lưới so le Arakawa-C); test: div của **chính trường transport dùng** < 1e-6 s⁻¹ ở
@@ -136,10 +138,49 @@ khớp `voxel_grid.nc` · attrs `scenario`, `model` (`gaussian`/`fv`), `wind_fro
 `04_analysis.py` → `05_viz.py` → `06_export_web.py` là web và hình tự cập nhật. Kiểm hợp đồng:
 `src/analysis/fields.py`.
 
-### Còn lại — theo thứ tự ảnh hưởng tới điểm
+### Kế hoạch nâng điểm — đánh giá 29/09
 
-| # | Việc | Ai | Vì sao |
-|---|---|---|---|
+Tự đánh giá theo góc nhìn giảng viên nghiên cứu GIS 3D (**ước lượng, không phải thang chấm
+thật của môn**):
+
+| Nếu nộp | Điểm dự kiến | Vì sao |
+|---|---|---|
+| Như hiện tại (web trên Gaussian, chưa có FV) | 7,0 – 7,5 | Thiếu kết quả của chính mô hình voxel |
+| Đúng plan (F1 sửa, B4.2 đạt, FV lên web, đủ chương) | 8,5 – 9,0 | Phương pháp và kỷ luật kiểm chứng tốt; thiếu bằng chứng định lượng rằng 3D đổi kết quả |
+| Plan **+ A5.5, A8.7/B6.6, A6.5, A7.6, A5.6** | 9,3 – 9,8 | Trả lời được 4 câu hỏi chắc chắn gặp khi bảo vệ (dưới đây) |
+
+Bốn câu hỏi hội đồng gần như chắc chắn hỏi, và việc trả lời từng câu:
+
+| Câu hỏi | Trả lời bằng |
+|---|---|
+| "Chiều cao sai ~100 % (MAE 23,2 m so với trung vị ~23 m) thì kết luận theo độ cao còn đứng không?" | **A8.7 + B6.6** — chạy lại với chiều cao OSM, báo cáo thay đổi bằng số |
+| "Lớp 3D thay đổi kết quả bao nhiêu so với Gaussian?" | **A5.5** — hiệu số theo tầng và theo hẻm; nói thẳng nếu chênh lệch nhỏ |
+| "Bản đồ này dùng để quyết định gì, khi không ô nào vượt ngưỡng?" | **A7.6** nền có nguồn + **A5.6** phơi nhiễm mặt đứng theo toà/tầng |
+| "Dữ liệu 3D này trao đổi với hệ khác thế nào?" | **A6.5** — CityJSON LoD1 + QGIS 3D |
+
+**Nếu còn dư sức** (chỉ khi B4.2 và B6.2 xong trước tuần 5): tham số hoá vùng khuất gió sau nhà
+(phần "wake" của Röckle). Nâng cấp vật lý lớn nhất, rủi ro cao nhất — không được đẩy lịch của
+bốn việc trên.
+
+### Lịch còn lại theo tuần
+
+Giả định tuần 1 = 15–21/09 (ROADMAP ghi "tuần 1 xong" ngày 22/09). Lệch lịch thì dịch ngày,
+giữ thứ tự.
+
+| Tuần | Ngày | Người A | Người B | Xong tuần là có |
+|---|---|---|---|---|
+| **3** | 29/09–05/10 | Commit + push. **A6.5** CityJSON + QGIS 3D (A5.4 đi kèm). Nháp A8.5: Bối cảnh, Dữ liệu, Quy trình. GitHub Actions chạy `pytest` | **Sửa F1** · **B4.2** < 6 % · **B4.3** benchmark | Qua cổng M3 |
+| **4** | 06–12/10 | **A7.7** bối cảnh thành phố + **A7.8** khói 3D (chạy trên Gaussian, tự sang FV sau). **A7.6** nền có nguồn (cùng B). **A5.6** phơi nhiễm mặt đứng lên web | **B5.4** `wind_field.nc` · B5.3/B5.5 · **B6.1** ghép đầu–cuối · B6.4 test tích hợp | Pipeline FV chạy đầu–cuối |
+| **5** | 13–19/10 | Chạy lại 04 → 05 → 06: web sang FV. **A5.5** hiệu số FV − Gaussian. **A7.9** gió chạy động (đổi sang `wind_field.nc` của B nếu đã có) | **B6.2** 2 kịch bản chính theo hợp đồng · **B6.3** 5 m ↔ 10 m | Kết quả chính + bằng chứng "phải 3D" |
+| **6** | 20–26/10 | **A8.7** độ nhạy phía A. Chương Kết quả, Phân tích không gian. **A8.4** thử 2 máy + điện thoại thật | **B6.6** ca độ nhạy · **B7.4** chạy lại được từ đầu · bắt đầu B8.1 | Bảng độ nhạy đủ |
+| **7** | 27/10–02/11 | **A8.6** video. Đọc chéo chương của B | **B8.1** 4 chương + Hạn chế · **B8.2** Q&A | Báo cáo đủ 10 chương |
+| **8** | 03–09/11 | **Cả hai:** đọc chéo, kiểm mọi con số truy được nguồn, tập dượt bảo vệ 2 lần có bấm giờ, đóng gói repo + hướng dẫn chạy web. Tuần đệm | | Nộp |
+
+**Cổng:** B4.2 phải đạt trong tuần 3. Hết tuần 4 vẫn chưa đạt → nhánh "Không đạt" của §5
+(Gaussian làm kết quả chính, ghi trong Hạn chế, dồn sức vào A5.6, A6.5, A7.6 và báo cáo). Web
+và toàn bộ Tầng 3 đã chạy trên Gaussian nên nhánh dự phòng vẫn nộp được.
+
+---|---|---|---|
 | 1 | **Sửa F1** (vận tốc mặt ô), rồi **B4.2** kiểm định Bậc 1 3D < 6 % | B | Không có F1 thì mọi con số FV sát nhà sai tới 2×; B4.2 là cổng bắt buộc |
 | 2 | **B6.1–B6.2**: chạy FV cho 2 kịch bản, ghi theo hợp đồng | B | Web đang chạy trên baseline Gaussian — chùm khói đi xuyên nhà |
 | 3 | **So sánh Gaussian ↔ FV** (bản đồ hiệu số, `operators.difference_map`) | A | Đây là bằng chứng trực tiếp cho luận điểm "phải 3D" — DECISION §7.9 |
@@ -296,6 +337,8 @@ ngay — chùm khói đi ngược, nồng độ âm, hoặc vệt sọc ở biê
 | A5.2 | Mặt cắt đứng qua hẻm phố | 1 mặt cắt đứng | ✅ `sections_*.png` |
 | A5.3 | Profile đứng tại vị trí trạm quan trắc | 1 profile | 🟡 trạm gần nhất cách 931 m, ngoài miền → thay bằng profile qua ô mặt phố cực đại |
 | A5.4 | Chuẩn hoá lưu trữ: xarray `(z,y,x)`, CF, `positive="up"` | netCDF mở được bằng QGIS | 🟡 hợp đồng `concentration_<scenario>.nc` theo CF; **chưa mở thử bằng QGIS** |
+| A5.5 | ⭐ **Bản đồ hiệu số FV − Gaussian**, lượng hoá theo độ cao và theo hẻm (H/W thấp ↔ cao) | Hình + bảng: chênh lệch trung vị/p95 theo tầng và theo nhóm H/W | ❌ chờ B6.2 |
+| A5.6 | **Phơi nhiễm mặt đứng thành sản phẩm quyết định**: toà nào, tầng nào, mặt nào hứng nặng nhất | Bảng top toà/tầng + lớp trên web | ❌ |
 
 **Người B**
 
@@ -324,6 +367,7 @@ ngay — chùm khói đi ngược, nồng độ âm, hoặc vệt sọc ở biê
 | A6.2 | Lọc bỏ ô nồng độ thấp để giảm dung lượng | Hệ số giảm mẫu đã ghi lại | ✅ lượng tử `uint8` thang log 4 thập phân, sai số ≤ 1,8 %; không bỏ ô nào |
 | A6.3 | Xuất `buildings.geojson` cho web | File toà nhà cho deck.gl | ✅ `web/data/buildings.js` |
 | A6.4 | Dựng khung web thật: MapLibre + deck.gl + `PolygonLayer` extrude | **W1** — web hiện được toà nhà 3D | ✅ |
+| A6.5 | **Xuất CityJSON LoD1** (toà nhà + chiều cao + nguồn chiều cao) và **mở mô hình trong QGIS 3D** | `output/citygml/buildings.city.json` hợp lệ `cjio validate`; ảnh chụp QGIS 3D | ❌ |
 
 **Người B**
 
@@ -334,6 +378,7 @@ ngay — chùm khói đi ngược, nồng độ âm, hoặc vệt sọc ở biê
 | B6.3 | So độ phân giải 5 m vs 10 m | Bảng so sánh | ❌ |
 | B6.4 | **Viết test tích hợp đầu-cuối** — hiện chưa có cái nào | `tests/test_integration.py` | 🟡 chỉ có test giao diện gió↔vận chuyển với gió đều |
 | B6.5 | Kiểm nguồn phát thải không nằm trong voxel rắn | Test khẳng định điều đó | ✅ `emission/rasterizer.py` + test |
+| B6.6 | **Chạy thêm các ca độ nhạy**: gió TB mùa 0,70 m/s (F4), chiều cao OSM, Δ = 10 m | 3 file theo hợp đồng + log Δt/số bước/wall-clock | ❌ |
 
 > **Ngân sách bước cho B6.2 đã được tính lại theo gió thật.** Với miền 500 m, tốc độ
 > 1,62 m/s cho thời gian xuyên miền ~309 s; 1,84 m/s cho ~272 s. Dùng ngân sách 4–6
@@ -353,6 +398,10 @@ ngay — chùm khói đi ngược, nồng độ âm, hoặc vệt sọc ở biê
 | A7.3 | Nút chuyển kịch bản gió | **W4** | ✅ |
 | A7.4 | Bật/tắt ngưỡng QCVN 45 và WHO 15 µg/m³ | **W5** | ✅ QCVN **45** (từ 01/01/2026) · WHO 15 |
 | A7.5 | Legend, tiêu đề, chú thích nguồn dữ liệu | Web đọc được không cần giải thích | ✅ |
+| A7.6 | **Nồng độ nền có nguồn** + so bậc độ lớn với trạm (Lãnh sự quán Mỹ / OpenAQ) — kiểm tra hợp lý Bậc 3, **không gọi là validation** | Giá trị nền mặc định trên web có trích nguồn; 1 bảng so sánh | ❌ cần B1.4 |
+| A7.7 | **Bối cảnh thành phố** từ tile OpenFreeMap (không khoá): mọi nhà quanh miền theo footprint + `render_height`, nhà có tâm trong miền bị loại để chỉ còn 62 toà mô hình (tô riêng, bật/tắt); sông, công viên, đường; ánh sáng mặt trời + bóng đổ theo giờ; góc camera người đi bộ / toàn cảnh | **W9** — cảnh hiện đủ, 0 lỗi console, vẫn chạy khi tile không tải được | ❌ |
+| A7.8 | **Khói 3D**: khối voxel 5 × 5 × 2 m bán trong suốt (ngưỡng hiển thị chỉnh được, trần số khối); **bong bóng WHO / QCVN** dựng từ mặt biên voxel; **mặt cắt đứng** x–z / y–z kéo được | **W8 + W9** — số khối = số ô vượt ngưỡng; khối n³ cho đúng 6n² mặt (test bằng node) | ❌ |
+| A7.9 | **Gió chạy động**: đường dòng RK2 trên trường gió 3D, dừng khi vào nhà / ra miền, TripsLayer. Dùng trường gió tạm thời từ API của B tới khi có `wind_field.nc` (B5.4), **ghi rõ trên web** | **W9** — gió đều → đường thẳng U·t; không điểm nào trong nhà | ❌ |
 
 **Người B**
 
@@ -378,6 +427,7 @@ Qgis2threejs (~2 người-ngày). Xấu hơn nhưng vẫn là web và vẫn nộ
 | A8.4 | **Test trên 2 máy khác nhau và điện thoại** | Biên bản test 3 thiết bị | 🟡 đã thử desktop 1400 px + giả lập điện thoại 375 px; **chưa thử máy thật** |
 | A8.5 | Viết 6 chương: Bối cảnh, Dữ liệu, Quy trình, Kết quả, Phân tích không gian, Web | 6 chương báo cáo | ❌ |
 | A8.6 | Quay video demo 1–2 phút | Video | ❌ |
+| A8.7 | **Bộ độ nhạy có số** (phần A): trọng số cấp đường ±, chiều cao Google ↔ OSM (G3) | Bảng: thay đổi thể tích vượt ngưỡng và TB tầng 1,5 m theo từng tham số | ❌ chờ B6.2 |
 
 **Người B**
 
@@ -401,6 +451,11 @@ bấm giờ, đóng gói repo kèm hướng dẫn chạy web.
 8. **Giả định đất phẳng z = 0** — chưa đo độ chênh cao
 9. LoD1, không có hoá học, một trường gió tựa dừng mỗi lần chạy
 10. Web hiển thị dữ liệu đã gộp và giảm mẫu, không phải toàn bộ 500.000 voxel
+11. **OSM thiếu nhà thấp** — thấy rõ trên ảnh vệ tinh (A2.4); mô hình thiếu vật cản ở tầng thấp
+12. **Tổng phát thải EDGAR là cận dưới** cho lõi Q1: ngụ ý ~99 xe/h trên đường primary; nồng độ tuyệt đối chỉ dùng tương đối
+13. **Không có nồng độ nền** (cho tới khi A7.6 xong) — chỉ là phần đóng góp của giao thông trong miền
+14. **Gió kịch bản là một giờ ban đêm** (1,62 / 1,84 m/s); trung bình vector mùa chỉ 0,70 / 1,10 m/s (F4)
+15. **H/W đo trên chiều cao Google** nên mang cùng bất định; trục Nguyễn Huệ H/W 0,55 là đại lộ nông
 
 ---
 

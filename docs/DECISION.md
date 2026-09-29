@@ -589,3 +589,22 @@ trong mô hình khớp mái nhà trên ảnh, nhưng **nhiều nhà thấp khôn
 khối phía nam (x ≈ 150–250 m, y ≈ 50–120 m). Mô hình vì vậy **thiếu vật cản ở tầng thấp** — ghi
 vào chương Hạn chế cạnh sai số chiều cao. Chưa đếm được số nhà thiếu: cần số hoá tay hoặc một
 nguồn footprint khác (Google Open Buildings polygons).
+
+### G. Trạng thái 9 sản phẩm phân tích không gian của §7
+
+§7 đòi ít nhất 5. Tính tới 29/09 (trên baseline Gaussian; chạy lại tự động khi có trường FV):
+
+| # | Sản phẩm §7 | Trạng thái | Ở đâu |
+|---|---|---|---|
+| 1 | Lát cắt ngang 1,5 / 6 / 15 / 30 m | ✅ | `05_viz.py` → `slices_*.png`; web thanh trượt 1–99 m |
+| 2 | Mặt cắt đứng qua hẻm | ✅ | `sections_*.png` |
+| 3 | Profile đứng tại trạm | 🟡 trạm ngoài miền (931 m) → profile qua ô mặt phố cực đại | `profile_street_max_*.png`; web click |
+| 4 | Bề mặt đẳng trị | ❌ để sau (W8) | — |
+| 5 | Thể tích vượt ngưỡng | ✅ theo tầng và cả miền, kèm hệ số nhân phát thải | `exceedance_vs_multiplier_*.png`; web panel |
+| 6 | Phơi nhiễm mặt đứng theo tầng | ✅ toàn miền · ❌ theo từng toà (ROADMAP A5.6) | `facade_by_floor_*.png` |
+| 7 | Phơi nhiễm dân số WorldPop | ⛔ cắt | — |
+| 8 | Độ nhạy | ❌ ROADMAP A8.7 + B6.6 | — |
+| 9 | So sánh Gaussian ↔ voxel | ❌ chờ FV — ROADMAP A5.5 | `operators.difference_map` đã có |
+
+Ngoài danh sách §7: **H/W hẻm phố** (mục E) và **CityJSON LoD1 + QGIS 3D** (ROADMAP A6.5) để trả
+lời câu hỏi về chuẩn dữ liệu GIS 3D. Kế hoạch và lý do chọn thứ tự: ROADMAP §4 "Kế hoạch nâng điểm".
