@@ -267,8 +267,13 @@ def test_real_roads_file_matches_the_survey():
     classes = set(roads["highway"])
     assert {"residential", "tertiary", "primary", "secondary"} <= classes
 
-    total = roads["length_m"].sum()
-    assert 8000 < total < 9500, f"total length {total:.0f} m is off the survey's 8777 m"
+    # The survey's 8 777 m counted every two-way street twice (osmnx returns a
+    # directed graph); one copy per street is 6 395.5 m. Measured after
+    # dropping reverse copies so both an old and a fresh download pass.
+    from emission.roads import drop_reverse_duplicates
+
+    total = drop_reverse_duplicates(roads)["length_m"].sum()
+    assert 6000 < total < 6800, f"total length {total:.0f} m is off the de-duplicated 6 396 m"
 
 
 @needs_real_data

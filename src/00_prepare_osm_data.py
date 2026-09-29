@@ -29,6 +29,7 @@ ox.settings.requests_timeout = 60
 from shapely.geometry import Point, box
 
 from voxel.gob_heights import HEIGHT_CAP_M
+from emission.roads import drop_reverse_duplicates
 
 
 LOGGER = logging.getLogger(
@@ -1365,13 +1366,13 @@ def prepare_road_output(
         record["geometry"] = row.geometry
         records.append(record)
 
-    return (
+    # osmnx gives a directed graph: a two-way street is two edges.
+    return drop_reverse_duplicates(
         gpd.GeoDataFrame(
             records,
             geometry="geometry",
             crs=edges.crs,
-        )
-        .reset_index(
+        ).reset_index(
             drop=True
         )
     )

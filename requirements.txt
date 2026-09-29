@@ -26,6 +26,13 @@ osmnx>=2.0
 # it directly, so it is declared directly.
 requests>=2.32
 
+# src/00_prepare_openaq.py reads OPENAQ_API_KEY from a local, never-committed .env.
+python-dotenv>=1.0
+
+# src/analysis/imagery.py decodes satellite tiles (A2.4). Arrives with matplotlib,
+# but is imported directly, so it is declared directly.
+Pillow>=10.0
+
 # Jupyter / debugging
 jupyter>=1.1
 ipykernel>=6.29

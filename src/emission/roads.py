@@ -53,10 +53,56 @@ def build_source_term(
     return source
 
 
+def drop_reverse_duplicates(
+    roads: gpd.GeoDataFrame,
+) -> gpd.GeoDataFrame:
+    """
+    Keep one copy of each two-way street.
+
+    osmnx returns a DIRECTED graph, so a two-way street arrives as two
+    edges, (u, v) and (v, u), with the same centreline traced in opposite
+    directions. Summing both counts that street's length twice and gives
+    every two-way street double the weight of a one-way one - a weighting
+    BR-28 never states. On the Nguyen Hue network that was 24 copies,
+    27.1 % of the total length.
+
+    Two edges are copies when they share `highway` and their geometries
+    are the same line regardless of direction. Edges that reverse each
+    other but differ in `highway` are kept (EC-7).
+    """
+
+    if roads.empty:
+        return roads.copy()
+
+    keys = [
+        (
+            str(highway),
+            geometry.normalize().wkb_hex
+            if geometry is not None and not geometry.is_empty
+            else f"__empty_{position}",
+        )
+        for position, (highway, geometry) in enumerate(
+            zip(roads["highway"], roads.geometry)
+        )
+    ]
+
+    duplicated = pd.Series(keys, index=roads.index).duplicated(
+        keep="first"
+    )
+
+    kept = roads.loc[~duplicated].reset_index(drop=True)
+    kept.attrs["reverse_duplicates_dropped"] = (
+        int(duplicated.sum())
+        + int(roads.attrs.get("reverse_duplicates_dropped", 0))
+    )
+
+    return kept
+
+
 def load_roads(
     roads_path: str | Path,
 ) -> gpd.GeoDataFrame:
-    """Read and validate the prepared road network."""
+    """Read and validate the prepared road network, one copy per street."""
     path = Path(
         roads_path
     ).expanduser().resolve()
@@ -161,6 +207,13 @@ def load_roads(
         "highway"
     ] = highway.astype(
         str
+    )
+
+    result = drop_reverse_duplicates(result)
+
+    length_m = pd.to_numeric(
+        result["length_m"],
+        errors="coerce",
     )
 
     result[

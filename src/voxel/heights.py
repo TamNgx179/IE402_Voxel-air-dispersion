@@ -333,6 +333,20 @@ def resolve_building_heights(
         dtype=np.float64,
     )
 
+    # Step 00 writes every height into `height` - Google Open Buildings,
+    # an OSM tag or a derived median alike - and records where it came from
+    # in `prepared_height_source`. Reading `height` alone would report all of
+    # them as "direct:height", which is true of the column and false of the
+    # data. Carry the upstream provenance through instead.
+    if "prepared_height_source" in result.columns:
+        for position, prepared in enumerate(result["prepared_height_source"]):
+            if (
+                height_sources[position].startswith("direct:")
+                and isinstance(prepared, str)
+                and prepared.strip()
+            ):
+                height_sources[position] = prepared.strip()
+
     result[
         "height_source"
     ] = height_sources
