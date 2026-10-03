@@ -3,13 +3,16 @@
 > **Đề tài:** Mô phỏng lan truyền ô nhiễm không khí đô thị bằng mô hình GIS 3D
 > **Kỹ thuật GIS 3D trọng tâm:** Mô hình 3D Array / voxel, phân tích không gian
 > **Ngày tổng hợp:** 2026-09-19
-> **File đi kèm:** [`DECISION.md`](./DECISION.md) — chốt phương án, lý do, kế hoạch triển khai.
+> **Tài liệu đi kèm:** [`ARCHITECTURE.md`](./ARCHITECTURE.md), [`spec.md`](./spec.md) và
+> [`ROADMAP.md`](./ROADMAP.md).
 
 ---
 
 ## 0. Cách đọc tài liệu này
 
-Tài liệu này **chỉ mô tả và so sánh**, không chốt phương án. Phần chốt nằm ở `DECISION.md`.
+Tài liệu giữ nguyên khung research theo các họ mô hình, GIS 3D, dữ liệu và kiểm định. Để đọc
+nhanh cho đồ án hiện tại, ưu tiên §1, §6, §10–§16 và §20; các tầng còn lại là phần đối chiếu.
+Phương án chốt nằm trong `spec.md`, kiến trúc triển khai nằm trong `ARCHITECTURE.md`.
 
 Mỗi khẳng định có gắn link nguồn gốc. Quy ước độ tin cậy:
 
@@ -74,7 +77,7 @@ Bổ sung 3 lập luận vật lý (📐, nhưng có nguồn hỗ trợ từng p
 
 ## 2. Khung phân tầng các họ mô hình phát tán
 
-Toàn bộ tài liệu này tổ chức theo **6 tầng**, sắp từ rẻ/thô đến đắt/chính xác. Đây là khung để so sánh và cũng là khung để trình bày trong seminar.
+Toàn bộ tài liệu này tổ chức theo **6 tầng**, sắp từ rẻ/thô đến đắt/chính xác. Đây là khung để so sánh và giải thích lựa chọn trong báo cáo/bảo vệ.
 
 | Tầng | Họ mô hình | Ý tưởng cốt lõi | Chi phí tính toán | Có toà nhà? | Ra trường 3D? |
 |---|---|---|---|---|---|
@@ -543,7 +546,7 @@ Dạng tổng quát cho vận tốc âm: `u·∂C/∂x|_i ≈ [u⁺(C_i − C_{i
 | `linearUpwind` | *"bậc hai, thiên upwind, unbounded (nhưng ít hơn nhiều so với linear)"* |
 | `limitedLinear` | *"sơ đồ linear tự giới hạn về upwind ở vùng gradient biến đổi nhanh"* |
 
-📐 **Khuếch tán số (numerical diffusion) — điểm phải nêu trong seminar.** Khai triển Taylor của stencil upwind sinh số hạng sai số dẫn đầu tương đương một độ khuếch tán phụ `K_num = ½·u·Δx·(1 − Cr)`. ⚠️ **Biểu thức này không lấy được từ nguồn chính thức trong quá trình research — coi là kiến thức sách giáo khoa cần tự kiểm chứng.** Hệ quả thực tiễn: với u = 3 m/s và Δx = 5 m, K_num cỡ vài m²/s — **so sánh được hoặc lớn hơn độ khuếch tán rối ngang vật lý** mà ta đang cố mô hình hoá. Upwind bậc 1 trên lưới voxel thô làm nhoè chùm khói **nhiều hơn cả khí quyển thật**.
+📐 **Khuếch tán số (numerical diffusion) — điểm phải nêu trong báo cáo/bảo vệ.** Khai triển Taylor của stencil upwind sinh số hạng sai số dẫn đầu tương đương một độ khuếch tán phụ `K_num = ½·u·Δx·(1 − Cr)`. ⚠️ **Biểu thức này không lấy được từ nguồn chính thức trong quá trình research — coi là kiến thức sách giáo khoa cần tự kiểm chứng.** Hệ quả thực tiễn: với u = 3 m/s và Δx = 5 m, K_num cỡ vài m²/s — **so sánh được hoặc lớn hơn độ khuếch tán rối ngang vật lý** mà ta đang cố mô hình hoá. Upwind bậc 1 trên lưới voxel thô làm nhoè chùm khói **nhiều hơn cả khí quyển thật**.
 
 #### Điều kiện ổn định CFL
 
@@ -644,7 +647,7 @@ Tích phân thời gian trong QES-Plume dùng **sơ đồ ẩn trễ ổn địn
 | *Analysis of Atmospheric Quality based on Cellular Automata Simulation*, ICIIT 2020 — dùng *"quy tắc trọng lực, khuếch tán và gió"* | ⚠️ [DOI 10.1145/3385209.3385213](https://dl.acm.org/doi/10.1145/3385209.3385213) |
 | Sonnenschein et al. (2024), *Hybrid Cellular Automata-Based Air Pollution Model for Traffic Scenario Microsimulations* — lai LUR + phát thải trên đường + CA ngoài đường | ✅ tải được [DOI 10.2139/ssrn.4933580](https://doi.org/10.2139/ssrn.4933580) |
 
-> 📐 **Nhận định quan trọng — nên nói thẳng trong seminar:** một CA bảo toàn khối lượng, chuyển một phần khối lượng sang các ô lân cận theo trọng số gió cộng một phần đẳng hướng, **là tương đương về mặt đại số với một sơ đồ thể tích hữu hạn upwind hiện của phương trình tải–khuếch tán** (§6.4). Khác biệt chủ yếu là cách trình bày. Đây là một **insight**, không phải điểm yếu — và nêu ra nó chứng tỏ nhóm hiểu bản chất. Hệ quả thực dụng: **nên đóng khung công việc là "sơ đồ thể tích hữu hạn" thay vì "cellular automata"** — cùng một đoạn code, nhưng có thêm phân tích ổn định viết ra được và tránh được câu hỏi "sao không giải thẳng phương trình tải–khuếch tán?".
+> 📐 **Nhận định quan trọng — nên nói thẳng trong báo cáo/bảo vệ:** một CA bảo toàn khối lượng, chuyển một phần khối lượng sang các ô lân cận theo trọng số gió cộng một phần đẳng hướng, **là tương đương về mặt đại số với một sơ đồ thể tích hữu hạn upwind hiện của phương trình tải–khuếch tán** (§6.4). Khác biệt chủ yếu là cách trình bày. Đây là một **insight**, không phải điểm yếu — và nêu ra nó chứng tỏ nhóm hiểu bản chất. Hệ quả thực dụng: **nên đóng khung công việc là "sơ đồ thể tích hữu hạn" thay vì "cellular automata"** — cùng một đoạn code, nhưng có thêm phân tích ổn định viết ra được và tránh được câu hỏi "sao không giải thẳng phương trình tải–khuếch tán?".
 
 ---
 
@@ -659,7 +662,7 @@ Tích phân thời gian trong QES-Plume dùng **sơ đồ ẩn trễ ổn địn
 ```
 đóng kín bằng 2 phương trình vận chuyển. Với **k-ω SST**: ⚠️ [Menter (1994), *AIAA Journal* 32(8), 1598–1605, DOI 10.2514/3.12149](https://doi.org/10.2514/3.12149) — mô hình *"dùng mô hình k-ω gốc của Wilcox ở vùng trong của lớp biên và chuyển sang k-ε tiêu chuẩn ở vùng ngoài và trong dòng cắt tự do"* ✅ (qua [NASA ADS](https://ui.adsabs.harvard.edu/abs/1994AIAAJ..32.1598M/abstract)) — chính sự pha trộn này khiến SST tốt hơn k-ε chuẩn cho dòng tách sau vật cản tù như toà nhà.
 
-⭐ **Cầu nối khái niệm quan trọng:** sau khi có trường vận tốc hội tụ từ `simpleFoam`, phát tán chất ô nhiễm được giải bằng **đúng phương trình tải–khuếch tán ở §6.4**, với `K = ν_t/Sc_t` (số Schmidt rối thường 0,7–1,0), bằng `scalarTransportFoam` ✅. Nghĩa là: **bộ giải voxel của nhóm và CFD giải cùng một phương trình vận chuyển — chỉ khác nhau ở chỗ trường gió từ đâu ra.** Đây là một luận điểm rất mạnh cho seminar.
+⭐ **Cầu nối khái niệm quan trọng:** sau khi có trường vận tốc hội tụ từ `simpleFoam`, phát tán chất ô nhiễm được giải bằng **đúng phương trình tải–khuếch tán ở §6.4**, với `K = ν_t/Sc_t` (số Schmidt rối thường 0,7–1,0), bằng `scalarTransportFoam` ✅. Nghĩa là: **bộ giải voxel của nhóm và CFD giải cùng một phương trình vận chuyển — chỉ khác nhau ở chỗ trường gió từ đâu ra.** Đây là một luận điểm mạnh cho phần bảo vệ phương pháp.
 
 **Hướng dẫn thực hành chuẩn:**
 - **COST Action 732** — *Best Practice Guideline for the CFD Simulation of Flows in the Urban Environment* (Franke, Hellsten, Schlünzen & Carissimo, 05/2007) ⚠️ ([PDF](https://theairshed.com/pdf/COST%20732%20Best%20Practice%20Guideline%20May%202007.pdf) — **PDF nén ảnh, không trích xuất được**). Bài tóm tắt: ⚠️ [Franke et al. 2011, DOI 10.1504/IJEP.2011.038443](https://doi.org/10.1504/IJEP.2011.038443), mục tiêu *"phát triển một quy trình đảm bảo chất lượng mạch lạc và có cấu trúc cho các mô hình khí tượng vi mô áp dụng cho mô phỏng dòng chảy và phát tán ở khu đô thị"*.
@@ -730,7 +733,7 @@ Bằng chứng đã có nguồn:
 ### 8.1 CMAQ (US EPA)
 
 - **Độ phân giải đã thử nghiệm:** 12 km (chuẩn toàn nước Mỹ), 4 km, 2 km và **1 km** (Baltimore–Washington) ✅ ([EPA](https://www.epa.gov/cmaq/evaluation-cmaq-applications-neighborhood-scales)).
-- ⭐ **Câu nên trích nguyên văn trong seminar — lý do vì sao CTM không dùng được ở quy mô vi mô:**
+- ⭐ **Luận điểm nên dùng trong báo cáo/bảo vệ — lý do vì sao CTM không dùng được ở quy mô vi mô:**
   > *"Các mô hình chất lượng không khí Eulerian pha loãng tức thời phát thải điểm ra toàn bộ thể tích của ô lưới."* ✅
   Nghĩa là: một ô 1 km chứa cả hẻm phố, mái nhà và công viên sẽ trả về **một con số duy nhất**. Không thể phân giải toà nhà — đây là **giới hạn cấu trúc, không phải thiết lập độ phân giải**.
 - Mã nguồn mở trên GitHub ✅ ([USEPA/CMAQ](https://github.com/USEPA/CMAQ)).
@@ -771,7 +774,7 @@ CAIRDIO (City-scale AIR dispersion model with DIffuse Obstacles) được xây d
 | 40 m | "độ tin cậy không quá nhạy" | — | — |
 | 80 m | — | −0,57 | 0,32 (vừa đủ đạt) |
 
-> ⭐ **Cách đọc bảng này (rất đáng đưa vào seminar):** so với tiêu chí chấp nhận đô thị mà chính bài đó trích (NMSE < 6, |FB| < 0,67, FAC2 > 0,3), **mọi độ phân giải từ 5 m đến 80 m đều "đạt" về mặt kỹ thuật — nhưng NMSE xấu đi hơn một bậc độ lớn khi đi từ 5 m lên 20 m.** Kết luận kép: (1) tiêu chí chấp nhận là bộ lọc yếu; (2) **~5–10 m là ngưỡng mà mô hình voxel bắt đầu mất kỹ năng nhanh chóng**. Đây là căn cứ bằng văn bản để chọn độ phân giải của đồ án.
+> ⭐ **Cách đọc bảng này (rất đáng đưa vào báo cáo/bảo vệ):** so với tiêu chí chấp nhận đô thị mà chính bài đó trích (NMSE < 6, |FB| < 0,67, FAC2 > 0,3), **mọi độ phân giải từ 5 m đến 80 m đều "đạt" về mặt kỹ thuật — nhưng NMSE xấu đi hơn một bậc độ lớn khi đi từ 5 m lên 20 m.** Kết luận kép: (1) tiêu chí chấp nhận là bộ lọc yếu; (2) **~5–10 m là ngưỡng mà mô hình voxel bắt đầu mất kỹ năng nhanh chóng**. Đây là căn cứ bằng văn bản để chọn độ phân giải của đồ án.
 
 CAIRDIO viết bằng **Python với NumPy vector hoá và MPI**, dùng bộ giải áp suất geometric multigrid, mở rộng tốt tới 400 lõi ✅. 📐 Tức là một mô hình peer-reviewed, viết bằng Python, dùng biểu diễn toà nhà kiểu "phân số thể tích trong voxel" — **một tiền lệ cực tốt để trích dẫn**.
 
@@ -795,7 +798,7 @@ CAIRDIO viết bằng **Python với NumPy vector hoá và MPI**, dùng bộ gi�
 - Kết hợp cảm biến giá rẻ với mô hình phát tán để có độ phân giải cao ⚠️ ([Environment International 2026](https://www.sciencedirect.com/science/article/pii/S0160412026001157)).
 - Gaussian Process thời-không với xấp xỉ Vecchia ✅ ([arXiv:2511.22500](https://arxiv.org/pdf/2511.22500)); so sánh mô hình bản đồ hoá từ cảm biến cố định + di động ✅ ([arXiv:2511.22550](https://arxiv.org/pdf/2511.22550)).
 
-> ### 🔴 Kết luận phương pháp luận cần nói thẳng trong seminar
+> ### 🔴 Kết luận phương pháp luận cần nói thẳng trong bảo vệ
 > **Hầu như toàn bộ công việc nội suy cảm biến trong thực tế là 2-D (bản đồ mặt đất).** Nội suy 3-D thể tích thực sự cho chất lượng không khí đô thị là **hiếm**, vì gần như không có phép đo theo phương đứng. **Không tìm được bài báo nào thực hiện nội suy 3-D thể tích đầy đủ cho một mạng cảm biến đô thị.**
 >
 > Hệ quả: **nội suy 3–10 cảm biến mặt đất lên lưới voxel KHÔNG tạo ra trường phát tán — nó tạo ra những "đốm" trơn quanh mỗi cảm biến.** Chính **mô phỏng phát tán** (Gaussian, Lagrange hay CFD) mới là cơ chế đặt chất ô nhiễm vào đúng nơi mà gió và toà nhà đưa nó tới. **Hãy đóng khung nội suy là baseline cần vượt qua và là công cụ đồng hoá/kiểm định tại vị trí cảm biến — không phải là mô hình.**
@@ -837,7 +840,7 @@ CAIRDIO viết bằng **Python với NumPy vector hoá và MPI**, dùng bộ gi�
 | **CFD** | FAC2 tới ~0,95 ở ca tốt nhất | giờ → ngày |
 Và một nhận định có nguồn từ chính văn liệu Lagrange: *"cách tiếp cận mô hình hoá ngẫu nhiên Lagrange có thể là một thoả hiệp giữa các mô hình Gaussian đơn giản và các mô hình CFD tiên tiến"* ⚠️ (snippet từ [ScienceDirect S0167610519305768](https://www.sciencedirect.com/science/article/abs/pii/S0167610519305768)).
 
-### 10.3 Ba trade-off cốt lõi để nói trong seminar
+### 10.3 Ba trade-off cốt lõi để nói trong báo cáo/bảo vệ
 
 **Trade-off 1 — Độ chính xác đổi lấy chi phí là PHI TUYẾN.**
 Đi từ Gaussian lên Röckle-chẩn đoán: chi phí tăng ~100×, FAC2 tăng từ ~0,4 lên ~0,6. Đi tiếp lên LES: chi phí tăng thêm ~1000× (404–4744 GPU-giờ ✅), FAC2 tăng lên ~0,8–0,95. **Bậc thang thứ hai đắt hơn bậc thứ nhất rất nhiều nhưng lợi ích tăng thêm ít hơn.** Với đồ án sinh viên, **bậc thang thứ nhất là nơi tỉ lệ lợi ích/chi phí cao nhất.**
@@ -1074,6 +1077,11 @@ Tài liệu gốc OpenVDB: *"thư viện C++ từng đoạt giải Academy Award
 
 ## 14. Trực quan hoá 3D và phân phối trên web
 
+Viewer tĩnh được mở rộng thành kiến trúc ứng dụng: web 3D gọi NestJS API; NestJS quản lý
+request, trạng thái run và spatial query; Python worker thực hiện mô phỏng;
+PostgreSQL/PostGIS lưu geometry, metadata, metrics và lớp kết quả cần truy vấn; NetCDF giữ
+tensor đầy đủ. Backend mới không thay đổi phương trình hoặc verification contract.
+
 ### 14.1 CesiumJS + 3D Tiles
 
 **3D Tiles** là **OGC Community Standard** *"để truyền phát và render nội dung địa không gian 3D khối lượng lớn như Photogrammetry, 3D Buildings, BIM/CAD, Instanced Features và Point Clouds"*. **Bản hiện hành 1.1 (OGC 22-025r4)** ✅ ([OGC](https://www.ogc.org/standards/3dtiles/)).
@@ -1140,6 +1148,32 @@ Tài liệu gốc OpenVDB: *"thư viện C++ từng đoạt giải Academy Award
 📐 **Giới hạn hiệu năng (suy luận, gắn cờ rõ):** các đòn bẩy có nguồn là **step size** (CesiumJS phơi ra làm núm điều chỉnh chất lượng/hiệu năng) và **kích thước texture 3D**. Một texture 3D `256³` float32 là **64 MB VRAM**; `512³` là **512 MB** — cái sau không an toàn trên di động. Giảm về `Uint8` chuẩn hoá và giữ ở mức ≤ `256³` mỗi tile. ⚠️ **Không tìm được nguồn chính thức nào nêu một giới hạn số cụ thể của trình duyệt — đừng trích một con số; hãy tự benchmark trên phần cứng đích và báo cáo số của chính nhóm.**
 
 ⭐ **Khuyến nghị trực quan hoá (📐):** trích bề mặt đẳng trị tại các ngưỡng quy chuẩn bằng `skimage.measure.marching_cubes` (nhớ truyền `spacing` cho voxel bất đẳng hướng), xuất glTF, render cùng 3D Tiles toà nhà. Sau đó thêm **một** khung nhìn khối bán trong suốt làm sản phẩm "nâng cao", để đồ án vẫn giao được nếu volume renderer trục trặc.
+
+### 14.5 Kiến trúc API–worker–PostGIS cho sản phẩm cuối
+
+**NestJS API.** Controller nhận HTTP request và trả response; provider/service đóng gói logic
+ứng dụng và dependency injection. Cách chia module phù hợp ở đây là `StudyAreasModule`,
+`ScenariosModule`, `RunsModule`, `ResultsModule` và `HealthModule`. API chỉ validate, tạo
+`run_id`, query và trả dữ liệu; không chạy solver NumPy trong vòng đời HTTP request ✅
+([NestJS Controllers](https://docs.nestjs.com/controllers) ·
+[Providers](https://docs.nestjs.com/providers)).
+
+**Worker bất đồng bộ.** Một run có thể kéo dài từ giây tới phút và có failure độc lập, vì vậy
+`POST /runs` phải trả `202 Accepted`; worker claim job, cập nhật heartbeat/progress và ghi
+`succeeded` hoặc `failed`. MVP có thể dùng job table PostgreSQL; BullMQ/Redis chỉ nên thêm khi
+đã có nhu cầu retry/concurrency rõ, tránh tăng hạ tầng trước khi có số đo.
+
+**PostgreSQL/PostGIS.** GiST spatial index và các predicate index-aware như `ST_Intersects`,
+`ST_DWithin`, `ST_3DIntersects`, `ST_3DDWithin` phù hợp để truy vấn footprint, road, bbox,
+vùng ảnh hưởng và các lát concentration ✅
+([PostGIS spatial indexes](https://postgis.net/documentation/faq/spatial-indexes/) ·
+[ST_3DIntersects](https://postgis.net/docs/ST_3DIntersects.html)). `jsonb` phù hợp cho snapshot
+tham số/manifest linh hoạt, còn trường thường filter/join phải là cột typed và có index ✅
+([PostgreSQL JSON types](https://www.postgresql.org/docs/current/datatype-json.html)).
+
+**Không lưu tensor 3D đầy đủ như hàng triệu geometry nếu không cần.** NetCDF là artifact chuẩn
+cho toàn trường; DB lưu metadata, metrics, geometry gốc và slices/summaries cần truy vấn. Đây là
+thiết kế lai: PostGIS tối ưu discovery/query, NetCDF tối ưu mảng khoa học và khả năng tái lập.
 
 ---
 
@@ -1680,15 +1714,23 @@ Mật khẩu file nén đo đạc lấy từ `ewtl.mi@uni-hamburg.de`.
 183. **QCVN 05:2023/BTNMT** — HTML dễ đọc nhất: https://luatvietnam.vn/tai-nguyen/quy-chuan-viet-nam-qcvn-05-2023-btnmt-245815-d3.html · PDF gov.vn http://huulung.langson.gov.vn/upload/105417/20250327/01-btnmt-qc05_a74c1.pdf · mirror https://thuvienmoitruong.vn/wp-content/uploads/2025/05/QCVN05_2023_BTNMT_919891.pdf · https://thuvienphapluat.vn/TCVN/Tai-nguyen-Moi-truong/QCVN-05-2023-BTNMT-Chat-luong-khong-khi-919891.aspx
 184. **WHO 2021 Global Air Quality Guidelines** — https://www.who.int/publications/i/item/9789240034228 · IRIS https://apps.who.int/iris/handle/10665/345329 · số liệu qua EEA https://www.eea.europa.eu/en/analysis/publications/europes-air-quality-status-2024
 
+### 19.12 API, cơ sở dữ liệu và truy vấn không gian
+
+185. NestJS Controllers — https://docs.nestjs.com/controllers · Providers — https://docs.nestjs.com/providers
+186. NestJS Queues — https://docs.nestjs.com/techniques/queues
+187. PostGIS spatial indexes — https://postgis.net/documentation/faq/spatial-indexes/
+188. PostGIS `ST_3DIntersects` — https://postgis.net/docs/ST_3DIntersects.html · `ST_3DDWithin` — https://postgis.net/docs/ST_3DDWithin.html
+189. PostgreSQL JSON/JSONB — https://www.postgresql.org/docs/current/datatype-json.html
+
 ---
 
 ## 20. Ba câu tóm tắt
 
-1. **Về mô hình:** có sáu tầng, và **tầng T3 (gió chẩn đoán Röckle + bảo toàn khối lượng Sasaki + vận chuyển trên voxel)** là tầng duy nhất đồng thời phân giải toà nhà, chạy trên laptop, và native voxel — tức là đúng thứ mà đề tài "3D Array/voxel" yêu cầu.
+1. **Về mô hình:** có sáu tầng, và **phương án T3 được chọn (gió chẩn đoán bảo toàn khối lượng Sasaki + vận chuyển trên voxel, không triển khai đủ bảy vùng Röckle)** là phương án đồng thời phân giải toà nhà, chạy trên laptop và native voxel — đúng trọng tâm "3D Array/voxel".
 2. **Về chi phí:** khoảng cách giữa T3 và T4/LES là **hai đến ba bậc độ lớn** ✅, và bảng CAIRDIO ✅ cho thấy **5–10 m là điểm ngọt về độ phân giải**. Đây là hai con số quyết định phạm vi đồ án.
 3. **Về tính trung thực:** tài liệu này gắn cờ 37 mục chưa kiểm chứng được ở §18. **Danh sách đó không phải điểm yếu của nghiên cứu — nó là danh sách việc phải làm tuần 1**, và việc nêu nó ra trong báo cáo là một điểm cộng học thuật chứ không phải điểm trừ.
 
-➡️ **Quyết định chọn phương án nào, vì sao, và kế hoạch triển khai: xem [`DECISION.md`](./DECISION.md).**
+➡️ **Phương án chốt, kiến trúc và kế hoạch triển khai: xem [`spec.md`](./spec.md), [`ARCHITECTURE.md`](./ARCHITECTURE.md) và [`ROADMAP.md`](./ROADMAP.md).**
 
 
 

@@ -1,18 +1,31 @@
-# Architecture
+# Kiến trúc hệ thống
 
-> **Derived from [`spec.md`](spec.md) and [`RESEARCH.md`](RESEARCH.md).** The spec says *what
-> must be true*; this document says *how the parts fit and what was rejected*. Where the two
-> disagree, **the spec is the requirement**. Where either disagrees with
-> [`../CLAUDE.md`](../CLAUDE.md), the project file wins.
+> Tài liệu này được dẫn xuất từ [`spec.md`](spec.md) và [`RESEARCH.md`](RESEARCH.md).
+> Spec quy định *điều gì phải đúng*; tài liệu này mô tả *các thành phần ghép với nhau như thế
+> nào và phương án nào bị loại*. Nếu có mâu thuẫn, spec là chuẩn yêu cầu.
 >
-> The **implementation plan lives in [`ROADMAP.md`](ROADMAP.md)** — the week-by-week schedule,
-> the person split, the assumptions and the confidence estimate. This document does not repeat
-> it.
+> Kế hoạch triển khai nằm trong [`ROADMAP.md`](ROADMAP.md); tài liệu này không lặp lại lịch
+> theo tuần và phân công nhân sự.
 
-## 1 · Components
+## 1 · Thành phần
 
 ```mermaid
 flowchart TB
+    subgraph USERS["Người dùng"]
+        WEB["Web GIS 3D<br/>MapLibre + deck.gl"]
+    end
+
+    subgraph PLATFORM["Nền tảng ứng dụng"]
+        API["NestJS API<br/>DTO · runs · spatial queries"]
+        JOB["Job queue / job table<br/>run_id · retry · heartbeat"]
+    end
+
+    subgraph DATA["Dữ liệu"]
+        PG["PostgreSQL + PostGIS<br/>geometry · metadata · metrics · slices"]
+        ART["Artifact storage<br/>NetCDF · JSON/Parquet · logs · manifest"]
+    end
+
+    subgraph SIM["Python simulation worker"]
     subgraph IN["Inputs — all public, no credentials"]
         OSM["OSM footprints"]
         HGT["Building heights<br/>OSM tags + Open Buildings 2.5D"]
@@ -21,7 +34,7 @@ flowchart TB
     end
 
     subgraph T0["Tier 0 · Geometry"]
-        VOX["voxelisation<br/>grid · heights · rasterise · extrude"]
+        VOX["GIS preparation + voxelisation<br/>footprint · height · road · water · green"]
     end
 
     subgraph T1["Tier 1 · Wind"]
@@ -36,9 +49,8 @@ flowchart TB
         GAU["analytic Gaussian plume<br/>Briggs URBAN"]
     end
 
-    subgraph T3["Tier 3 · Analysis and delivery"]
+    subgraph T3["Tier 3 · Analysis and export"]
         AN["slices · profiles · isosurfaces<br/>exceedance volume · façade exposure"]
-        WEB["web viewer<br/>deck.gl + MapLibre"]
     end
 
     OSM --> VOX
@@ -52,7 +64,16 @@ flowchart TB
     TR -->|"C (z,y,x)"| AN
     GAU -->|"C_gaussian (z,y,x)"| AN
     GAU -.->|"Tier-1 verification target"| TR
-    AN --> WEB
+    end
+
+    WEB -->|"HTTP/JSON"| API
+    API -->|"SQL/PostGIS"| PG
+    API -->|"enqueue run_id"| JOB
+    JOB -->|"claim job"| SIM
+    PG -->|"geometry · scenario · parameters"| SIM
+    SIM -->|"status · metrics · queryable slices"| PG
+    SIM -->|"NetCDF · scene package · payload · manifest"| ART
+    API -->|"signed/local artifact reference"| ART
 ```
 
 **Everything in the diagram shares one array shape.** The building mask, the three velocity
@@ -61,28 +82,39 @@ components, the Lagrange multiplier and the concentration are all `[z, y, x]` on
 there is no resampling, no interpolation and no coordinate translation between stages, so a bug
 cannot hide in a conversion that does not exist.
 
-## 2 · Data flow
+Kiến trúc ngoài mô phỏng theo mẫu trong hình tham chiếu của người dùng: portal gọi API,
+API quản lý dữ liệu và job, worker riêng thực hiện tác vụ nặng, còn hệ thống ngoài chỉ được
+truy cập qua boundary rõ ràng. Khác với hình tham chiếu, domain ở đây là GIS 3D nên DB dùng
+PostgreSQL/PostGIS và artifact khoa học dùng NetCDF.
 
-Stages communicate through **files on disk**, never an in-memory handoff.
+## 2 · Luồng dữ liệu
+
+Các stage số trị vẫn giao tiếp bằng **file trên đĩa/artifact**, không truyền tensor lớn qua
+HTTP hay giữ toàn bộ pipeline trong RAM của API. API và worker trao đổi bằng `run_id` cùng
+metadata; PostgreSQL là nguồn sự thật về trạng thái.
 
 | # | Stage | Reads | Writes |
 | --- | --- | --- | --- |
-| 0 | Voxelisation | footprints, heights, grid configuration | `H (y,x)`, `B (z,y,x)` |
+| 0 | GIS preparation + voxelisation | footprints, heights, roads, water/green, grid | `scene package`, `H (y,x)`, `B (z,y,x)` |
 | 0b | Emissions | road network, emission factors | `S (z,y,x)` |
 | B | Gaussian baseline | the voxel field | `C_gaussian (z,y,x)` |
-| 1 | Wind | `B`, meteorology | `u, v, w (z,y,x)` |
-| 2 | Transport | `u,v,w`, `S`, `B` | `C (z,y,x)` |
+| 1 | Wind | `B`, meteorology | cell-centred `u,v,w` để phân tích + corrected face velocities `uf,vf,wf` cho transport |
+| 2 | Transport | `uf,vf,wf`, `S`, `B` | `C (z,y,x)`, mass ledger, positivity metrics |
 | 3 | Analysis and export | `C` | figures, statistics, web payload |
+| 4 | Worker persistence | outputs + manifest | artifact records, metrics, queryable slices |
+| 5 | NestJS API | run metadata, PostGIS rows, artifact refs | JSON/GeoJSON responses |
+| 6 | Web 3D | API responses + versioned scene package | data-derived LoD1 city, concentration/wind layers, profiles, status dashboard |
 
 **Why files rather than a pipeline object.** Each stage re-runs alone. The wind field is the
 slowest thing to get right, and being able to re-run transport fifty times against one frozen
 wind field — without recomputing geometry — is the difference between a solver you can debug and
 one you cannot.
 
-## 3 · Boundaries
+## 3 · Ranh giới và nguồn sự thật
 
-There is **no frontend/backend split and no database**. Stating that explicitly matters, because
-the harness's other managed projects have both and the advisory skills assume them.
+Hệ thống mục tiêu có frontend/backend/worker/database tách biệt. Prototype web tĩnh hiện tại
+được giữ làm bằng chứng trực quan ban đầu, nhưng sản phẩm cuối không đọc trực tiếp file nội bộ:
+web gọi NestJS API; API query PostGIS và điều phối worker; worker mới chạy NumPy/SciPy.
 
 | Boundary | Source of truth | How the copies stay honest |
 | --- | --- | --- |
@@ -91,8 +123,15 @@ the harness's other managed projects have both and the advisory skills assume th
 | On-disk field contract | the netCDF writer | CF conventions, `positive="up"` on `z`, so QGIS and Panoply open it unaided |
 | Solver stability | the CFL helper | The time step is **computed from the velocity field**, never passed in as a constant, and the realised Courant number is reported back |
 | Web payload | the exporter | The viewer reads only what the exporter wrote. There is no shared schema file — the exporter *is* the definition, and the viewer fails visibly if it drifts |
+| Run state | `simulation_runs` trong PostgreSQL | API restart không làm mất trạng thái; worker chỉ cập nhật theo state machine |
+| Spatial geometry | PostGIS với SRID + GiST | mọi phép đo dùng projected CRS; migration/ingest reject geometry sai |
+| Full 3D tensor | NetCDF artifact + checksum | DB chỉ lưu metadata, metrics và slices/summaries cần query |
+| API contract | NestJS DTO/OpenAPI | browser không gọi DB hoặc Python worker trực tiếp |
+| 3D city scene | versioned scene package derived from GIS sources | building IDs, footprints, `height_m`, roads, water/green and CRS match the voxel input; no hand-placed buildings |
+| Scientific release gate | verification record attached to `run_id` | API chỉ công bố run khi face-divergence, CFL, positivity, wall flux, mass balance và artifact checksum đều pass |
+| Thresholds and units | versioned project configuration + DB seed version | API/web/report đọc cùng nguồn; không hard-code các bản sao độc lập |
 
-## 4 · The two solvers
+## 4 · Hai bộ giải
 
 **Wind (Tier 1).** Seed the domain with a power-law profile, set velocity to zero inside solid
 voxels, then correct the field to be divergence-free by the variational method: minimise the
@@ -100,16 +139,24 @@ deviation from the seed subject to `∇·u = 0`, which reduces to a Poisson equa
 multiplier λ, solved by successive over-relaxation with ω = 1.78 (spec `EXT-4`). Buildings enter
 **only** through the six face coefficients, set to zero on a wall (spec BR-2). **No momentum
 equation is solved** — that is what makes it two to three orders of magnitude cheaper than LES
-(spec `EXT-5`), and equally what removes cavity recirculation (spec `DEC-1`).
+(spec `EXT-5`), và cũng là lý do mô hình không tái tạo được cavity recirculation (spec *Ngoài phạm vi*).
+
+Wind stage phải giữ **corrected face velocities** `uf`, `vf`, `wf` như output hạng nhất. Trường
+cell-centred `u,v,w` chỉ phục vụ vector plot và phân tích; transport không được nội suy lại từ
+chúng vì phép nội suy có thể phá tính divergence-free đã chứng minh ở face field.
 
 **Transport (Tier 2).** Solve `∂C/∂t + ∇·(uC) − ∇·(K∇C) = S` in flux form: compute advective and
 diffusive fluxes on cell faces, difference them, step explicitly. Advection is first-order
 upwind, taking the value from the upstream cell; diffusion is central. Face fluxes are zeroed on
 building walls and at the ground, and are open at the domain edge with clean inflow. Because what
 leaves one cell is exactly what enters its neighbour, **mass is conserved to machine precision**
-(spec AC-9, AC-10).
+(spec AC-6, AC-7 và AC-29).
 
-## 5 · Failure modes
+Transport kiểm positivity trên `updated` trước correction. Không dùng `maximum(C,0)` để làm test
+xanh; giá trị âm vượt tolerance làm run thất bại. Nếu correction round-off được phép, mass delta
+phải được ghi vào ledger. FV output là sản phẩm chính; Gaussian chỉ là lớp comparison.
+
+## 5 · Các tình huống lỗi
 
 | Failure | How it shows | Where it is caught |
 | --- | --- | --- |
@@ -121,19 +168,23 @@ leaves one cell is exactly what enters its neighbour, **mass is conserved to mac
 | Emission inside a solid voxel | mass accumulates and can never leave | spec edge case *source inside a building voxel* — **not yet implemented** |
 | Silent default building height | plausible geometry, wrong heights, no warning | spec BR-11 — height resolution fails closed |
 | Web payload too large | viewer never loads | spec edge case *payload too large* — the exporter downsamples and records the factor |
-| Numerical diffusion mistaken for physics | plume looks realistically wide; it is the scheme | spec BR-14 — the value is computed and reported |
+| Numerical diffusion mistaken for physics | plume looks realistically wide; it is the scheme | spec BR-31 — giá trị phải được tính và báo cáo |
+| Cell-centred wind được nội suy lại cho transport | flux transport không còn là field đã kiểm divergence | contract bắt buộc `uf,vf,wf`; integration test trên chính face field |
+| Positivity được “đạt” nhờ clipping | test xanh nhưng mass và stability sai | kiểm giá trị thô trước correction; negative vượt tolerance làm run fail |
+| Web mặc định vẫn là Gaussian | sản phẩm không chứng minh đóng góp voxel/building | release gate yêu cầu `model=fv` mặc định, Gaussian chỉ comparison |
+| Config/DB/web dùng threshold khác nhau | kết quả và biểu đồ mâu thuẫn | một threshold source có version + consistency test |
 
-## 6 · Trade-offs and the alternatives that were rejected
+## 6 · Trade-off và các phương án bị loại
 
 **This is the section that matters.** A design with no rejected options is a design nobody chose.
-The sourced comparison is in [`DECISION.md`](DECISION.md) §3–§4 and [`RESEARCH.md`](RESEARCH.md)
-§10; this is the architectural summary.
+Phân tích nguồn và so sánh đầy đủ nằm ở [`RESEARCH.md`](RESEARCH.md) §10; phần này là bản
+tóm tắt kiến trúc.
 
 ### 6.1 Wind field
 
 | Alternative | What it would buy | Why rejected |
 | --- | --- | --- |
-| **Full Röckle** — 7 empirical zones + mass consistency | cavity recirculation and street-canyon vortices, i.e. the single largest missing physics | ~15–20 person-days to stamp zone geometry per building per wind direction — over half the budget (spec `DEC-1`). **First thing to add if time appears** |
+| **Full Röckle** — 7 empirical zones + mass consistency | cavity recirculation and street-canyon vortices, i.e. the single largest missing physics | ~15–20 person-days để dựng zone geometry theo nhà/hướng gió — vượt đường găng. **Là hướng nâng cấp sau MVP** |
 | **CFD RANS** | real turbulence closure, separation behind bluff bodies | 4–6 weeks of mesh work before any dispersion, and model skill depends on a tuning constant whose optimum is case-dependent and unknown in advance |
 | **LES / LBM** | the most accurate option available | 404–4 744 GPU-hours **per case**; the project needs several |
 | **Eulerian CTM** | full chemistry, regional context | smallest practical cell ~1 km against this project's 5 m. EPA describe the model as *"instantly dilut[ing] point emissions across the entire volume of the grid cell"* — a structural limit, not a resolution setting |
@@ -154,7 +205,7 @@ discovered later.
 
 **Chosen: explicit upwind finite volume.** Bounded, mass-conserving, about a hundred lines, and
 every failure mode is visible in a 2D plot. The numerical diffusion it costs is quantified and
-reported rather than absorbed (spec BR-14).
+reported rather than absorbed (spec BR-31).
 
 ### 6.3 Grid resolution
 
@@ -171,28 +222,47 @@ laptop-scale benchmark. The actual per-scenario wall-clock is recorded in B4.3 r
 | **CesiumJS voxel primitive** | the most "correct" answer — real ray-marched volume rendering — but a **draft extension on a side branch**, which Cesium's own documentation says *"is not final and is subject to change without Cesium's standard deprecation policy"*. Unacceptable against a fixed deadline |
 | **Three.js from scratch** | full control, but no basemap, no geographic positioning and no camera controls without building them |
 | **Qgis2threejs static export** | cheapest option, but little control over the height slider — the one interaction that carries the project's argument. **Retained as the fallback** |
-| **A server-rendered app** | arbitrary capability, but needs hosting, a backend and a deployment story, none of which exist or are in scope |
+| **Server-rendered toàn bộ viewer** | làm API phải dựng layer/HTML, khó tách tải tính toán và khó tận dụng GPU phía client |
 
-**Chosen: deck.gl + MapLibre, one HTML file, CDN, no build step.** No npm, no bundler, no Node.
-A grid layer per height level, an extrusion layer for buildings, and a slider that swaps the
-active level.
+**Chọn: deck.gl + MapLibre cho client, NestJS cho API.** Viewer dùng grid layer theo cao độ,
+building extrusion và slider đổi active level. API không render voxel và không chạy solver.
 
 ### 6.5 Data interchange
 
-netCDF-4 with CF conventions, over a bare array stack or Zarr. CF is what QGIS, ArcGIS Pro and
-Panoply read unaided, which means a supervisor can open the output **without running any of this
-project's code** — worth more here than Zarr's cloud story, which this project has no use for.
+NetCDF-4/CF vẫn là định dạng chuẩn cho tensor đầy đủ vì QGIS, ArcGIS Pro và Panoply đọc được.
+PostgreSQL/PostGIS được bổ sung cho metadata, geometry, trạng thái run và truy vấn không gian;
+JSON/GeoJSON/Parquet là payload nhẹ cho web. Không ép một định dạng làm mọi nhiệm vụ.
 
-## 7 · Future improvements
+## 7 · Hướng phát triển
 
 In order of value per unit of effort:
 
 1. **The 7 Röckle zones** — bounded work with a published formula set, and it removes the largest
-   stated limitation. Roughly twice the current wind cost (spec `DEC-1`).
+   stated limitation. Roughly twice the current wind cost.
 2. **Validation against Michelstadt or MUST** wind-tunnel data, free from Hamburg EWTL. Turns
-   "verified" into "validated" — the single biggest credibility gain (spec `DEC-2`).
+   "verified" into "validated" — the single biggest credibility gain sau MVP.
 3. **A flux limiter** on advection, cutting numerical diffusion without abandoning boundedness.
 4. **Traffic-produced turbulence** as an extra near-road diffusivity — what governs calm
    conditions, and currently absent entirely.
 5. **A time series** rather than one steady state per run, enabling a diurnal cycle.
 6. **NO₂ with the NO–O₃ reaction**, once the passive-scalar baseline is trusted.
+7. **Job queue chuyên dụng và cache** sau khi job-table MVP đã được đo tải.
+8. **Object storage/deployment** khi cần demo qua Internet; không nằm trên đường găng MVP.
+
+### Definition of done cho release mục tiêu 9+
+
+Kiến trúc chỉ được coi là hoàn thành khi một môi trường sạch thực hiện được chuỗi:
+
+```text
+docker compose up
+→ migrate + seed PostGIS
+→ POST /runs
+→ worker tạo wind/FV artifacts
+→ verification gate PASS
+→ spatial queries trả kết quả có index evidence
+→ web mở cảnh GIS 3D và mặc định hiển thị FV
+```
+
+Release phải kèm evidence index: `run_id`, commit/model version, input hash, manifest/checksum,
+verification report, query plans, sensitivity table, external cross-check và các hình/bảng dùng
+trong báo cáo. Thiếu một mắt xích thì đó là prototype hoặc plan, chưa phải sản phẩm hoàn thành.

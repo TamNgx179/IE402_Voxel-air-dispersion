@@ -1,102 +1,52 @@
-# IE402 — Voxel Air Dispersion
+# IE402 — Mô phỏng lan truyền ô nhiễm không khí đô thị bằng GIS 3D (voxel)
 
-Mô phỏng lan truyền ô nhiễm không khí đô thị bằng **mô hình GIS 3D (voxel)**: trường gió bảo toàn khối lượng + phương trình tải–khuếch tán giải bằng thể tích hữu hạn trên lưới voxel. Địa bàn nghiên cứu ở Việt Nam.
+Đồ án xây dựng một mô hình khối không gian (voxel) để mô phỏng sự lan truyền PM2.5 theo
+chiều cao trong một khu vực đô thị. Hệ thống gồm **NestJS API**, **PostgreSQL/PostGIS** và
+một **Python simulation worker**. API tiếp nhận kịch bản, truy vấn dữ liệu không gian và
+điều phối worker; worker là nơi chạy voxelisation, trường gió, transport và kiểm chứng.
 
-Đồ án môn IE402 — GIS 3D.
+## Tên đề tài và phạm vi chốt
 
-## Bắt đầu
+Tên đề tài: **Mô phỏng lan truyền ô nhiễm không khí đô thị bằng mô hình GIS 3D (voxel)**.
 
-```bash
-python3.12 -m venv .venv
-./.venv/bin/pip install -r requirements.txt
-./.venv/bin/python -m pytest
+Phương pháp chính: trường gió chẩn đoán bảo toàn khối lượng và phương trình tải–khuếch tán
+thể tích hữu hạn trên lưới voxel. Gaussian plume là baseline để đối chiếu. Đây là mô hình
+nghiên cứu/giáo dục, chưa phải hệ thống dự báo quy chuẩn hay công cụ sức khoẻ cộng đồng.
+
+## Kiến trúc mục tiêu
+
+```text
+Web 3D / Client → NestJS API → PostgreSQL/PostGIS
+                         └────→ Python Simulation Worker
+                                  └→ NetCDF/JSON artifacts + metrics về DB
 ```
 
-**Cần Python ≥ 3.10.** Python 3.9 hệ thống của macOS **không chạy được** — `scipy>=1.14` yêu cầu 3.10, và khi một gói không resolve thì pip huỷ toàn bộ lệnh cài. Cài bằng `brew install python@3.12`.
+API không thực hiện vòng lặp số nặng. Worker không nhận request trực tiếp từ trình duyệt.
+Mọi kết quả có `run_id`, trạng thái, phiên bản mô hình, nguồn dữ liệu và tham số.
 
-Trong VS Code: **Select Kernel → Python Environments → `.venv`**. Đừng chọn `/opt/homebrew/bin/python3.12` — đó là Python gốc, không có thư viện của project.
+## Chạy phần mô hình hiện tại
 
-## Mô hình
+```bash
+python -m venv .venv
+.venv\Scripts\Activate.ps1
+pip install -r requirements.txt
+pytest -q
+```
 
-Hai mô hình ghép lại trên cùng một lưới voxel:
+Pipeline Python hiện tại là lõi tính toán; backend là lớp sản phẩm bao quanh lõi đó.
 
-1. **Trường gió** — mô hình chẩn đoán bảo toàn khối lượng (biến phân Sasaki, giải Poisson bằng SOR, ω = 1,78). Họ CALMET / MATHEW.
-2. **Phát tán** — `∂C/∂t + ∇·(uC) − ∇·(K∇C) = S`, thể tích hữu hạn, upwind bậc 1, sơ đồ hiện.
+## Tài liệu chính
 
-Kèm **chùm khói Gaussian giải tích** (hệ số Briggs đô thị) làm baseline và chuẩn kiểm chứng.
-
-> Đây **không phải** mô hình Röckle. Röckle = tham số hoá thực nghiệm 7 vùng **cộng** bảo toàn khối lượng; project chỉ cài vế thứ hai. Xem [`docs/DECISION.md`](docs/DECISION.md) §0.1.
-
-**Lưới:** 500 × 500 × 100 m · Δx = Δy = 5 m, Δz = 2 m · 100 × 100 × 50 = **500.000 voxel**.
-**Mọi mảng 3D là `[z, y, x]`.**
-
-## Tài liệu
-
-| File | Nội dung |
+| Tài liệu | Mục đích |
 |---|---|
-| [`docs/spec.md`](docs/spec.md) | Đặc tả: 31 business rule, 24 edge case, 35 acceptance criteria |
-| [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md) | Kiến trúc, luồng dữ liệu, **các phương án bị loại và lý do** |
-| [`docs/DECISION.md`](docs/DECISION.md) | Chọn mô hình nào, trade-off, so sánh với 8 họ mô hình khác |
-| [`docs/RESEARCH.md`](docs/RESEARCH.md) | Khảo sát có nguồn, 339 link |
-| [`docs/ROADMAP.md`](docs/ROADMAP.md) | Kế hoạch 8 tuần, phân vai, output từng tuần |
-| [`docs/SEMINAR.md`](docs/SEMINAR.md) | Nội dung và kịch bản seminar |
+| [`docs/RESEARCH.md`](docs/RESEARCH.md) | Research rút gọn, nguồn và lý do chọn mô hình |
+| [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md) | Kiến trúc API–worker–DB và luồng dữ liệu |
+| [`docs/spec.md`](docs/spec.md) | Đặc tả tiếng Việt, API, dữ liệu và truy vấn |
+| [`docs/ROADMAP.md`](docs/ROADMAP.md) | Kế hoạch 8 tuần, phân công A/B, không seminar |
 
-## Cấu trúc
+## Nguyên tắc học thuật
 
-```
-src/
-├── 01_voxelize.py        Tầng 0 — voxel hoá thành phố                  [xong]
-├── emissions.py          A3.1–A3.2 phân bổ phát thải theo cấp đường     [xong]
-├── emission_rasterizer.py  A3.3 đường → S[z,y,x]                        [xong]
-├── edgar_normalizer.py   A3.4 chuẩn hoá EDGAR + ghi A3.5                [xong]
-├── gaussian.py           baseline Gaussian giải tích (nguồn giả)       [xong]
-├── 02_wind.py            Tầng 1 — trường gió, SOR Poisson              [xong, xem ROADMAP §4 F1]
-├── 03_transport.py       Tầng 2 — thể tích hữu hạn                     [xong]
-├── 04_analysis.py        Tầng 3 — phân tích không gian + baseline đường [xong]
-├── 05_viz.py             hình báo cáo 300 dpi                          [xong]
-├── 06_export_web.py      netCDF → web/data/*.js                        [xong]
-├── analysis/             toán tử, hợp đồng dữ liệu, export, hình
-├── emission/ · edgar/    phát thải giao thông
-├── wind/ · meteo/ · openaq/
-├── voxel/                lưới, chiều cao, raster, GIS, output
-└── dispersion/           công thức Gaussian
-web/                      viewer 3D — mở web/index.html (không cần build)
-tests/                    176 test, chạy bằng pytest
-notebooks/                debug 2D — viết và sửa ở 2D TRƯỚC khi lên 3D
-config/project.yaml       miền, lưới, phát thải, ngưỡng, kịch bản, web
-docs/emission_assumptions.md  mọi giả định phát thải — SINH TỰ ĐỘNG
-```
-
-### Chạy lại toàn bộ Tầng 3 và web
-
-```bash
-./.venv/bin/python src/emissions.py --config config/project.yaml
-./.venv/bin/python src/emission_rasterizer.py --config config/project.yaml
-./.venv/bin/python src/edgar_normalizer.py --config config/project.yaml   # tải EDGAR 1,9 MB lần đầu
-./.venv/bin/python src/04_analysis.py --config config/project.yaml --baselines
-./.venv/bin/python src/05_viz.py --config config/project.yaml --imagery   # --imagery: A2.4 trên ảnh vệ tinh, tải ~20 tile Esri lần đầu
-./.venv/bin/python src/06_export_web.py --config config/project.yaml
-python3 -m http.server 8402    # rồi mở http://localhost:8402/web/  (web/index.html không dùng fetch nên thiết kế để mở thẳng được; chưa thử bằng file://)
-```
-
-Module tên `NN_name.py` **không import bằng `import` được** — tên không phải identifier hợp lệ. Nạp bằng `importlib.util.spec_from_file_location`, như test và notebook đang làm.
-
-## Trạng thái
-
-Mọi tầng đã có code và test (29/09/2026). **Web 3D chạy được W1–W7** (deck.gl 9.4 + MapLibre 5.24), hiện hiển thị **baseline Gaussian trên nguồn đường thật** cho hai kịch bản mùa; trường FV sẽ thay khi Tầng 1–2 được nối đúng (ROADMAP §4, F1).
-
-**Địa bàn:** Nguyen Hue, TP.HCM — 62 toà nhà, chốt ngày 21/09/2026 vì khối nhà trung vị phân giải được ở Δ = 5 m (4,82 voxel/cạnh), không phải vì độ phủ thẻ chiều cao.
-
-**Chiều cao nhà:** Google Open Buildings 2.5D Temporal (2023) phủ **62/62 toà nhà** — không toà nào phải suy ra. OSM cấp hình học footprint và đóng vai đối chứng chéo, đúng [`docs/DECISION.md`](docs/DECISION.md) §5. Truy cập ẩn danh qua HTTPS, **không cần tài khoản Earth Engine**.
-
-> 🔴 **Đừng trích con số MAE 1,5 m của Google.** Google ghi rõ độ chính xác đó *"chỉ đánh giá ở Bắc Mỹ, châu Âu và Nhật Bản — không phải Global South"*. Đối chứng tại chỗ với 21 toà nhà có thẻ OSM cho **MAE 23,2 m** (sai lệch tuyệt đối trung vị 7,0 m, r = 0,74). **Dùng 23,2 m trong báo cáo.** Sản phẩm cũng **chặn trần 100 m**, nên ba toà tháp mà OSM ghi 154 / 164,9 / 186 m trả về 88,5 / 62,5 / 91,0 m — đó là cận dưới, không phải phép đo.
-
-**Mạng đường:** `data/raw/roads.geojson` — **67 cạnh, 6.395,5 m** sau khi bỏ bản sao ngược chiều của 24 phố hai chiều (bản gốc ghi 91 cạnh / 8.777 m là đếm hai lần), 4 cấp `highway`. Phân bổ phát thải ở tuần 3 dùng **cấp đường**, không dùng `maxspeed` (chỉ phủ 47 %).
-
-> ⚠️ **Mô hình giả định mặt đất phẳng z = 0.** Copernicus DEM GLO-30 nằm ngoài phạm vi: pipeline không có khái niệm địa hình, chiều cao Google vốn đã *relative to terrain*, và GLO-30 là DSM đã chứa nhà. **Đây là giả định chưa đo** — xem [`docs/DECISION.md`](docs/DECISION.md) *Amendment 22/09/2026* §B.
-
-**Kiểm định:** mới ở mức verification — so với nghiệm giải tích và các định luật bảo toàn. **Chưa validation** với số liệu hầm gió hay hiện trường; lý do ghi ở [`docs/DECISION.md`](docs/DECISION.md) §6.
-
-## Quy ước git
-
-**Không bao giờ `git add -A`, `git add .` hay `git commit -a`.** Harness ghi các file `.harness/`, `.claude/`, `CLAUDE.md`, `command-aliases.md` vào đây và chúng **cố ý không nằm trong `.gitignore`** — phải để chúng untracked và nhìn thấy được. Mỗi commit stage đường dẫn cụ thể, và chạy `git status --short` trước khi commit để chắc không có file nào của harness bị stage.
+- Không gọi mô hình hiện tại là “Röckle” hay CFD; phải nêu rõ đây là mass-consistent
+  diagnostic wind + finite-volume advection–diffusion.
+- Verification không được viết thành validation thực địa.
+- Mỗi kết quả phải lưu tham số, nguồn dữ liệu, phiên bản code và hạn chế của mô hình.

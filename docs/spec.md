@@ -1,468 +1,327 @@
-# Urban air-pollution dispersion on a 3D GIS voxel grid — specification
+# Đặc tả — Mô phỏng lan truyền ô nhiễm không khí đô thị trên lưới voxel GIS 3D
 
-> **Where this file lives, and why not `.harness/tasks/`.** The harness spec workflow writes a
-> feature spec to `.harness/tasks/<task-id>/spec.md`. This is a **project-level** spec for the
-> whole capstone, not a checkpointed feature, and everything under `.harness/` is harness-owned
-> and never committed in this repository. It therefore sits in `docs/` beside `RESEARCH.md`,
-> `DECISION.md`, `ROADMAP.md` and `SEMINAR.md`, which is the dominant local pattern.
->
-> **On the section shape.** This project had no prior spec to match, so the skeleton is the
-> harness house shape. One section is adapted: the house form has *Portal observation notes*
-> for a reference product seen hands-on. There is no reference product here, so it is
-> **Observation notes** — what was observed in the code and the data, against what is a project
-> decision. The adaptation is named rather than silently made.
+> Đây là đặc tả cấp dự án. `RESEARCH.md` cung cấp cơ sở khoa học và nguồn tham khảo;
+> `ARCHITECTURE.md` mô tả cách các thành phần ghép với nhau; `ROADMAP.md` quy định tiến độ
+> và phân công. Khi tài liệu mâu thuẫn, đặc tả này là chuẩn về yêu cầu sản phẩm.
 
-## Definition
+## Định nghĩa
 
-A **voxel** is a cell of a regular three-dimensional lattice that carries a value at every
-position in the volume. It is not a 2.5D raster (one `z` per `(x,y)`), not a boundary
-representation (surfaces only, interior implied), and not a point cloud (irregular samples, no
-space-filling occupancy). The distinction is load-bearing for this project: a pollutant
-concentration is a **volumetric scalar field**, and only the voxel model stores a value at every
-point in the air — including above roofs and inside street canyons.
+**Voxel** là một ô của lưới ba chiều đều, mang giá trị tại mọi vị trí trong thể tích. Voxel
+khác raster 2.5D, mô hình bề mặt và point cloud vì nó biểu diễn được trường nồng độ trong
+toàn bộ không khí: phía trên mái, giữa hẻm phố và theo nhiều cao độ.
 
-## Objective
+**Run mô phỏng** là một lần chạy bất đồng bộ, được định danh bằng `run_id`, gắn với snapshot
+tham số, phiên bản mô hình, dữ liệu đầu vào, trạng thái, metrics và artifacts.
 
-Produce, for one city block in Vietnam, a **three-dimensional field of PM2.5 concentration on a
-voxel grid** that responds to building geometry and to wind direction, together with the spatial
-analyses that field makes possible (horizontal slices at several heights, vertical sections
-through a canyon, vertical profiles, threshold isosurfaces, exceedance volume, façade exposure)
-and a **web viewer** in which a reader can move a height slider and watch the concentration
-change. The intended demonstration is that a 2D pollution map is insufficient, and the intended
-honesty is that the model's known omissions are stated rather than hidden.
+## Mục tiêu
 
-## Source basis
+Tạo trường nồng độ PM2.5 ba chiều cho một khu vực đô thị tại Việt Nam bằng:
 
-| Source id | Kind | Supports |
-| --- | --- | --- |
-| `ASSIGN-1` | assignment | the seminar report must cover *bối cảnh ứng dụng thực tế, mô hình/dữ liệu GIS 3D sử dụng, quy trình xây dựng, kết quả minh hoạ (hình ảnh/demo) và đánh giá ưu-nhược điểm* |
-| `ASSIGN-2` | assignment | the named technique is *Mô hình 3D Array/voxel, phân tích không gian* — a 3D array is the required data model, not one option among several |
-| `ASSIGN-3` | assignment | presentation is 10–12 minutes plus 3 minutes of questions, at most 2 students per group |
-| `EXT-1` | external | three documented deficiencies of 2D air-quality visualisation: no vertical information, no precise 3D location of the pollutant, poor representation of spatial wind patterns — Ridzuan et al. 2020, ISPRS Archives XLIV-4/W3-2020, 355–363 |
-| `EXT-2` | external | grid-resolution sensitivity: NMSE 0.10 at 5 m, 0.25 at 10 m, **1.35 at 20 m** against wind-tunnel data — CAIRDIO v1.0, GMD 14, 1469 (2021) |
-| `EXT-3` | external | Briggs **urban** dispersion coefficients and urban power-law wind exponents — EPA ISC3 User's Guide Vol. II, Tables 1-3, 1-4 and the urban `p` column |
-| `EXT-4` | external | the variational mass-consistency formulation and the SOR update with **ω = 1.78** — QES-Winds documentation; URock 2023a, GMD 16, 5703 |
-| `EXT-5` | external | diagnostic wind models are *"two to three orders of magnitude faster"* than LES/DNS — Front. Earth Sci. 2023, DOI 10.3389/feart.2023.1251056 |
-| `EXT-6` | external | a Lagrangian solver on such a wind field reaches FAC2 = 0.59 against a cubical-array wind tunnel, and 5.91 % maximum relative error against the analytic case — QES-Plume v1.0, GMD 16, 5729 (2023) |
-| `EXT-7` | external | motorcycle emission factors measured in Hanoi: PM **0.053 g/km**, CO 4.8, NOₓ 0.13, SO₂ 0.006 — Tran et al. 2024, IOP Conf. Ser. EES 1391 012007, open access |
-| `EXT-8` | external | building-height product covering Vietnam, effective resolution 4 m, MAE 1.5 m **with the accuracy assessed only in North America, Europe and Japan** — Google Open Buildings 2.5D Temporal |
-| `EXT-9` | external | national limit values, PM2.5 24-hour 50 µg/m³ and annual 25 µg/m³ — QCVN 05:2023/BTNMT |
-| `EXT-10` | external | WHO 2021 guideline levels, PM2.5 24-hour 15 µg/m³ and annual 5 µg/m³ |
-| `OBS-1` | observed | the grid contract is fixed in `config/project.yaml`: 500 × 500 m horizontal, 0–100 m vertical, `dx_m: 5.0`, `dy_m: 5.0`, `dz_m: 2.0` |
-| `OBS-2` | observed | all 3D arrays are `[z, y, x]` and 2D arrays `[y, x]` — `src/voxel/models.py:25-32` |
-| `OBS-3` | observed | Tier 0 writes a netCDF carrying `H` as `(y, x)` and `B` as `(z, y, x)` — `src/voxel/output.py:180-196` |
-| `OBS-4` | observed | the Gaussian baseline writes `C_gaussian_ug_m3` as `(z, y, x)`, float32 — `src/gaussian.py:201-211` |
-| `OBS-5` | observed | Briggs **urban** σ are implemented, including the `+0.5` exponent on σ_z for classes A–B — `src/dispersion/gaussian_model.py:21-89` |
-| `OBS-6` | observed | urban power-law exponents 0.15 / 0.20 / 0.25 / 0.30 — `src/dispersion/gaussian_model.py:94-110` |
-| `OBS-7` | observed | missing building height is a **hard error** by default, not a silent default — `config/project.yaml`, `voxelization.height.fallback.mode: "error"` |
-| `OBS-8` | observed | `sor_poisson` in `src/02_wind.py:17` raises `NotImplementedError`; the wind field does not exist yet |
-| `OBS-9` | observed | the transport solver conserves mass to 0.00e+00 % relative error on a closed domain and passes 12 verification tests — `tests/test_transport_verification.py` |
-| `OBS-10` | observed | there is no `.env.example`, no CI configuration and no deployment in the repository |
-| `DEC-1` | MVP decision | the empirical 7-zone Röckle parameterisation is **out of scope**; only the mass-consistency half is implemented |
-| `DEC-2` | MVP decision | validation against wind-tunnel or field data is **out of scope**; the project delivers Tier-1 verification only |
-| `DEC-3` | MVP decision | PM2.5 is the modelled species, treated as passive and non-reacting |
-| `DEC-4` | MVP decision | traffic volume is allocated by OSM road class and normalised to a gridded inventory total, because no open traffic count exists for the study cities |
-| `DEC-5` | MVP decision | the web viewer serves **downsampled, per-level** data, not all 500 000 voxels |
+1. mô hình hình học thành phố dạng voxel;
+2. trường gió chẩn đoán bảo toàn khối lượng;
+3. phương trình tải–khuếch tán giải bằng thể tích hữu hạn;
+4. các phép phân tích không gian 3D;
+5. ứng dụng web 3D có API, PostgreSQL/PostGIS và Python simulation worker.
 
-### Honesty callouts
+Luận điểm cần chứng minh là bản đồ 2D không đủ để thể hiện biến thiên nồng độ theo chiều
+cao. Hệ thống phải trung thực về sai số, provenance và các hiện tượng vật lý chưa mô hình hoá.
 
-Three of these need qualifying, and the qualification is part of the record.
+## Cơ sở yêu cầu
 
-- **`EXT-6` is cited for a benchmark, not for this model's accuracy.** QES-Plume is a Lagrangian
-  solver on a *Röckle* wind field. This project has neither. The FAC2 = 0.59 figure is quoted as
-  the standard this class of model reaches, and the 5.91 % figure as a target for Tier-1
-  verification — never as a result this project has achieved.
-- **`EXT-8` carries its own disclaimer and it is not a small one.** Google state the 1.5 m mean
-  absolute error was assessed in North America, Europe and Japan, *not* in the Global South.
-  Vietnamese tube houses — narrow, tall, densely packed — are a hard case for a 4 m product
-  derived from Sentinel-2. The figure is reported with that sentence attached, every time.
-- **`EXT-2` is cited for the resolution decision only.** CAIRDIO is a different model with a
-  different building representation (volume-fraction rather than a hard mask). Its NMSE numbers
-  bound where *a* voxel model stops losing skill quickly; they are not a prediction of this
-  model's NMSE, and no NMSE is claimed for this model at all.
-
-## Scope
-
-### In scope
-
-- A voxel occupancy mask and height field for one study block, extruded LoD1 from building
-  footprints with resolved heights.
-- A traffic emission field rasterised into the voxel layer nearest ground level.
-- A **mass-consistent diagnostic wind field**: a power-law inflow profile, zero velocity inside
-  buildings, then a Poisson solve for the Lagrange multiplier by SOR until the field is
-  divergence-free.
-- A **finite-volume advection–diffusion transport solver** on the same grid: first-order upwind
-  advection, central diffusion, explicit time stepping to a steady state.
-- An **analytic Gaussian plume baseline** with Briggs urban coefficients, serving both as a
-  comparison model and as the Tier-1 verification target.
-- **Tier-1 verification**: agreement with analytic answers, mass conservation, boundedness, wall
-  impermeability.
-- At least five **3D spatial analyses** over the resulting field.
-- A **3D web viewer** with a height slider, scenario switch and threshold overlay.
-- A written record of what the model omits and in which direction each omission biases the
-  result.
-
-### Out of scope
-
-- The 7 empirical Röckle zones — cavity, wake, rooftop and street-canyon recirculation (`DEC-1`).
-- Validation against wind-tunnel or field measurements (`DEC-2`).
-- Atmospheric chemistry of any kind; reactive species such as NO₂ (`DEC-3`).
-- Traffic-produced turbulence, which is the dominant dispersion mechanism in calm conditions.
-- Thermal effects, buoyancy, stability evolution over a diurnal cycle.
-- Deposition, washout and resuspension.
-- Time-varying meteorology; each run uses one steady wind condition.
-- Any deployment, authentication or multi-user capability.
-
-## Constraints
-
-- **The grid contract is fixed by `config/project.yaml` and may not be hard-coded elsewhere**
-  (`OBS-1`). Domain 500 × 500 × 100 m, Δx = Δy = 5 m, Δz = 2 m, therefore 100 × 100 × 50 =
-  500 000 voxels.
-- **All 3D arrays are `[z, y, x]`; all 2D arrays are `[y, x]`** (`OBS-2`). A function that takes
-  or returns an array in another order is a defect regardless of whether its own tests pass.
-- Interchange between stages is **CF-conventions netCDF-4**, never an in-memory handoff, so each
-  stage can be re-run alone.
-- Concentrations are stored `float32`; the building mask is `uint8`.
-- Every input dataset must be free, publicly reachable and usable without credentials. The
-  repository holds no secret and needs none (`OBS-10`).
-- Two people, eight calendar weeks, part-time — roughly 32 person-days for everything including
-  the report.
-- Modules named `NN_name.py` cannot be imported with an `import` statement; they are loaded by
-  path.
-
-## Business rules
-
-### 5.1 What the model is, and what it is called
-
-| | Rule | Source |
+| Mã | Loại | Nội dung hỗ trợ |
 |---|---|---|
-| **BR-1** | The wind model is **mass-consistent only** and is **never called a Röckle model**. Röckle is the empirical zone parameterisation *plus* mass conservation; this project implements the second half. The correct name is *mass-consistent diagnostic wind model*, of the CALMET / MATHEW family. Getting this wrong in a report is a factual error, not a wording preference | `DEC-1`; `EXT-4` |
-| **BR-2** | **No momentum equation is solved.** Buildings enter the wind problem **only** through the six face coefficients, set to zero on any voxel face that is a wall. There is no body-fitted mesh and no turbulence closure. This is what buys the two-to-three order of magnitude saving over LES, and equally what removes cavity recirculation | `EXT-4`, `EXT-5`; `DEC-1` |
-| **BR-3** | The modelled species is **PM2.5, treated as passive and non-reacting**. Nothing in the model is chemistry-aware, so a reactive species such as NO₂ would be wrong rather than merely approximate | `DEC-3` |
+| `ASSIGN-1` | Đề tài | Mô phỏng lan truyền ô nhiễm không khí đô thị bằng mô hình GIS 3D |
+| `ASSIGN-2` | Kỹ thuật bắt buộc | Mô hình 3D Array/voxel và phân tích không gian |
+| `EXT-1` | Nghiên cứu | Trực quan hoá 2D thiếu thông tin đứng, vị trí 3D và biểu diễn gió không gian |
+| `EXT-2` | Nghiên cứu | Độ phân giải lưới ảnh hưởng mạnh tới sai số mô hình vi mô đô thị |
+| `EXT-3` | EPA | Hệ số phát tán Gaussian đô thị và power-law wind profile |
+| `EXT-4` | QES/URock | Công thức mass-consistency và nghiệm Poisson/SOR |
+| `EXT-5` | Nghiên cứu | Diagnostic wind rẻ hơn nhiều so với LES/DNS nhưng thiếu physics dòng chảy |
+| `EXT-6` | PostGIS | Truy vấn không gian, GiST, `ST_3DIntersects`, `ST_3DDWithin` |
+| `OBS-1` | Repo | Lưới mặc định 500 × 500 × 100 m, `dx=dy=5 m`, `dz=2 m` |
+| `OBS-2` | Repo | Mảng 3D theo `[z,y,x]`, mảng 2D theo `[y,x]` |
+| `OBS-3` | Repo | NetCDF hiện lưu geometry, wind/concentration và provenance |
+| `OBS-4` | Repo | Gaussian baseline, emission, voxel, analysis và web prototype đã có code/test |
+| `SCOPE-1` | Quyết định dự án | PM2.5 được coi là chất thụ động, không phản ứng |
+| `SCOPE-2` | Quyết định dự án | Verification bắt buộc; validation thực địa chưa thuộc MVP |
+| `SCOPE-3` | Quyết định dự án | NestJS API, PostgreSQL/PostGIS và Python worker là kiến trúc sản phẩm mục tiêu |
 
-### 5.2 The transport scheme
+### Lưu ý trung thực học thuật
 
-| | Rule | Source |
+- Benchmark của QES-Plume, CAIRDIO hoặc mô hình khác chỉ dùng làm tham khảo, không được
+  trình bày như độ chính xác đạt được của project.
+- Độ chính xác chiều cao Google Open Buildings ngoài Global South phải được nêu kèm hạn chế.
+- Verification bằng nghiệm giải tích và định luật bảo toàn không phải validation ngoài thực địa.
+- Ngưỡng QCVN/WHO là mức so sánh kết quả, không phải bằng chứng rằng mô hình đúng.
+
+## Phạm vi
+
+### Trong phạm vi
+
+- Voxel occupancy mask và height field LoD1 cho một study area.
+- Nguồn phát thải giao thông raster hoá vào voxel gần mặt đất.
+- Mass-consistent diagnostic wind: inflow profile, building mask, nghiệm Poisson/SOR.
+- Finite-volume advection–diffusion: upwind bậc một, central diffusion, explicit time step.
+- Gaussian plume analytic làm baseline so sánh.
+- Verification: nghiệm giải tích, bảo toàn khối lượng, boundedness, wall impermeability, CFL.
+- Ít nhất năm phép phân tích không gian 3D.
+- NestJS API tạo run, theo dõi trạng thái và truy vấn kết quả.
+- PostgreSQL/PostGIS lưu metadata, geometry, metrics, slices/summaries và provenance.
+- Python worker chạy mô phỏng bất đồng bộ và xuất NetCDF/artifacts.
+- Web dựng lại study area 3D từ dữ liệu thực: footprint và chiều cao toà nhà, đường, mặt
+  nước/công viên nếu nguồn có; đồng thời có height slider, scenario switch, threshold,
+  profile và summary.
+
+### Ngoài phạm vi
+
+- Röckle đầy đủ bảy vùng, CFD/RANS/LES hoặc chemical transport model.
+- Chemistry, deposition, washout, resuspension và traffic-produced turbulence đầy đủ.
+- Validation bằng wind tunnel/field measurements trong MVP.
+- Dự báo sức khoẻ, cảnh báo chính thức hoặc thay thế mô hình quy chuẩn AERMOD.
+- Multi-tenant, billing, Kubernetes, mobile app và phân quyền doanh nghiệp.
+- Seminar riêng; toàn bộ công sức tập trung cho sản phẩm, báo cáo và bảo vệ cuối kỳ.
+
+## Ràng buộc
+
+- Grid contract nằm trong `config/project.yaml`; không hard-code spacing ở module khác.
+- Mảng 3D là `[z,y,x]`; mảng 2D là `[y,x]`.
+- Tensor đầy đủ trao đổi bằng CF-conventions NetCDF-4; concentration dùng `float32`.
+- PostgreSQL/PostGIS không thay thế NetCDF cho toàn bộ tensor 3D.
+- Geometry dùng projected CRS phù hợp study area khi tính khoảng cách/diện tích.
+- `POST /runs` phải trả bất đồng bộ; API không chạy vòng lặp NumPy/SciPy trong request.
+- Hai người, tám tuần, bán thời gian; A sở hữu API/web/DB/integration, B sở hữu worker/model.
+- Không commit secrets, file môi trường hoặc dữ liệu có giấy phép không phù hợp.
+
+## Quy tắc nghiệp vụ
+
+### 5.1 Tên gọi và bản chất mô hình
+
+| Mã | Quy tắc | Nguồn |
 |---|---|---|
-| **BR-4** | **Advection uses first-order upwind. Central differencing is prohibited** for the advective term. Central is unbounded: at a sharp front it produces 2Δx oscillations and negative concentrations, which are not physical for a pollutant. This is not a preference — it was an actual defect in the first implementation | `DEC-1`; observed in the repository's own history |
-| **BR-5** | Fluxes are taken **on cell faces and differenced**, so whatever leaves one cell enters its neighbour exactly. Mass is conserved to machine precision, and that is asserted rather than assumed: emitted mass equals mass still in the domain plus mass that has crossed a boundary | `OBS-9` |
-| **BR-6** | The time step satisfies a **Courant number of 0.5 or less, computed from the actual velocity field** rather than passed in as a constant, and the diffusive von Neumann limit is checked alongside it. The realised Courant number is reported back so the margin is visible | `OBS-9` |
-| **BR-7** | A run **terminates at a steady state, not at a fixed step count or wall-clock duration**. The two selected winds are 1.62 and 1.84 m/s, so a 500 m domain has crossing times of about **309 s** and **272 s**. A conservative planning envelope is 4–6 crossings (**~1,235–1,852 s** and **~1,087–1,630 s** of simulated time), but the actual run uses the CFL-derived time step and stops on the steady-state criterion | `OBS-1` |
-| **BR-8** | Face fluxes are **zero on building walls and at the ground**, and **open at the domain edge with clean inflow**. Ground is reflective, meaning no deposition is modelled | `DEC-1` |
+| `BR-1` | Gọi đúng là **mass-consistent diagnostic wind model**, không gọi là Röckle đầy đủ hoặc CFD | `EXT-4`, `SCOPE-1` |
+| `BR-2` | Không giải phương trình động lượng; toà nhà tác động qua solid mask và face coefficients | `EXT-4`, `EXT-5` |
+| `BR-3` | Chất mô phỏng là PM2.5 thụ động, không phản ứng | `SCOPE-1` |
+| `BR-4` | Gaussian là baseline/đối chiếu, không phải solver voxel chính | `OBS-4` |
 
-### 5.3 Geometry, grid and data
+### 5.2 Solver vận chuyển
 
-| | Rule | Source |
+| Mã | Quy tắc | Nguồn |
 |---|---|---|
-| **BR-9** | The grid contract lives in the **project configuration file and nowhere else**: 500 × 500 × 100 m, Δx = Δy = 5 m, Δz = 2 m, therefore 100 × 100 × 50 = 500 000 voxels. A spacing literal anywhere in the code is a defect | `OBS-1`; `EXT-2` |
-| **BR-10** | **All 3D arrays are `[z, y, x]` and all 2D arrays `[y, x]`.** A function that takes or returns an array in another order is a defect regardless of whether its own tests pass, because the error is invisible on a symmetric fixture | `OBS-2` |
-| **BR-11** | **A missing building height is an error, never a default.** A building with neither a usable direct height nor a usable level count stops the run and names itself. A silently defaulted height produces plausible geometry that is wrong, which is worse than a crash | `OBS-7` |
-| **BR-12** | Interchange between stages is **CF-conventions netCDF-4 on disk**, never an in-memory handoff, so every stage re-runs alone. Concentrations are stored `float32`; the building mask is `uint8` | `OBS-3`, `OBS-4` |
-| **BR-13** | Every input dataset is **free, publicly reachable and usable without credentials**. The repository holds no secret and needs none | `OBS-10` |
+| `BR-5` | Advection dùng first-order upwind; không dùng central differencing cho advection | verification hiện có |
+| `BR-6` | Flux tính trên mặt ô để khối lượng rời ô này đi vào ô kề tương ứng | conservation law |
+| `BR-7` | `dt` được tính từ trường vận tốc thực, Courant mục tiêu không quá 0,5 | stability analysis |
+| `BR-8` | Run dừng theo steady-state criterion, không dựa vào số bước cố định | model contract |
+| `BR-9` | Building wall và ground không cho flux xuyên qua; boundary ngoài có clean inflow/open outflow | model contract |
+| `BR-10` | Nồng độ âm vượt tolerance làm run thất bại; không âm thầm clip để che lỗi | verification rule |
+| `BR-36` | Wind solver phải xuất corrected face velocities `uf,vf,wf`; transport dùng trực tiếp các flux này thay vì nội suy lại từ tâm ô | numerical consistency |
+| `BR-37` | Positivity được kiểm trên giá trị cập nhật thô trước mọi round-off correction; mọi correction phải ghi lượng mass thay đổi | numerical honesty |
 
-### 5.4 Honesty about what the model does not do
+### 5.3 Geometry, grid và dữ liệu
 
-| | Rule | Source |
+| Mã | Quy tắc | Nguồn |
 |---|---|---|
-| **BR-14** | **Numerical diffusion is measured and reported, not absorbed.** `K_num ≈ ½·u·Δx·(1−Cr)` is 3.75 m²/s at u = 3 m/s and Δx = 5 m — the same order as the physical eddy diffusivity. It is a first-class limitation and belongs in the results, not only in a footnote | `OBS-9` |
-| **BR-15** | **Verification is never described as validation.** The project checks the code against analytic answers and conservation laws; it does not check the model against measurements. A passing test suite is not evidence about reality | `DEC-2` |
-| **BR-16** | Results are reported against **both QCVN 05:2023 and the WHO 2021 guideline**, because the national PM2.5 limit is five times the WHO level and a single threshold hides that | `EXT-9`, `EXT-10` |
-| **BR-17** | **Every quoted external figure carries its own caveat where it has one.** In particular, the building-height accuracy is never quoted without the sentence that the assessment excluded the Global South | `EXT-8` |
-| **BR-18** | The model's known omissions — no cavity recirculation, no street-canyon vortex, no traffic-produced turbulence — are stated **with the direction of the resulting bias**, which is that canyon concentrations are under-estimated | `DEC-1` |
+| `BR-11` | Grid mặc định 100 × 100 × 50 nhưng mọi module phải đọc từ config | `OBS-1` |
+| `BR-12` | Thứ tự trục `[z,y,x]` là contract xuyên suốt | `OBS-2` |
+| `BR-13` | Thiếu chiều cao nhà phải được báo cáo; không dùng default im lặng | data quality |
+| `BR-14` | Output khoa học đầy đủ là NetCDF kèm units, CRS, coordinates và provenance | `OBS-3` |
+| `BR-15` | Nguồn dữ liệu, thời điểm tải, version và phép biến đổi phải được lưu | reproducibility |
 
-### 5.5 Repository discipline
+### 5.4 API, worker và trạng thái run
 
-| | Rule | Source |
+| Mã | Quy tắc | Nguồn |
 |---|---|---|
-| **BR-19** | **Harness-owned files are never committed and never added to `.gitignore`.** They stay untracked and visible; the protection is that every commit stages explicit paths. `git add -A`, `git add .` and `git commit -a` are prohibited in this repository | project `CLAUDE.md` |
+| `BR-16` | `POST /runs` validate DTO, tạo snapshot tham số và trả `202 Accepted` cùng `run_id` | `SCOPE-3` |
+| `BR-17` | Trạng thái hợp lệ: `queued → running → succeeded/failed`; có thể thêm `cancelled/stale` | architecture |
+| `BR-18` | Worker không public cho browser; chỉ API được tạo và truy vấn run | architecture |
+| `BR-19` | Retry không được tạo hai kết quả thành công khác nhau cho cùng attempt; ghi attempt count | reliability |
+| `BR-20` | Chỉ run vượt qua verification mới được đánh dấu `succeeded` | `SCOPE-2` |
+| `BR-21` | API timeout không thay đổi trạng thái worker; DB là nguồn sự thật cho run status | architecture |
 
-## Edge cases
+### 5.5 PostgreSQL/PostGIS và truy vấn
 
-| Situation | Expected | Source |
+| Mã | Quy tắc | Nguồn |
 |---|---|---|
-| A building polygon has neither a direct height nor a level count | the run stops and names the building. No default height is substituted | BR-11 |
-| Two building polygons overlap in one raster cell | the larger height wins, per the configured `maximum_height` overlap rule | BR-9, BR-11 |
-| A building is taller than the 100 m domain | it is clipped at the domain top **and the clipping is reported** — a silently truncated building changes the flow | BR-9 |
-| The seed wind field has non-zero divergence before correction | expected, and is the whole reason the Poisson solve exists. A residual **after** the solve above tolerance is a failure, not a warning | BR-2 |
-| The SOR iteration hits its cap without converging | the run stops and reports the residual. It never returns a field that is not divergence-free | BR-2 |
-| Wind speed is zero everywhere | advection vanishes and the result is pure diffusion. The solver stays stable and the time-step chooser does not divide by zero | BR-6 |
-| An axis of the grid is one cell thick | legitimate — it is how a 2D x–z slice is run — and that axis contributes no transport. The solver must not refuse it | BR-10 |
-| An emission source falls inside a building voxel | the source is rejected. Mass emitted into a solid cell can never leave it | BR-8 |
-| A concentration goes negative at any step | the run fails loudly. This is the signature of the prohibited central-difference scheme | BR-4 |
-| The exported web dataset exceeds the size budget | the exporter downsamples further **and records the factor**, rather than shipping a viewer that will not load | BR-12 |
-| The chosen study area has very sparse OSM height tagging | the run may proceed on a raster height product, but the report states the proportion of buildings whose height was inferred | BR-11, BR-17 |
-| A harness-owned file appears in `git status` | correct and expected. It stays untracked; it is never gitignored and never staged | BR-19 |
+| `BR-22` | DB lưu study area, buildings, roads, scenarios, runs, metrics, slices/summaries và artifacts | `SCOPE-3` |
+| `BR-23` | Geometry có SRID đúng và GiST index; foreign key/index B-tree cho `run_id`, `z_m`, `status` | `EXT-6` |
+| `BR-24` | Tensor đầy đủ nằm ở artifact storage; DB chỉ giữ phần cần filter/aggregate/spatial query | storage trade-off |
+| `BR-25` | Query từ client dùng endpoint/whitelist; không nhận SQL tự do | security |
+| `BR-26` | Tối thiểu có query slice theo z, vùng vượt ngưỡng, profile đứng và summary theo tầng | assignment DB/query |
+| `BR-27` | Truy vấn chính phải có `EXPLAIN (ANALYZE, BUFFERS)` hoặc bằng chứng index phù hợp | performance |
 
-## Acceptance criteria
+### 5.6 Web và tính trung thực
 
-Each line is checkable by running something. The **Traces to** column names the rule it comes
-from.
-
-> The harness house style writes acceptance criteria as *When … then …* on one physical line,
-> because `checkpoint.sh` parses them that way. This spec follows the `x-app-spec` table shape
-> instead: it is a project-level document in `docs/`, not a checkpointed task artefact, so no
-> parser reads it.
-
-### 7.1 Geometry
-
-| ID | Criterion | Traces to |
+| Mã | Quy tắc | Nguồn |
 |---|---|---|
-| AC-1 | The voxeliser writes a CF-conventions netCDF holding `H` with dimensions `(y, x)` and `B` with dimensions `(z, y, x)` on a 100 × 100 × 50 grid | BR-9, BR-12 |
-| AC-2 | A building with no height and no level count stops the run with an error naming that building, and no output file is written | BR-11 |
-| AC-3 | Opening the output in QGIS or Panoply shows the field correctly oriented, with `z` increasing upward — without running any of this project's code | BR-12 |
+| `BR-28` | Web chỉ gọi API, không query DB hoặc gọi worker trực tiếp | architecture |
+| `BR-29` | Height slider đổi đúng lớp `z_m` mà không reload toàn trang | product objective |
+| `BR-30` | UI hiển thị units, scenario, model version, threshold và warnings | reproducibility |
+| `BR-31` | Numerical diffusion và các physics bị thiếu phải xuất hiện trong report/UI | `SCOPE-2` |
+| `BR-32` | Toà nhà trên web dùng đúng footprint và `height_m` của dữ liệu đã voxel hoá; không đặt khối nhà thủ công | 3D scene contract |
+| `BR-33` | Đường, mặt nước và cây xanh lấy từ lớp GIS có provenance và cùng CRS; không bịa feature để làm đẹp | data integrity |
+| `BR-34` | Cảnh MVP là LoD1; không tuyên bố có facade/roof detail nếu nguồn không chứa các chi tiết đó | honesty |
+| `BR-35` | Geometry web, PostGIS và voxel mask phải dùng cùng study-area transform và được kiểm bằng overlay/anchor points | spatial consistency |
 
-### 7.2 Wind field
+### 5.7 Cổng chất lượng release
 
-| ID | Criterion | Traces to |
+| Mã | Quy tắc | Nguồn |
 |---|---|---|
-| AC-4 | After the Poisson solve, the divergence of the velocity field is below tolerance in **every air voxel** | BR-2 |
-| AC-5 | Velocity is exactly zero in every solid voxel | BR-2, BR-8 |
-| AC-6 | A vector plot on a horizontal slice above ground shows flow **deflected around** buildings, not passing through them | BR-2 |
-| AC-7 | An unconverged solve raises rather than returning, and the message carries the residual | BR-2 |
-| AC-8 | The same solver runs on a one-cell-thick `y` axis, producing the 2D x–z slice the debug notebooks use | BR-10 |
+| `BR-38` | FV voxel là kết quả mặc định trên web và trong báo cáo; Gaussian chỉ là baseline có nhãn | project objective |
+| `BR-39` | Run chỉ được `succeeded` khi CFL, divergence, positivity, wall flux, mass balance và artifact integrity đều pass | verification gate |
+| `BR-40` | Threshold/units có một nguồn cấu hình được version hoá; DB seed, API, web và report không được tự chép số riêng | consistency |
+| `BR-41` | Có sensitivity chiều cao và ít nhất một external benchmark/cross-check; mức tuyên bố phải khớp loại bằng chứng | academic quality |
+| `BR-42` | Release phải chạy được trên môi trường sạch theo chuỗi Compose → migrate → seed → run → query → web | reproducibility |
+| `BR-43` | Mọi kết luận định lượng trong báo cáo truy được về `run_id`, model version, input hash, table/figure và limitation | traceability |
 
-### 7.3 Transport
+## API contract
 
-| ID | Criterion | Traces to |
+| Method | Endpoint | Kết quả |
 |---|---|---|
-| AC-9 | On a closed domain with no source, total mass is unchanged to within floating-point error | BR-5 |
-| AC-10 | With a source and open boundaries, emitted mass equals mass remaining plus mass that has left | BR-5 |
-| AC-11 | No voxel holds a negative concentration at any step, including across a step profile where central differencing would oscillate | BR-4 |
-| AC-12 | A wall spanning the domain lets **no mass whatsoever** reach its downwind side | BR-8 |
-| AC-13 | A blob in uniform wind travels u·t, to within one cell | BR-4 |
-| AC-14 | Pure diffusion from a point release, with zero wind, matches σ² = 2Kt to better than 6 % | BR-5 |
-| AC-15 | The chosen time step yields a realised Courant number of 0.5 or less, reported by the code rather than assumed | BR-6 |
-| AC-16 | Each representative run reports the **CFL-derived Δt, simulated seconds at termination, number of steps, and wall-clock time**. No fixed 800–1,200-step or under-one-minute claim is accepted before the B4.3 benchmark | BR-7 |
+| `GET` | `/health` | trạng thái API, DB và worker heartbeat |
+| `GET` | `/study-areas` | vùng nghiên cứu và bounds |
+| `GET` | `/scenarios` | kịch bản khí tượng/phát thải |
+| `POST` | `/runs` | tạo run bất đồng bộ, trả `run_id` |
+| `GET` | `/runs/:id` | status, progress, error, metrics |
+| `GET` | `/runs/:id/slices?z_m=` | concentration layer tại cao độ |
+| `GET` | `/runs/:id/exceedance?threshold=` | cells/vùng vượt ngưỡng |
+| `GET` | `/runs/:id/profile?x=&y=` | profile theo chiều cao |
+| `GET` | `/runs/:id/summary` | mean/max, exceedance volume, mass balance |
+| `GET` | `/runs/:id/artifacts` | manifest và artifact references |
 
-### 7.4 Results and delivery
+## Mô hình dữ liệu tối thiểu
 
-| ID | Criterion | Traces to |
+| Bảng | Trường chính |
+|---|---|
+| `study_areas` | `id`, `name`, `geom`, `projected_srid`, `metadata` |
+| `building_footprints` | `id`, `study_area_id`, `geom`, `height_m`, `height_source` |
+| `road_segments` | `id`, `study_area_id`, `geom`, `road_class`, `emission_weight` |
+| `scenarios` | `id`, `name`, `wind_from_deg`, `wind_speed_m_s`, `parameters` |
+| `simulation_runs` | `id`, `scenario_id`, `status`, `model_version`, `input_hash`, timestamps, `error` |
+| `run_metrics` | `run_id`, CFL, divergence, mass terms, steps, runtime |
+| `concentration_slices` | `run_id`, `z_m`, `geom`, `concentration_ug_m3`, threshold flags |
+| `artifacts` | `run_id`, `kind`, `uri/path`, `checksum`, `size_bytes`, `manifest` |
+
+## Trường hợp biên
+
+| Tình huống | Xử lý bắt buộc |
+|---|---|
+| Nhà thiếu chiều cao | fail hoặc dùng fallback có cờ provenance; không im lặng |
+| Nhà cao hơn domain | clip và phát warning định lượng |
+| SOR không hội tụ | run `failed`, lưu residual và iteration count |
+| Nguồn nằm trong solid voxel | reject hoặc relocate theo rule được ghi lại |
+| Gió bằng 0 | solver chuyển thành pure diffusion và không chia cho 0 |
+| Concentration âm | kiểm trước correction; fail nếu vượt tolerance, không che bằng clipping; round-off correction phải ghi mass delta |
+| Face velocity thiếu/không khớp grid | worker fail trước transport, không nội suy ngầm từ cell-centred field |
+| Payload web quá lớn | downsample/tiling và ghi hệ số |
+| Worker chết giữa run | run thành `stale/failed`, có thể retry theo attempt |
+| API restart | status và artifacts vẫn truy xuất được từ DB |
+| Artifact thiếu/checksum sai | không trả như kết quả hợp lệ |
+| CRS sai hoặc geometry không hợp lệ | reject khi ingest/migration |
+| Query bbox không giao study area | trả collection rỗng, không lỗi 500 |
+
+## Tiêu chí nghiệm thu
+
+### 9.1 Geometry và dữ liệu
+
+| ID | Tiêu chí | Truy vết |
 |---|---|---|
-| AC-17 | Running the pipeline for two wind directions produces two fields that differ in the direction the plume travels | BR-9 |
-| AC-18 | Horizontal slices at 1.5 m and 15 m differ materially, demonstrating the vertical structure a 2D map cannot show | BR-10 |
-| AC-19 | Exceedance volume is reported in m³ against **both** the QCVN and the WHO threshold, each naming its threshold | BR-16 |
-| AC-20 | Opening the web viewer and moving the height slider changes the displayed layer without reloading the page | BR-12 |
-| AC-21 | The web payload loads within the size budget, and if it was downsampled the factor is stated on the page | BR-12 |
+| `AC-1` | Voxeliser ghi `H(y,x)` và `B(z,y,x)` đúng dimensions/coordinates | `BR-11..14` |
+| `AC-2` | Building height thiếu được phát hiện và ghi rõ nguồn/fallback | `BR-13` |
+| `AC-3` | NetCDF mở đúng chiều trong QGIS/Panoply mà không cần code riêng | `BR-14` |
 
-### 7.5 Honesty
+### 9.2 Wind và transport
 
-| ID | Criterion | Traces to |
+| ID | Tiêu chí | Truy vết |
 |---|---|---|
-| AC-22 | The report states that Tier-1 verification was performed and that validation against measurements was **not**, with the reason | BR-15 |
-| AC-23 | The report quotes the measured `K_num` next to the physical K, and says what that means for plume width | BR-14 |
-| AC-24 | Wherever the building-height accuracy is quoted, the Global South exclusion is quoted with it | BR-17 |
-| AC-25 | The limitations section names the missing cavity and canyon physics **and the direction of the bias** | BR-18 |
+| `AC-4` | Divergence sau correction dưới tolerance tại mọi air voxel | `BR-1..2` |
+| `AC-5` | Velocity trong solid voxel bằng 0 và không có flux xuyên tường | `BR-9` |
+| `AC-6` | Closed domain bảo toàn khối lượng trong sai số floating-point | `BR-6` |
+| `AC-7` | Source/open boundary thoả emitted = remaining + escaped trong tolerance | `BR-6` |
+| `AC-8` | Không có concentration âm vượt tolerance | `BR-5`, `BR-10` |
+| `AC-9` | Pure diffusion và uniform advection khớp nghiệm giải tích trong ngưỡng đã ghi | `SCOPE-2` |
+| `AC-10` | Run báo `dt`, Courant, steps, simulated time và wall-clock | `BR-7..8` |
 
-### 7.6 Rules with no criterion
+### 9.3 API, worker và DB
 
-Two rules cannot be demonstrated by running the deployed artefact, and are declared here
-rather than left looking like an oversight.
+| ID | Tiêu chí | Truy vết |
+|---|---|---|
+| `AC-11` | Request hợp lệ trả `202` + `run_id`; request sai bị reject trước enqueue | `BR-16` |
+| `AC-12` | Run đi qua state machine và giữ được status sau khi API restart | `BR-17`, `BR-21` |
+| `AC-13` | Worker failure tạo status/error rõ ràng, không tạo artifact “thành công” | `BR-20` |
+| `AC-14` | Migration + seed dựng DB mới từ đầu và có FK/SRID/index | `BR-22..23` |
+| `AC-15` | Slice, exceedance, profile và summary trả đúng `run_id`, `z_m`, units | `BR-26` |
+| `AC-16` | Spatial query có bằng chứng dùng index hoặc lý giải đo được | `BR-27` |
+| `AC-17` | Retry không nhân đôi output thành công ngoài ý muốn | `BR-19` |
 
-- **BR-1** — that the model is named correctly. This is a property of the prose, checked by
-  reading the report and the code comments, not by executing anything.
-- **BR-19** — that harness files are never committed. Checked by inspecting `git status` and the
-  commit contents, which is a repository property rather than a program behaviour.
+### 9.4 Web và kết quả
 
-## Observation notes
+| ID | Tiêu chí | Truy vết |
+|---|---|---|
+| `AC-18` | Height slider đổi lớp nồng độ mà không reload trang | `BR-29` |
+| `AC-19` | Hai wind scenarios cho plume direction khác nhau hợp lý | objective |
+| `AC-20` | Lát 1,5 m và 15 m thể hiện được cấu trúc đứng | objective |
+| `AC-21` | UI hiện threshold, units, version và warnings | `BR-30..31` |
+| `AC-22` | Gaussian/FV được gắn nhãn rõ, không trộn kết quả | `BR-4` |
+| `AC-22a` | 100% building hiển thị có `source_feature_id`, `height_source` và footprint truy ngược được | `BR-32` |
+| `AC-22b` | Chọn mẫu ít nhất 10 toà nhà: footprint, tâm và chiều cao web khớp DB/scene package trong tolerance | `BR-32`, `BR-35` |
+| `AC-22c` | Road/water/green layers khớp basemap và không có feature được đặt tay ngoài dữ liệu nguồn | `BR-33` |
+| `AC-22d` | UI/report ghi rõ cảnh là LoD1 và địa hình phẳng `z=0` | `BR-34` |
 
-*Adapted section — see the banner. The house form compares a reference product against MVP
-decisions; here the left column is what the repository and the data actually show.*
+### 9.5 Trung thực học thuật
 
-| Observed in code or data | Not observed — project decision |
-| --- | --- |
-| Briggs **urban** σ implemented correctly, including the easily-mistaken `+0.5` exponent for classes A–B (`OBS-5`) | Whether urban σ are appropriate at 5 m resolution at all; they are a bulk area-averaged parameterisation and are used because the baseline needs *some* defensible closure (`DEC-3`) |
-| Grid, domain and dtype are configuration, not constants in code (`OBS-1`) | The specific study block, which is not yet chosen and depends on OSM height coverage |
-| Height resolution fails closed on missing data (`OBS-7`) | What proportion of buildings will actually carry a height in the chosen block — unmeasured until the block is picked |
-| The transport solver conserves mass exactly and passes 12 tests (`OBS-9`) | Whether the resulting concentrations resemble reality; nothing in the project tests that (`DEC-2`) |
-| `sor_poisson` is an unimplemented stub (`OBS-8`) | The convergence behaviour of the Poisson solve on a real building mask, which is the largest remaining technical unknown |
-| No CI, no deployment, no secrets (`OBS-10`) | Whether the web viewer will be hosted anywhere, or demonstrated from a local file |
+| ID | Tiêu chí | Truy vết |
+|---|---|---|
+| `AC-23` | Báo cáo dùng từ “verification”, không tuyên bố validation chưa thực hiện | `SCOPE-2` |
+| `AC-24` | Numerical diffusion được đo/ước lượng cạnh physical diffusivity | `BR-31` |
+| `AC-25` | Hạn chế cavity/wake, canyon vortex, traffic turbulence và flat terrain được nêu | `BR-31` |
+| `AC-26` | Mọi run có model version, input hash và provenance | `BR-15`, `BR-30` |
 
-## Sources
+### 9.6 Cổng nghiệm thu mục tiêu 9+
 
-### Existing specs and docs referenced
+| ID | Tiêu chí | Truy vết |
+|---|---|---|
+| `AC-27` | Artifact gió chứa `uf,vf,wf`; divergence của chính face field đưa vào transport dưới tolerance tại mọi air cell | `BR-36` |
+| `AC-28` | Regression test cố tình tạo bước không ổn định phải fail trước clipping; test phát hiện được giá trị âm | `BR-10`, `BR-37` |
+| `AC-29` | Với một production run: emitted mass = remaining + escaped + documented correction trong tolerance; correction xấp xỉ 0 | `BR-37`, `BR-39` |
+| `AC-30` | Mở web sau release mặc định tải scenario `model=fv`; Gaussian chỉ xuất hiện khi người dùng bật comparison | `BR-38` |
+| `AC-31` | Run có verification fail không thể chuyển thành `succeeded` hoặc xuất hiện trong danh sách kết quả hợp lệ | `BR-39` |
+| `AC-32` | Test tự động so sánh threshold/units từ config, DB, API payload, web legend và report fixture, không có sai khác | `BR-40` |
+| `AC-33` | Báo cáo có sensitivity chiều cao và external benchmark/cross-check, nêu rõ đó là verification hay validation | `BR-41` |
+| `AC-34` | Trên máy/môi trường sạch, runbook tạo DB, seed dữ liệu, chạy worker, trả 4 query và mở web mà không sửa tay | `BR-42` |
+| `AC-35` | Evidence index liên kết mỗi figure/table quan trọng tới `run_id`, commit/model version, input hash và manifest | `BR-43` |
 
-This project had **no prior specification**; the skeleton is the harness house shape, with the
-one adaptation named in the banner. The four documents that this spec derives its content from:
+## Ghi chú quan sát
 
-- `docs/RESEARCH.md` — the sourced survey, 339 links, and the origin of every `EXT-n` above.
-- `docs/DECISION.md` — the model choice, the cut scope and the trade-off analysis; `DEC-1` to
-  `DEC-5` are recorded there first.
-- `docs/ROADMAP.md` — the eight-week plan, the person split and the web deliverable.
-- `docs/SEMINAR.md` — the presentation obligations behind `ASSIGN-1` to `ASSIGN-3`.
-- `CLAUDE.md` — the project's own working rules, which outrank this spec on any conflict.
+| Đã quan sát trong repo | Chưa được chứng minh và cần triển khai/đo |
+|---|---|
+| Pipeline voxel, emission, Gaussian, analysis và web prototype đã tồn tại | NestJS API, migrations, queue và worker adapter chưa tồn tại |
+| Contract `[z,y,x]` và NetCDF đã được dùng | Contract API–worker cần integration test |
+| Có test verification cho nhiều toán tử | Kết quả FV cuối cùng cần nối với web/API |
+| Có dữ liệu study area và hai kịch bản minh hoạ | DB query plan và tải thực tế chưa đo |
+| Có giới hạn dữ liệu chiều cao/phát thải được ghi nhận | Chưa có validation hiện trường |
 
-### User-provided documents
+## Nguồn
 
-The course's seminar requirements were provided by the user as plain text and are the basis of
-`ASSIGN-1` to `ASSIGN-3`. No other document, screenshot or upload was supplied.
+- `docs/RESEARCH.md`: cơ sở khoa học, dữ liệu, mô hình và danh mục nguồn đầy đủ.
+- `docs/ARCHITECTURE.md`: kiến trúc API–worker–DB và trade-off.
+- `docs/ROADMAP.md`: tiến độ, phân công A/B và tiêu chí mốc.
+- [PostGIS 3D predicates](https://postgis.net/docs/ST_3DIntersects.html).
+- [PostGIS spatial indexes](https://postgis.net/documentation/faq/spatial-indexes/).
+- [US EPA dispersion modelling](https://www.epa.gov/scram/air-quality-dispersion-modeling-preferred-and-recommended-models).
 
-### External links
+## Phụ lục thay đổi phạm vi
 
-Every `EXT-n` resolves to a link recorded in `docs/RESEARCH.md` §19, where each carries a
-confidence marker. **The markers matter and are not decoration**: several central references were
-reachable only as abstracts or search snippets, and `docs/RESEARCH.md` §18 lists 37 items that
-could not be verified. Two bear directly on this spec:
+### A. Chiều cao công trình
 
-- The Chang & Hanna acceptance thresholds circulate with **three different NMSE values** (1.5, 3
-  and 4) attributed to the same paper. This spec therefore states no NMSE acceptance threshold.
-- The QCVN 05:2023 table could not be extracted consistently; only the PM2.5 rows (50 / 25 µg/m³)
-  were corroborated twice, and only those are used here.
+Open Buildings 2.5D được dùng cho coverage; OSM là nguồn footprint/đối chứng. Khi chiều cao
+bị clip ở 100 m hoặc khác mạnh với OSM, warning và provenance phải đi cùng kết quả.
 
----
+### B. Mạng đường và địa hình
 
-## Amendment, 2026-09-21 — building heights now come from Open Buildings 2.5D
+Road graph phải loại bản sao hai chiều khi tổng hợp chiều dài/phát thải. MVP giả định mặt
+đất phẳng `z=0`; đây là hạn chế được ghi rõ, không phải kết quả đã kiểm chứng.
 
-Appended, not edited. Week 1 selected a study area and ran the preparation stage and Tier 0
-on real data for the first time. Full reasoning and measurements: `docs/DECISION.md`,
-*Amendment 21/09/2026*.
+### C. Kiến trúc API–worker–DB
 
-### New source ids
-
-| Source id | Kind | Supports |
-| --- | --- | --- |
-| `OBS-11` | observed | **Open Buildings 2.5D needs no credentials.** The GCS bucket is anonymously readable over HTTPS and the tiles are Cloud-Optimised, so a 500 m window is a range read, not a 1.54 GB download. `EXT-8` is therefore in scope after all |
-| `OBS-12` | observed | On the selected area it resolves **62 of 62** buildings, leaving **nothing** to a fallback |
-| `OBS-13` | observed | Local cross-check against the 21 OSM-tagged buildings: **MAE 23.2 m**, median absolute difference 7.0 m, bias −8.8 m, r = 0.740 |
-| `OBS-14` | observed | The product **caps every height at 100 m**. Three towers OSM records at 154 / 164.9 / 186 m return 88.5 / 62.5 / 91.0 m |
-| `DEC-6` | MVP decision | A study area is chosen by **resolvability at the grid spacing**, not by OSM height-tag coverage |
-| `DEC-7` | MVP decision | Where no source resolves a height, the value is the **median of that area's own resolved heights** — never a written-in constant. With nothing resolved the stage refuses |
-
-### BR-11 is NOT repealed — it is scoped
-
-BR-11 continues to govern the voxeliser. `src/voxel/heights.py` still runs with
-`fallback.mode: "error"`, still stops on a building it cannot resolve, and
-`tests/test_verification.py:299` still proves it. What changed is that a **preparation stage
-runs before it** and resolves every height while the source data is in hand, so the
-voxeliser's gate is now a backstop rather than the primary control. Read BR-11 as: *the
-voxeliser never invents a height.*
-
-### Added business rules
-
-| | Rule | Source |
-| --- | --- | --- |
-| **BR-20** | **Building heights come from Google Open Buildings 2.5D Temporal; OSM supplies footprint geometry.** The OSM `height` and `building:levels` tags are a **cross-check** and a fallback where the product is silent, in that order | `EXT-8`, `OBS-11`, `OBS-12` |
-| **BR-21** | **Every building carries its height's provenance** in `prepared_height_source` — `gob:building_height`, `osm:height`, `osm:building:levels` or `derived:median` — and the counts are written to the candidate CSV and printed | `OBS-12` |
-| **BR-22** | **The 1.5 m MAE is never quoted as this project's accuracy.** Google assessed it outside the Global South; the project's own local figure is **MAE 23.2 m** against 21 OSM-tagged buildings, and that is the number the report uses | `EXT-8`, `OBS-13`, supersedes nothing in BR-17 but makes it concrete |
-| **BR-23** | **A height at the product's 100 m ceiling is a lower bound, not a measurement**, and is reported as such. The model domain is also 100 m tall, so the voxeliser truncates above it either way | `OBS-14` |
-| **BR-24** | **A study area is chosen by resolvability at Δ = 5 m** — median footprint at least 4 voxels per horizontal side. Coverage differences below one percentage point are noise at these sample sizes | `DEC-6` |
-| **BR-25** | **An OSM tag carrying conflicting values (`"2;3"`) counts as absent.** Reading the first number is a guess presented as a measurement | `DEC-7` |
-
-### Amended edge cases
-
-| Situation | Expected | Source |
-| --- | --- | --- |
-| The chosen study area has very sparse OSM height tagging | **supersedes the earlier row.** Sparse OSM tagging no longer constrains the choice: the raster product supplies the heights and OSM tagging only sets how many cross-check points exist | BR-20, BR-24 |
-| A building polygon has neither a direct height nor a level count | **unchanged for the voxeliser** — it stops and names the building. In the **preparation** stage the building takes the Open Buildings height, or the derived median if that is silent too | BR-11, BR-20, `DEC-7` |
-| No source resolves a height anywhere in the study area | the preparation stage stops and names the candidate. Nothing is written | `DEC-7` |
-| Open Buildings returns a height at the 100 m ceiling | accepted as a lower bound and reported as one; never described as a measured height | BR-23 |
-| Open Buildings returns a height below one voxel (< 2 m) | legitimate — `building=roof` canopies exist — and the building simply contributes no solid voxel. Two such buildings exist on the selected area | BR-21 |
-| A building's `building:levels` is `"2;3"`, `"ground"` or similar | treated as absent, and the run continues | BR-25 |
-
-### Added acceptance criteria
-
-| ID | Criterion | Traces to |
-| --- | --- | --- |
-| AC-26 | Every building in the prepared output carries a `prepared_height_source`, and the counts per source appear in both the printed summary and the candidate CSV | BR-21 |
-| AC-27 | Where Open Buildings resolves a height, it is used, and no `derived:median` value remains | BR-20 |
-| AC-28 | No Open Buildings height exceeds 100 m; a value above it means the wrong raster band was read | BR-23 |
-| AC-29 | A study area with no resolvable height from any source stops the preparation stage with an error naming the candidate, and writes no output | `DEC-7` |
-| AC-30 | The selected study area's median footprint spans at least 4 voxels per horizontal side at Δ = 5 m | BR-24 |
-
-### Known gaps this amendment does not close
-
-- **No height-field sensitivity analysis yet.** `docs/RESEARCH.md` §1007 requires one. Two
-  independent height fields now exist for the same area, so the comparison is cheap: run the
-  model on each and report the spread.
-- **Tier 0's own height summary is wrong.** `src/voxel/heights.py` reports
-  `height_source: direct:height` for all 62 buildings, because the preparation stage writes a
-  numeric `height` for every one. The per-building data is correct — `prepared_height_source`
-  survives into `data/processed/buildings_with_height.geojson` — but the log line and the
-  netCDF `height_source_counts_json` attribute overstate how much was directly measured.
-- **`BR-25` is proven by fixture only.** The Nguyen Hue extract contains no semicolon tag
-  today, so the guard has no real-data evidence behind it.
-- **Vietnamese tube houses are outside what this grid can represent** at Δ = 5 m — a median
-  footprint of ~99 m² is 2 × 2 voxels. This is why Ben Thanh was rejected.
-- **Whether the selected area is a street canyon is unmeasured.** `docs/DECISION.md` §4 calls
-  for a block with clear street canyons; Nguyen Hue is a wide boulevard and its H/W ratio has
-  not been computed. `docs/RESEARCH.md` §5.1 forbids quoting Oke's H/W thresholds from
-  secondary sources, so this cannot be settled by recollection.
-
-### Sources
-
-**Local files inspected:** `src/00_prepare_osm_data.py`, `src/voxel/gob_heights.py`,
-`src/voxel/heights.py:195`, `tests/test_verification.py:299`, `config/project.yaml`,
-`docs/DECISION.md` §4 §5 §8, `docs/RESEARCH.md` §401 §1001–1002 §1007 §5.1, `docs/ROADMAP.md` §4.
-
-**Real runs:** `src/00_prepare_osm_data.py` (3 live Overpass calls plus one anonymous Open
-Buildings read, 2026-09-21), `src/01_voxelize.py` (41 084 solid voxels), `pytest` (50 passed).
-
-**External links:** the Open Buildings 2.5D dataset page and the Earth Engine catalog entry,
-both already recorded in `docs/RESEARCH.md` §1002 and §19 item 178. The accuracy caveat is
-quoted from those pages verbatim; the 23.2 m MAE is this project's own measurement.
-
----
-
-## Amendment, 2026-09-22 — road network, and the flat-ground assumption
-
-Appended, not edited. The rest of Person A's week-1 work. Reasoning:
-`docs/DECISION.md`, *Amendment 22/09/2026*.
-
-### New source ids
-
-| Source id | Kind | Supports |
-| --- | --- | --- |
-| `OBS-15` | observed | The study area holds **67 road edges, 6 395.5 m**, across residential / tertiary / primary / secondary. The first count (91 edges, 8 777 m, 22/09) took both directions of every two-way street from osmnx's directed graph; corrected 29/09 |
-| `OBS-16` | observed | Tag coverage: `name` and `oneway` 100 %, `lanes` 75 %, **`maxspeed` only 47 %** |
-| `OBS-17` | observed | **OSM tags no `monitoring:air_quality` station within 30 km** — a statement about OSM's completeness, **not** about whether stations exist. The nearest OSM monitoring stations measure hydrology (419 m) and meteorology (4 707 m). The reference station in `DECISION.md` §5, the US Consulate AirNow feed, is real and 931 m away |
-| `OBS-18` | observed | The **US Consulate General**, whose AirNow feed is the reference in `DECISION.md` §5, is **931 m** from the study-area centre |
-| `DEC-8` | MVP decision | **Copernicus DEM GLO-30 is out of scope.** The model places every building on a flat z = 0 plane |
-
-### Added business rules
-
-| | Rule | Source |
-| --- | --- | --- |
-| **BR-26** | **The model assumes flat ground at z = 0.** This is a stated assumption, never measured: nobody has computed the relief across the 500 m block. It belongs in the limitations chapter of every report | `DEC-8` |
-| **BR-27** | **Building heights are already relative to terrain**, so a ground elevation is never added to them. Doing so would double-count the ground, not improve the geometry | `DEC-8`, `EXT-8` |
-| **BR-28** | **Traffic emission is allocated by OSM road class, never by `maxspeed`.** Class covers 100 % of edges; `maxspeed` covers 47 %, so a speed weighting would silently drop half the network | `OBS-15`, `OBS-16` |
-| **BR-29** | **Road length is measured in the local UTM zone, never in degrees.** The emission factor is per kilometre, and a degree is not a length | `OBS-15` |
-| **BR-30** | **A study area with no road edges is an error.** No roads means no emission source, and an empty file would only surface in week 3 | `OBS-15` |
-| **BR-31** | **Proximity to a reference station is not validation.** The Consulate is 931 m away, which makes a future comparison *possible*; it does not make the model validated. BR-15 stands | `OBS-18` |
-| **BR-32** | **An absent OSM tag is never reported as an absent thing.** OSM completeness and physical reality are different claims, and conflating them turns a gap in a volunteer database into a false statement about the world | `OBS-17` |
-
-### Added edge cases
-
-| Situation | Expected | Source |
-| --- | --- | --- |
-| An OSM edge merges two ways, so `highway` is a list | collapsed to a single class; a list cannot be a GeoJSON property or a group key | BR-28 |
-| A road edge runs past the domain boundary | kept — the part inside still emits. Clipping belongs to the week-3 rasterisation step | BR-30 |
-| The pedestrian plaza on Nguyen Hue | deliberately absent from the network: `highway=pedestrian` carries no vehicles, so no emission. The carriageway beside it **is** present as `tertiary` | BR-28 |
-| `lanes` or `maxspeed` absent on an edge | serialised as null and **not** used as a weight | BR-28, `OBS-16` |
-| Overpass fails for one candidate | recorded as `failed: …` in the candidate CSV and the run continues. Observed live on 2026-09-22 for Landmark 81 | BR-30 |
-
-### Added acceptance criteria
-
-| ID | Criterion | Traces to |
-| --- | --- | --- |
-| AC-31 | Every road edge written carries a non-empty `highway` class and a `length_m` greater than zero | BR-28, BR-29 |
-| AC-32 | `length_m` equals the edge's geometric length in the local UTM zone within 1 % | BR-29 |
-| AC-33 | A study area returning no road edges stops the preparation stage with an error naming the candidate | BR-30 |
-| AC-34 | `config/project.yaml` declares `paths.roads`, so no consumer has to guess the location | BR-28 |
-| AC-35 | The flat-ground assumption and the reason for skipping the DEM are stated in the project documents | BR-26, `DEC-8` |
-
-### Known gaps this amendment does not close
-
-- **The flat-ground assumption is unmeasured.** No relief figure exists for the block.
-- **No traffic count exists.** `DECISION.md` §5 already records this as the largest
-  uncertainty; road class is a relative allocator only.
-- **Week 3 still has to build the emission field.** This amendment delivers the input data,
-  not `emissions.py`.
-
-### Sources
-
-**Local files inspected:** `src/emissions.py`, `src/voxel/rasterizer.py:326`,
-`config/project.yaml`, `docs/ROADMAP.md` §4, `docs/DECISION.md` §5 §6, `docs/RESEARCH.md` §1002.
-
-**Real runs:** `.harness/tasks/a-w1-road-network/probe.py`, `probe2.py`, `probe3.py`
-(Overpass, 2026-09-22), `src/00_prepare_osm_data.py`, `pytest`.
-
-**External links:** none. Every figure is a measurement taken in this repository.
+So với prototype web tĩnh ban đầu, sản phẩm cuối bổ sung NestJS API, PostgreSQL/PostGIS và
+Python worker bất đồng bộ. Thay đổi này phục vụ yêu cầu cơ sở dữ liệu và truy vấn nhưng không
+thay đổi mô hình khoa học: solver vẫn dùng cùng grid, NetCDF và verification contract.

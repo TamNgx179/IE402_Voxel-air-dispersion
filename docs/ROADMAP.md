@@ -1,53 +1,91 @@
-# ROADMAP — 8 tuần, 2 người, sản phẩm cuối là ứng dụng web 3D
+# ROADMAP — 8 tuần, 2 người, sản phẩm cuối là ứng dụng web GIS 3D
 
-**Ràng buộc:** 2 người · numpy mức cơ bản · 8 tuần lịch · bán thời gian (~4 người-ngày/tuần, ~32 tổng)
-**Phạm vi đã cắt:** xem [`DECISION.md`](DECISION.md) §0
-**Giả định về seminar:** gói seminar sẵn sàng cuối tuần 4. Seminar rơi vào tuần khác thì dịch Giai đoạn 1, giữ nguyên thứ tự và giữ cổng quyết định ở M3.
+**Ràng buộc:** 2 người · 8 tuần · bán thời gian · một study area · PM2.5 · chạy được trên
+laptop. Kế hoạch không có gói seminar; thời gian được dùng cho API, cơ sở dữ liệu, tích hợp,
+kiểm thử và báo cáo cuối kỳ.
+
+Quy ước trạng thái:
+
+- ✅ Đã có trong repository hoặc đã kiểm tra được.
+- 🟡 Đã có một phần nhưng chưa đạt contract sản phẩm cuối.
+- ⬜ Chưa thực hiện.
+- ✂️ Cắt khỏi phạm vi.
 
 ---
 
 ## 1. Sản phẩm cuối
 
-Một **ứng dụng web 3D** chạy trong trình duyệt, hiển thị trường nồng độ ô nhiễm trên mô hình thành phố voxel.
+Một ứng dụng web GIS 3D cho phép người dùng chọn khu vực/kịch bản, yêu cầu mô phỏng, theo
+dõi trạng thái và xem nồng độ PM2.5 theo độ cao. Hệ thống đích:
 
-| Mã | Tính năng | Bắt buộc |
-|---|---|---|
-| W1 | Bản đồ nền + toà nhà 3D (extrude từ footprint) | Có |
-| W2 | Trường nồng độ hiển thị theo từng tầng độ cao | Có |
-| W3 | **Thanh trượt chọn độ cao z (1,5 → 100 m)** | Có — quan trọng nhất |
-| W4 | Chuyển kịch bản gió (mùa khô 112° ĐĐN ↔ mùa mưa 227° TN — số đo, không phải ĐB/ĐN như bản đầu) | Có |
-| W5 | Bật/tắt ngưỡng QCVN 45 (24 h, từ 01/01/2026; 50 trước đó) và WHO 15 µg/m³ | Có |
-| W6 | Click một điểm → hiện profile đứng | Nên có |
-| W7 | Panel số liệu: thể tích vượt ngưỡng, trung bình theo tầng | Nên có |
-| W8 | ~~Isosurface 3D~~ → **bong bóng vượt ngưỡng dựng từ mặt voxel** (đúng độ phân giải mô hình, theo hệ số nhân/nền) | Nên có — gộp vào W9 |
-| W9 | **Cảnh 3D dựng theo dữ liệu thật**: nhà xung quanh (footprint + chiều cao OSM), sông, công viên, đường, bóng đổ theo giờ; **khói voxel 3D**, mặt cắt đứng kéo được, **gió chạy động** | Nên có — lịch ở §4 |
+```text
+Web 3D → NestJS API → PostgreSQL/PostGIS
+                    → Job queue/table → Python simulation worker
+                                          → NetCDF/JSON artifacts
+```
 
-**W3 là tính năng mang toàn bộ luận điểm của đồ án.** Kéo thanh trượt là thấy ngay nồng độ đổi theo độ cao — chứng minh trực tiếp "phải 3D" ngay trên sản phẩm, không cần giải thích bằng lời.
+| Mã | Tính năng | Người sở hữu | Bắt buộc | Trạng thái đầu kỳ |
+|---|---|---|---|---|
+| `P1` | Dựng cảnh đô thị 3D từ footprint, chiều cao, đường, sông/công viên thực | B chuẩn bị dữ liệu, A render web | Có | 🟡 dữ liệu/prototype đã có |
+| `P2` | PostgreSQL/PostGIS, migration và seed | A | Có | ⬜ |
+| `P3` | NestJS API cho study area, scenario và run | A | Có | ⬜ |
+| `P4` | Job bất đồng bộ và trạng thái `queued/running/succeeded/failed` | A | Có | ⬜ |
+| `P5` | Python worker chạy pipeline bằng `run_id` | B, A tích hợp | Có | 🟡 pipeline CLI đã có |
+| `P6` | Trường gió mass-consistent + FV transport | B | Có | 🟡 code/test có, còn integration |
+| `P7` | Lát cắt theo z, exceedance, profile và summary query | A | Có | 🟡 analysis Python có, API chưa có |
+| `P8` | Web 3D có height slider, scenario, threshold và profile | A | Có | 🟡 viewer tĩnh đã có |
+| `P9` | Verification và provenance theo từng run | B | Có | 🟡 nhiều test đã có, chưa gắn run |
+| `P10` | Docker/demo, runbook, báo cáo và số liệu cuối | A + B | Có | ⬜ |
 
 ### Công nghệ
 
-**Chốt: deck.gl + MapLibre, một file HTML, load qua CDN, không có bước build.** Không npm, không webpack, không Node.
-
-| Phương án | Chi phí | Quyết định |
+| Lớp | Công nghệ chốt | Lý do |
 |---|---|---|
-| deck.gl + MapLibre, 1 file HTML | ~5 người-ngày | **Chọn** |
-| CesiumJS + 3D Tiles | ~8 | Loại — `VoxelPrimitive` là extension draft, Cesium ghi rõ có thể đổi bất cứ lúc nào |
-| Three.js thuần | ~6 | Loại — phải tự làm bản đồ nền, định vị địa lý, camera |
-| Qgis2threejs export | ~2 | **Dự phòng** nếu deck.gl vỡ |
+| Web | MapLibre + deck.gl | Dựng nhà LoD1 đúng footprint/height, lớp đường–nước–cây xanh và nồng độ theo z |
+| API | NestJS + TypeScript | Module/controller/service/DTO rõ, thuận tiện OpenAPI và test |
+| DB | PostgreSQL + PostGIS | Bắt buộc có DB/query; hỗ trợ geometry, GiST và spatial predicates |
+| Job | PostgreSQL job table cho MVP; BullMQ/Redis là phương án nâng cấp | Giảm hạ tầng trong đường găng |
+| Worker | Python + NumPy/SciPy/xarray | Tái sử dụng toàn bộ lõi mô phỏng hiện có |
+| Artifact | NetCDF cho tensor; JSON/GeoJSON/Parquet cho web | Không ép PostGIS chứa toàn bộ tensor |
+| Đóng gói | Docker Compose | Dựng API, DB, worker và web bằng một quy trình |
+
+### Yêu cầu cảnh đô thị 3D dựa trên thực tế
+
+Web không dùng các khối nhà minh hoạ đặt thủ công. Cảnh 3D phải được dựng từ cùng bộ dữ liệu
+GIS mà voxeliser sử dụng, để hình học mô phỏng và hình học người dùng nhìn thấy không lệch nhau.
+
+| Lớp cảnh | Nguồn/thuộc tính | Cách dựng | Người phụ trách |
+|---|---|---|---|
+| Toà nhà | OSM footprint + Open Buildings/OSM `height` | Extrude LoD1 theo `height_m` | B chuẩn hoá, A render |
+| Đường | OSM centerline + `highway` | Line layer theo cấp đường | B chuẩn hoá, A render |
+| Sông/mặt nước | OSM polygon/line | Polygon đúng vị trí | B chuẩn hoá, A render |
+| Công viên/cây xanh | OSM landuse/leisure/natural | Polygon lớp phủ | B chuẩn hoá, A render |
+| Nền địa lý | MapLibre basemap | Kiểm tra CRS và alignment | A |
+| Nồng độ/gió | Output đúng `run_id` | Voxel/slab và vector/particle overlay | B xuất, A render |
+
+MVP dùng toà nhà **LoD1**: footprint thực và mái phẳng theo chiều cao dữ liệu. Không tự tạo
+mặt đứng/cửa sổ khi không có nguồn. Địa hình vẫn phẳng `z=0` và phải được ghi là hạn chế.
 
 ### Luồng dữ liệu ra web
 
-![Luồng dữ liệu ra web](./img/data-flow-web.svg)
+![Kiến trúc API–worker–DB](./img/architecture-api-worker-db.svg)
 
-### Đã cắt gì để có web
+1. Web gửi `POST /runs`.
+2. API validate và ghi run `queued` vào DB.
+3. Worker claim job, chạy mô hình và cập nhật progress/heartbeat.
+4. Worker ghi NetCDF, manifest, metrics và slices/summaries.
+5. Web poll status rồi gọi API để lấy layer/query kết quả.
 
-Web tốn ~6 người-ngày trên ngân sách vốn không có đệm.
+### Đã cắt gì để giữ đúng đường găng
 
-| Cắt | Thu về | Lý do |
-|---|---|---|
-| URock (trường gió có cavity/wake) | 5 pd | Rủi ro cài đặt Java/H2GIS cao, nằm ngoài đường găng |
-| Phơi nhiễm dân số WorldPop | 2 pd | Web quan trọng hơn |
-| Isosurface đưa lên web | 1 pd | Giữ isosurface cho hình báo cáo, không lên web |
+| Cắt | Lý do | Thời gian giữ lại |
+|---|---|---:|
+| Auth nhiều vai trò/multi-tenant | Không đóng góp vào câu hỏi GIS 3D | 2–3 người-ngày |
+| CFD/RANS/LES | Vượt khả năng tính toán và lịch | Trên 10 người-ngày |
+| Chemistry/NO₂ | Cần mô hình phản ứng và dữ liệu mới | 4–6 người-ngày |
+| Kubernetes/cloud production | Docker Compose đủ cho demo | 2–3 người-ngày |
+| Volume ray-marching hoàn chỉnh | Height slice/voxel layer đã chứng minh được 3D | 2 người-ngày |
+| WorldPop/exposure nâng cao | Chỉ làm sau khi MVP ổn định | 1–2 người-ngày |
 
 ---
 
@@ -55,529 +93,417 @@ Web tốn ~6 người-ngày trên ngân sách vốn không có đệm.
 
 ![Bản đồ tổng thể 8 tuần](./img/roadmap-overview.svg)
 
-| Mốc | Cuối tuần | Có gì trong tay |
+| Mốc | Cuối tuần | Kết quả phải có | Điều kiện qua mốc |
+|---|---:|---|---|
+| `M0` | 1 | Contract API–worker, ERD, skeleton API/DB | Hai người thống nhất schema và file contract |
+| `M1` | 2 | DB dựng sạch, data seed, pipeline input reproducible | Migration + seed chạy trên máy mới |
+| `M2` | 3 | API tạo run mock; FV 2D verification xanh | Có `run_id`, CFL/mass tests đạt |
+| `M3` | 4 | Run mô phỏng thật đi API → worker → artifact | Một run end-to-end không thao tác tay |
+| `M4` | 5 | Kết quả 3D query được qua PostGIS/API | Slice/exceedance/profile/summary đúng |
+| `M5` | 6 | Web 3D đọc API, hai scenario chạy được | Không còn đọc trực tiếp file nội bộ |
+| `M6` | 7 | Demo ổn định, integration tests, số liệu báo cáo | Chạy lại từ DB rỗng và tạo kết quả |
+| `M7` | 8 | Release candidate, báo cáo, runbook, rehearsal | Có bản đóng gói và bằng chứng nghiệm thu |
+
+### Cổng chất lượng mục tiêu 9+
+
+Hoàn thành task không đồng nghĩa tự động đạt cổng. Release chỉ được gọi là hoàn thành khi tất
+cả điều kiện dưới đây có bằng chứng lưu trong repository/artifacts:
+
+| Gate | Bằng chứng bắt buộc | Nếu chưa đạt |
 |---|---|---|
-| M1 | 2 | Mảng chiếm chỗ 3D + trường nồng độ Gaussian đầu tiên |
-| M2 | 3 | Bộ giải FV chạy đúng ở 2D |
-| M3 | 4 | Bộ giải FV 3D đã verify + gói seminar + **cổng quyết định** |
-| M4 | 5 | Trường gió mass-consistent, div ≈ 0 |
-| M5 | 6 | 3 kịch bản đã chạy + dữ liệu đã export cho web |
-| M6 | 7 | Web chạy được với W1–W5 |
-| M7 | 8 | Web hoàn thiện + báo cáo + slide |
+| `QG-1` Đúng đề tài | FV voxel 3D là kết quả chính trên web; Gaussian chỉ là baseline | Không release |
+| `QG-2` Đúng số trị | Transport dùng corrected face velocities của wind; divergence của chính flux transport dưới tolerance | Không công bố kết quả |
+| `QG-3` Không che lỗi | Không clip nồng độ âm trước kiểm tra; mass correction bằng 0 hoặc được định lượng | Run `failed` |
+| `QG-4` Verification | CFL, divergence, positivity, wall flux, mass budget và nghiệm giải tích đều pass | Run `failed` |
+| `QG-5` DB/query thật | Migration/seed, 4 query endpoint và `EXPLAIN ANALYZE` có bằng chứng | Chưa đạt yêu cầu DB |
+| `QG-6` GIS 3D thật | Web/DB/voxel dùng cùng footprint, height, CRS; scene có provenance và QA | Không dùng hình demo làm kết quả |
+| `QG-7` Đánh giá bất định | Sensitivity chiều cao + ít nhất một external benchmark/cross-check | Chỉ được tuyên bố verification nội bộ |
+| `QG-8` Tái lập | Máy sạch chạy seed → run → query → web bằng runbook/Compose | Chưa đóng gói |
+| `QG-9` Nhất quán tài liệu | Threshold, units, version và số liệu giống nhau giữa config, DB, web, report | Không chốt báo cáo |
+| `QG-10` Bằng chứng 3D | Có số liệu chênh lệch theo z, profile đứng và exceedance volume | Chưa chứng minh đóng góp 3D |
 
 ---
 
 ## 3. Phân vai
 
-| | **Người A — GIS, Dữ liệu, Web** | **Người B — Mô hình, Số trị** |
+| | **Người A — API, Web, DB và tích hợp** | **Người B — Dữ liệu GIS 3D, mô hình và Python worker** |
 |---|---|---|
-| Kỹ năng cần | QGIS, geopandas/rasterio, chút HTML/JS, thẩm mỹ trình bày | numpy, vòng lặp số, debug, toán |
-| Sở hữu | Tầng 0 voxel hoá · nguồn phát thải · phân tích không gian · **ứng dụng web** · báo cáo phần dữ liệu và kết quả | Tầng 1 trường gió · Tầng 2 vận chuyển · kiểm chứng · tối ưu tốc độ · báo cáo phần mô hình và hạn chế |
-| File chính | `01_voxelize.py` · `emissions.py` · `04_analysis.py` · `05_viz.py` · `06_export_web.py` · `web/` | `gaussian.py` · `02_wind.py` · `03_transport.py` · `tests/` |
+| Sở hữu | Toàn bộ NestJS, PostgreSQL/PostGIS, migration, query, web renderer, Docker, adapter gọi worker | Thu thập/chuẩn hoá dữ liệu cảnh 3D, voxel, emission, wind, FV transport, Gaussian, verification, benchmark |
+| File/thư mục đích | `apps/api/`, `apps/web/` hoặc `web/`, `db/`, `docker-compose.yml` | `src/`, `tests/`, `config/`, worker entrypoint |
+| Đầu ra chính | API contract, ERD, migrations, query plans, UI và demo | Scene package có provenance, NetCDF, manifest, metrics và kết quả khoa học |
+| Phần báo cáo | Kiến trúc, DB/query, dữ liệu GIS, web và kết quả trực quan | Phương pháp, phương trình, verification và hạn chế |
 
-**Giao diện giữa hai người là file netCDF, không phải lời gọi hàm.** A đưa B hai mảng, B trả A một mảng. Cách này để người đang sửa code không chặn người kia.
+**Ranh giới trách nhiệm:** A chịu toàn bộ API/web/DB/integration. B chịu dữ liệu GIS nguồn và
+pipeline biến dữ liệu thật thành building/road/water/green layers cùng voxel/model. B không làm
+frontend hoặc NestJS; A không sửa geometry khoa học hay phương trình khi chưa có review của B.
 
-**Ở mỗi mốc M, cả hai phải chạy được toàn bộ pipeline trên máy mình.** Dành 30 phút cuối mốc để người kia clone về chạy thử. Chỉ một người chạy được là đồ án có điểm chết.
+### Hợp đồng B → A
+
+Worker nhận `run_id` và đường dẫn/snapshot cấu hình, sau đó tạo:
+
+```text
+artifacts/<run_id>/
+├── concentration.nc
+├── wind.nc
+├── web-payload.json hoặc *.parquet
+├── metrics.json
+├── manifest.json
+└── worker.log
+```
+
+`manifest.json` bắt buộc có `run_id`, `model_version`, `input_hash`, scenario, grid, units,
+artifact checksum, warnings và verification status. A chỉ đánh dấu run `succeeded` khi manifest
+hợp lệ và B trả verification pass.
 
 ---
 
-## 4. Tiến độ thực tế — cập nhật 29/09/2026
+## 4. Tiến độ thực tế tại thời điểm lập kế hoạch
 
-**Trạng thái từng việc nằm ở cột `TT` trong §5 và §6.** Mục này giữ con số tổng, các phát hiện
-khi kiểm lại, và kế hoạch còn lại. **Seminar đã bỏ** — A4.1–A4.4 cắt, thời gian dồn sang web,
-phân tích và báo cáo.
+### Kết quả đã đạt được
 
-| | Xong | Làm dở | Chưa | Cắt | Tổng |
-|---|---|---|---|---|---|
-| **Người A** | 32 | 4 | 10 | 4 | 50 |
-| **Người B** | 20 | 3 | 10 | 0 | 33 |
-
-Suite: **176 test xanh** (`pytest -q`, 29/09). 53 test mới được kiểm độ phân biệt bằng cách cài
-10 lỗi có chủ đích — cả 10 đều làm test đỏ.
-
-### Phát hiện khi kiểm lại phần B và dữ liệu (29/09) — có số đo
-
-| # | Mức | Phát hiện | Số đo | Ai sửa | TT |
-|---|---|---|---|---|---|
-| F1 | **Chính** | Trường gió đưa sang vận chuyển **mất bảo toàn khối lượng**: solver trả vận tốc tâm ô, transport lại nội suy về mặt ô | div thực dùng: max 0,33 s⁻¹, p99 tương đối 22 %. Sai lệch C sau 691 s: trung vị 1,5 %, **p95 ~13 %, max 203 %** sát tường | B | ❌ |
-| F2 | Chính | `np.maximum(C, 0)` khiến test `C ≥ 0` không thể fail | Với gió thật clip tạo 0 % khối lượng — test rỗng, kết quả không sai | B | ❌ |
-| F3 | Chính | Không có dừng steady-state, chưa ghi `wind_field.nc` | Δt CFL thật 0,12–0,14 s (không phải 0,5); dừng ở ~600–700 s; ~35 s wall/kịch bản | B | ❌ |
-| F4 | Chính | Tốc độ 1,62 / 1,84 m/s là **một giờ ban đêm** mỗi mùa | TB vector mùa 0,70 / 1,10 m/s | B | ❌ ghi vào Hạn chế |
-| F5 | Phụ | W4 ghi ĐB/ĐN, dữ liệu là 112° ĐĐN / 227° TN | — | A | ✅ |
-| F6 | **Chính** | `roads.geojson` **đếm hai lần 24 phố hai chiều** (đồ thị có hướng của osmnx) | +27,1 % chiều dài; đúng là **67 cạnh / 6.395,5 m**; tỉ trọng phát thải đường tertiary 44 % → 58 % | A | ✅ |
-| F7 | Chính | EF 0,053 g/km **triệt tiêu** khi chuẩn hoá EDGAR; EDGAR ngụ ý chỉ **~99 xe/h** trên đường primary | Nút Hàng Xanh ~22.000 xe/h cao điểm (Nguyen 2026) → EDGAR ô 11 km là **cận dưới** cho lõi Q1 | A | ✅ ghi vào [`emission_assumptions.md`](emission_assumptions.md) |
-| F8 | Chính | Thiếu file giả định A3.5 | — | A | ✅ sinh tự động |
-| F9 | Phụ | `python-dotenv` thiếu trong `requirements.txt` → 2 test đỏ | — | A | ✅ |
-| F10 | Phụ | QCVN PM2.5 24 h là **45 µg/m³ từ 01/01/2026** (Bảng 1, chú thích \*), không phải 50 | — | A | ✅ web + config |
-| F11 | Chính | **Gió đứng quá lớn sát nhà**: \|w\| tới **4,2–4,5 m/s**, lớn hơn tốc độ ngang trung vị (2,6–3,0 m/s). Nghi do α₁ = α₂ = 1 (mặc định, chưa ai chỉnh) — **chưa tra nguồn, chưa kết luận** | đo 29/09 qua `wind.core.project_mass_consistent`, tol 1e-2 | B | ❌ |
-
-**Gợi ý sửa cho B:** F1 — thêm `uf, vf, wf` vào `WindResult` và cho `transport_step` nhận vận tốc
-mặt ô trực tiếp (lưới so le Arakawa-C); test: div của **chính trường transport dùng** < 1e-6 s⁻¹ ở
-mọi ô khí. F2 — bỏ clip hoặc `raise` khi `min < −ε·max`. F3 — `run_to_steady_state()` trả Δt, số
-bước, t mô phỏng, wall-clock (chính là B4.3). Tiêu chí dừng SOR nên là ‖rhs − Lλ‖∞/‖rhs‖∞ thay
-cho Σ|Δλ| tuyệt đối, kèm một test nghiệm dựng sẵn và một ca α₁ ≠ α₂.
-
-### Còn treo từ bảng 22/09 — chưa ai đóng
-
-Bảng "đã làm nhưng còn thiếu" ngày 22/09 có 8 mục; mục 1 (thứ tự thành phần gió), 6
-(`maxspeed`) và 7 (spike SOR, xong bằng `src/wind/spike.py`) đã đóng. Năm mục dưới đây còn mở ngày 29/09 sáng; **G2, G5, G8 đã đóng** trong ngày, G3 và G4 vẫn mở:
-
-| # | Việc | Thiếu gì | Ai |
-|---|---|---|---|
-| G2 | ~~Tầng 0 báo sai provenance~~ | ✅ **Đã sửa 29/09**: `voxel/heights.py` giữ `prepared_height_source` của bước 00; `voxel_grid.nc` nay ghi `{"gob:building_height": 62}`, mask và H giống hệt bản cũ | A |
-| G3 | **Chưa phân tích độ nhạy chiều cao** Google ↔ OSM | Cần trường FV mới có ý nghĩa: baseline Gaussian bỏ qua nhà nên không nhạy với chiều cao | A + B |
-| G4 | **Giả định đất phẳng chưa đo** | Vẫn là giả định, phải vào chương Hạn chế đúng như thế | B8.1 |
-| G5 | ~~H/W chưa đo~~ | ✅ **Đã đo 29/09** (`output/analysis/street_canyon_hw.json`): 228/998 mẫu có nhà hai bên; H/W trung vị **0.64** (IQR 0.54–1.08). Nguyễn Huệ **0.55**, Lê Lợi 0.55, Đồng Khởi **1.27**, Pasteur 1.22, Đông Du 1.01. Trục chính là đại lộ nông; hẻm sâu nằm ở phố ngang. Chiều cao là Google (MAE 23,2 m) nên H/W mang cùng bất định; 77 % mẫu "mở" gồm cả tia ra khỏi miền | A |
-| G8 | ~~Landmark 81 `failed`~~ | ✅ **Chạy lại 29/09**: 142 toà, 4,9 % có thẻ, 2,9 voxel/cạnh; Nguyễn Huệ vẫn được chọn; 62 toà và chiều cao không đổi | A |
-
-### Hợp đồng dữ liệu B → A (chốt 29/09)
-
-`output/netcdf/concentration_<scenario>.nc` · biến `C` float32 `[z,y,x]` đơn vị `ug m-3` · toạ độ
-khớp `voxel_grid.nc` · attrs `scenario`, `model` (`gaussian`/`fv`), `wind_from_deg`,
-`wind_speed_m_s`. B chỉ cần ghi file này rồi thêm id vào `web.scenarios` trong config; chạy
-`04_analysis.py` → `05_viz.py` → `06_export_web.py` là web và hình tự cập nhật. Kiểm hợp đồng:
-`src/analysis/fields.py`.
-
-### Kế hoạch nâng điểm — đánh giá 29/09
-
-Tự đánh giá theo góc nhìn giảng viên nghiên cứu GIS 3D (**ước lượng, không phải thang chấm
-thật của môn**):
-
-| Nếu nộp | Điểm dự kiến | Vì sao |
+| Nhóm việc | Kết quả đang có | Mức dùng lại |
 |---|---|---|
-| Như hiện tại (web trên Gaussian, chưa có FV) | 7,0 – 7,5 | Thiếu kết quả của chính mô hình voxel |
-| Đúng plan (F1 sửa, B4.2 đạt, FV lên web, đủ chương) | 8,5 – 9,0 | Phương pháp và kỷ luật kiểm chứng tốt; thiếu bằng chứng định lượng rằng 3D đổi kết quả |
-| Plan **+ A5.5, A8.7/B6.6, A6.5, A7.6, A5.6** | 9,3 – 9,8 | Trả lời được 4 câu hỏi chắc chắn gặp khi bảo vệ (dưới đây) |
+| Geometry/voxel | Pipeline footprint, height, rasterisation, NetCDF | Cao |
+| Emission | Road processing, rasteriser, EDGAR normalisation, assumptions | Cao |
+| Gaussian | Baseline và hình minh hoạ | Cao |
+| Wind/transport | Module, notebook debug và test verification | Trung bình; cần nối run contract |
+| Analysis | Slices, morphology, figures, web export | Cao |
+| Web | Viewer deck.gl/MapLibre đọc dữ liệu tĩnh | Trung bình; phải chuyển sang API |
+| API | Chưa có NestJS application | Chưa có |
+| Database | Chưa có PostgreSQL/PostGIS schema/migration | Chưa có |
+| Worker integration | Pipeline CLI có nhưng chưa có job lifecycle | Thấp |
 
-Bốn câu hỏi hội đồng gần như chắc chắn hỏi, và việc trả lời từng câu:
+### Khoảng trống bắt buộc đóng
 
-| Câu hỏi | Trả lời bằng |
-|---|---|
-| "Chiều cao sai ~100 % (MAE 23,2 m so với trung vị ~23 m) thì kết luận theo độ cao còn đứng không?" | **A8.7 + B6.6** — chạy lại với chiều cao OSM, báo cáo thay đổi bằng số |
-| "Lớp 3D thay đổi kết quả bao nhiêu so với Gaussian?" | **A5.5** — hiệu số theo tầng và theo hẻm; nói thẳng nếu chênh lệch nhỏ |
-| "Bản đồ này dùng để quyết định gì, khi không ô nào vượt ngưỡng?" | **A7.6** nền có nguồn + **A5.6** phơi nhiễm mặt đứng theo toà/tầng |
-| "Dữ liệu 3D này trao đổi với hệ khác thế nào?" | **A6.5** — CityJSON LoD1 + QGIS 3D |
+| Mã | Khoảng trống | Người | Hạn |
+|---|---|---|---:|
+| `G1` | Chưa có ERD/schema/migration PostGIS | A | Tuần 2 |
+| `G2` | Chưa có API và DTO | A | Tuần 3 |
+| `G3` | Chưa có state machine/job claim | A | Tuần 4 |
+| `G4` | Worker chưa nhận `run_id` và ghi manifest chuẩn | B | Tuần 4 |
+| `G5` | FV 3D chưa trở thành output chính của web | B + A | Tuần 6 |
+| `G6` | Spatial query chưa có query plan/index evidence | A | Tuần 5 |
+| `G7` | Chưa có integration test seed → run → query → web | A + B | Tuần 7 |
+| `G8` | Chưa có release/runbook/bộ số liệu cuối | A + B | Tuần 8 |
 
-**Nếu còn dư sức** (chỉ khi B4.2 và B6.2 xong trước tuần 5): tham số hoá vùng khuất gió sau nhà
-(phần "wake" của Röckle). Nâng cấp vật lý lớn nhất, rủi ro cao nhất — không được đẩy lịch của
-bốn việc trên.
+### Câu hỏi bảo vệ cần có kết quả định lượng
 
-### Lịch còn lại theo tuần
-
-Giả định tuần 1 = 15–21/09 (ROADMAP ghi "tuần 1 xong" ngày 22/09). Lệch lịch thì dịch ngày,
-giữ thứ tự.
-
-| Tuần | Ngày | Người A | Người B | Xong tuần là có |
-|---|---|---|---|---|
-| **3** | 29/09–05/10 | Commit + push. **A6.5** CityJSON + QGIS 3D (A5.4 đi kèm). Nháp A8.5: Bối cảnh, Dữ liệu, Quy trình. GitHub Actions chạy `pytest` | **Sửa F1** · **B4.2** < 6 % · **B4.3** benchmark | Qua cổng M3 |
-| **4** | 06–12/10 | **A7.7** bối cảnh thành phố + **A7.8** khói 3D (chạy trên Gaussian, tự sang FV sau). **A7.6** nền có nguồn (cùng B). **A5.6** phơi nhiễm mặt đứng lên web | **B5.4** `wind_field.nc` · B5.3/B5.5 · **B6.1** ghép đầu–cuối · B6.4 test tích hợp | Pipeline FV chạy đầu–cuối |
-| **5** | 13–19/10 | Chạy lại 04 → 05 → 06: web sang FV. **A5.5** hiệu số FV − Gaussian. **A7.9** gió chạy động (đổi sang `wind_field.nc` của B nếu đã có) | **B6.2** 2 kịch bản chính theo hợp đồng · **B6.3** 5 m ↔ 10 m | Kết quả chính + bằng chứng "phải 3D" |
-| **6** | 20–26/10 | **A8.7** độ nhạy phía A. Chương Kết quả, Phân tích không gian. **A8.4** thử 2 máy + điện thoại thật | **B6.6** ca độ nhạy · **B7.4** chạy lại được từ đầu · bắt đầu B8.1 | Bảng độ nhạy đủ |
-| **7** | 27/10–02/11 | **A8.6** video. Đọc chéo chương của B | **B8.1** 4 chương + Hạn chế · **B8.2** Q&A | Báo cáo đủ 10 chương |
-| **8** | 03–09/11 | **Cả hai:** đọc chéo, kiểm mọi con số truy được nguồn, tập dượt bảo vệ 2 lần có bấm giờ, đóng gói repo + hướng dẫn chạy web. Tuần đệm | | Nộp |
-
-**Cổng:** B4.2 phải đạt trong tuần 3. Hết tuần 4 vẫn chưa đạt → nhánh "Không đạt" của §5
-(Gaussian làm kết quả chính, ghi trong Hạn chế, dồn sức vào A5.6, A6.5, A7.6 và báo cáo). Web
-và toàn bộ Tầng 3 đã chạy trên Gaussian nên nhánh dự phòng vẫn nộp được.
-
----|---|---|---|
-| 1 | **Sửa F1** (vận tốc mặt ô), rồi **B4.2** kiểm định Bậc 1 3D < 6 % | B | Không có F1 thì mọi con số FV sát nhà sai tới 2×; B4.2 là cổng bắt buộc |
-| 2 | **B6.1–B6.2**: chạy FV cho 2 kịch bản, ghi theo hợp đồng | B | Web đang chạy trên baseline Gaussian — chùm khói đi xuyên nhà |
-| 3 | **So sánh Gaussian ↔ FV** (bản đồ hiệu số, `operators.difference_map`) | A | Đây là bằng chứng trực tiếp cho luận điểm "phải 3D" — DECISION §7.9 |
-| 4 | Độ nhạy: trọng số cấp đường, gió đêm vs TB mùa (F4), Δ 5 vs 10 m, chiều cao Google vs OSM | A + B | Chương Hạn chế ghi điểm bằng số, không bằng lời |
-| 5 | **Nồng độ nền có nguồn** (trạm OpenAQ/Lãnh sự quán) để ngưỡng QCVN/WHO có nghĩa | B (B1.4) | Hiện chỉ là phần do giao thông trong miền: không ô nào vượt ngưỡng ở × 1 |
-| 6 | A8.4 thử trên máy thật + điện thoại; A8.5 6 chương; A8.6 video | A | — |
-| 7 | GitHub Actions chạy `pytest` trên mỗi push | A | Repo chưa có CI; "chạy được trên máy tôi" không tính |
+| Câu hỏi | Bằng chứng cần tạo | Người |
+|---|---|---|
+| Vì sao cần 3D thay vì bản đồ 2D? | So sánh lát 1,5 m, 15 m và profile đứng | A + B |
+| Mô hình có bảo toàn và ổn định không? | CFL, divergence, mass balance, analytic tests | B |
+| DB được dùng để làm gì? | ERD, 4 query endpoint, `EXPLAIN ANALYZE` | A |
+| Vì sao không lưu toàn bộ voxel vào DB? | Benchmark/giải thích hybrid PostGIS + NetCDF | A |
+| Kết quả đáng tin tới đâu? | Verification, sensitivity, limitations; không tuyên bố validation | B |
 
 ---
 
-## 5. Giai đoạn 1 — tới seminar
+## 5. Giai đoạn 1 — Nền tảng và run end-to-end
 
-Mỗi việc có một **mã** (`A1.2` = Người A, tuần 1, việc 2) để tham chiếu được trong họp,
-trong commit và trong §4.
-
-### Tuần 1 — Dữ liệu và chọn địa bàn
-
-Tuần này quyết định một thứ **không sửa lại được: chọn địa bàn**.
-
-**Người A — GIS và dữ liệu**
-
-| Mã | Việc | Output | TT |
-|---|---|---|---|
-| A1.1 | Chọn 3 địa bàn ứng viên ở TP.HCM | 3 toạ độ tâm trong `CANDIDATES` | ✅ |
-| A1.2 | Chạy Overpass đếm `building` / `building:levels` / `height` từng ứng viên | Số liệu độ phủ thẻ cho cả 3 | ✅ cả 3 ứng viên (Landmark 81 chạy lại 29/09: 142 toà, 4,9 % có thẻ) |
-| A1.3 | Đo hình thái: λ_P, diện tích trung vị, **số voxel mỗi cạnh** ở Δ = 5 m | 3 chỉ số cho cả 3 ứng viên | ✅ cả 3 — Landmark 81: λ_P 0,289, trung vị 2,9 voxel/cạnh; lựa chọn Nguyễn Huệ không đổi |
-| A1.4 | Chốt địa bàn theo **khả năng phân giải**, không theo độ phủ thẻ | `data/raw/study_area.geojson`<br>`data/raw/study_area_candidates.csv` | ✅ |
-| A1.5 | Ghép chiều cao từ Google Open Buildings 2.5D | `data/raw/buildings.geojson`, 62/62 có chiều cao thật | ✅ |
-| A1.6 | Đối chứng chéo chiều cao Google ↔ thẻ OSM | MAE 23,2 m · trung vị 7,0 m · r = 0,740 | ✅ |
-| A1.7 | Tải mạng đường OSM và phân theo `highway=` | `data/raw/roads.geojson` — 91 cạnh, 8.777 m | ✅ — ⚠️ con số đúng là **67 cạnh, 6.395,5 m**: bản gốc đếm hai lần 24 phố hai chiều (xem §4) |
-| A1.8 | Quyết định về DEM GLO-30 | Quyết định **BỎ** + giả định đất phẳng ghi vào `DECISION.md` | ✅ |
-| A1.9 | Kiểm tiêu chí "gần trạm quan trắc" | Lãnh sự quán Mỹ **931 m** | ✅ |
-
-**Người B — mô hình và môi trường**
-
-| Mã | Việc | Output | TT |
-|---|---|---|---|
-| B1.1 | Dựng repo và môi trường chạy được trên cả 2 máy | `.venv` Python 3.12, `pytest` xanh | ✅ |
-| B1.2 | Kéo Open-Meteo: profile gió 19 mực áp suất + PBL height | `data/raw/wind_profile.csv` | ✅ `data/processed/wind_profile.csv` |
-| B1.3 | Vẽ hoa gió theo mùa, **chốt 2 hướng gió đại diện** | 2 hình hoa gió + 2 hướng đã chốt | ✅ `output/figures/wind_rose_*.png` |
-| B1.4 | Lấy quyền truy cập OpenAQ, chạy `GET /v3/locations?iso=VN`, **đếm thật** | Số trạm Việt Nam có thật — quyết định Bậc 3 trong `DECISION.md` §6 có làm được không | ✅ theo `openaq_b1_4_status.json` (58 trạm VN); CSV đi kèm không có trong repo |
-| B1.5 | ⭐ **Spike SOR 2D** — lưới 100 × 50, một khối nhà, giải Poisson cho λ | Trả lời 3 câu hỏi dưới đây | ✅ PASS — 1.443 vòng, max div 7,6·10⁻⁹ |
-
-> **⭐ B1.5 là việc quan trọng nhất còn treo của cả đồ án.** Khung có sẵn ở
-> `notebooks/02_wind_2d_debug.ipynb`; **cell spike chưa chạy**. Ba câu hỏi phải trả lời:
->
-> 1. SOR có **hội tụ** không, sau bao nhiêu vòng lặp?
-> 2. `div(u)` sau khi giải có về dưới ngưỡng ở **mọi ô khí** không?
-> 3. Vẽ vector — dòng khí có **đi vòng qua** khối nhà không?
->
-> Không cần dữ liệu thật, không cần Tầng 0: mask dựng bằng `np.zeros` rồi gán `True` cho
-> một khối chữ nhật. Chi phí ~1 người-ngày.
->
-> **Đạt cả ba** → độ tin cậy nhảy từ ~70 % lên ~85 %, phần còn lại chỉ là mở lên 3D.
-> **Không hội tụ** → còn sáu tuần để đổi hướng, thay vì hai.
-
-### Tuần 2 — Voxel hoá và Gaussian → M1
+### Tuần 1 — Chốt contract, ERD và baseline → M0
 
 **Người A**
 
-| Mã | Việc | Output | TT |
+| ID | Công việc | Đầu ra | Tiêu chí đạt |
 |---|---|---|---|
-| A2.1 | Rasterize footprint thành `H[y,x]` ở Δ = 5 m | Trường chiều cao 100 × 100 | ✅ |
-| A2.2 | Dựng mask 3D `B = Z < H` | `B (z,y,x)` — 41.084 voxel đặc | ✅ |
-| A2.3 | Ghi netCDF chuẩn CF | `data/processed/voxel_grid.nc` | ✅ — provenance sửa 29/09: `{"gob:building_height": 62}` (mask và H không đổi) |
-| A2.4 | **Kiểm bằng mắt**: cắt 3 mặt phẳng, chồng lên ảnh vệ tinh | 3 hình kiểm tra | ✅ `A2_4_voxel_check_satellite.png` (Esri World Imagery, z = 1/15/45 m) + `A2_4_voxel_check.png`; ảnh cho thấy **nhiều nhà thấp không có footprint OSM** |
+| `A1.1` | Vẽ user flow create run → status → result | `docs/user-flow.md` hoặc sơ đồ trong architecture | Bao phủ success/failure/retry |
+| `A1.2` | Thiết kế ERD PostGIS | ERD + data dictionary | Có PK/FK/SRID/index dự kiến |
+| `A1.3` | Scaffold NestJS module | API skeleton | `/health` chạy và có config validation |
+| `A1.4` | Chốt DTO/API endpoints | OpenAPI draft | Khớp `spec.md` |
+| `A1.5` | Chốt single source of truth cho threshold/units | Config + DB seed contract | QCVN/WHO không mâu thuẫn giữa research, config và web |
 
 **Người B**
 
-| Mã | Việc | Output | TT |
+| ID | Công việc | Đầu ra | Tiêu chí đạt |
 |---|---|---|---|
-| B2.1 | Gaussian giải tích 2D với σ **Briggs đô thị** | Hàm chạy đúng | ✅ |
-| B2.2 | Mở lên 3D, profile gió luỹ thừa p đô thị | `C_gaussian_ug_m3 (z,y,x)` | ✅ |
-| B2.3 | Nguồn đường = chồng chập nguồn điểm | Hình lát cắt ngang đầu tiên | ✅ |
+| `B1.1` | Chạy lại pipeline hiện tại | Log + danh sách dependency | Xác định bước chạy được/bước lỗi |
+| `B1.2` | Chốt worker input/output contract | JSON schema/typed model | Có `run_id`, config, manifest, metrics |
+| `B1.3` | Chốt tên mô hình và giới hạn | Đoạn phương pháp cho report | Không gọi Röckle đầy đủ/CFD |
+| `B1.4` | Kiểm kê dữ liệu dựng cảnh 3D thực tế | Bảng layer/source/license/coverage | Có footprint, height, road, water, green và provenance |
+| `B1.5` | Chọn external benchmark/cross-check khả thi | Benchmark plan + metric | Có dataset/case, cách chạy và giới hạn tuyên bố |
 
-**M1 quan trọng về mặt tâm lý:** từ đây đồ án **luôn có kết quả để nộp**.
+**Kết quả tuần 1:** ERD, API contract và worker contract được review chéo; `/health` chạy;
+pipeline hiện trạng có log tái lập. Nếu chưa thống nhất contract thì chưa sang tuần 2.
 
-### Tuần 3 — Bộ giải FV ở 2D và nguồn phát thải → M2
+### Tuần 2 — Database, dữ liệu và reproducibility → M1
 
 **Người A**
 
-| Mã | Việc | Output | TT |
+| ID | Công việc | Đầu ra | Tiêu chí đạt |
 |---|---|---|---|
-| A3.1 | Đọc `roads.geojson`, phân nhóm theo `highway=` | Bảng chiều dài theo cấp | ✅ (B làm) · A sửa đếm trùng |
-| A3.2 | Nhân EF xe máy Hà Nội (PM 0,053 g/km) theo **cấp đường** | Cường độ phát thải mỗi cạnh | ✅ (B làm) |
-| A3.3 | Raster hoá vào voxel ở z ≈ 1 m | `S[z,y,x]` trong netCDF | ✅ (B làm) |
-| A3.4 | Chuẩn hoá tổng theo EDGAR | Hệ số chuẩn hoá đã ghi lại | ✅ (B làm) · đã chạy: 3,07·10⁻⁶ kg/s |
-| A3.5 | **Ghi mọi giả định phát thải vào file** | File giả định — dùng cho chương Hạn chế | ✅ [`emission_assumptions.md`](emission_assumptions.md), sinh tự động |
-| A3.6 | ⭐ **Spike khung web** | `web/index.html` chạy với dữ liệu bịa | ✅ (B làm) |
-
-> **A3.2 dùng cấp đường, KHÔNG dùng `maxspeed`.** Đã đo: cấp đường phủ 100 % số cạnh,
-> `maxspeed` chỉ 47 %. Trọng số theo tốc độ sẽ bỏ im lặng một nửa mạng lưới. Xem BR-28.
-
-> **A3.6 spike khung web, ~0,5 người-ngày.** Một `web/index.html`, MapLibre + deck.gl qua
-> CDN, và **dữ liệu bịa** — 3 tầng độ cao, mỗi tầng lưới 10 × 10 số ngẫu nhiên viết thẳng
-> trong JS, một thanh trượt đổi tầng. Không cần netCDF, không cần kết quả mô hình. Chỉ trả
-> lời một câu: **thanh trượt có chạy trong trình duyệt không?**
+| `A2.1` | Dựng PostgreSQL/PostGIS | Docker service | Healthcheck xanh |
+| `A2.2` | Viết migration các bảng lõi | Migration files | Up/down hoặc rebuild sạch được |
+| `A2.3` | Tạo GiST/B-tree indexes | Migration + query kiểm tra | Index tồn tại đúng cột |
+| `A2.4` | API read-only study areas/scenarios | Endpoints + tests | Trả geometry/metadata đúng schema |
 
 **Người B**
 
-| Mã | Việc | Output | TT |
+| ID | Công việc | Đầu ra | Tiêu chí đạt |
 |---|---|---|---|
-| B3.1 | Bộ giải FV 2D x–z: upwind bậc 1 + khuếch tán trung tâm | `transport_step()` chạy đúng | ✅ |
-| B3.2 | Ràng buộc CFL `Cr ≤ 0,5` | `cfl_time_step()`, `courant_number()` | ✅ |
-| B3.3 | Biên: tường flux 0 / đất phản xạ / ra mở | Biên đã cài và có test | ✅ |
-| B3.4 | Verify so nghiệm giải tích, mục tiêu sai số < 6 % | Đồ thị so sánh | ✅ |
-| B3.5 | Verify bảo toàn khối lượng | Đồ thị bảo toàn + `total_mass()` | ✅ |
+| `B2.1` | Chuẩn hoá voxel/emission input | NetCDF + manifest | `[z,y,x]`, units, CRS đầy đủ |
+| `B2.2` | Chạy Gaussian baseline | Baseline artifact | Có hai scenario để so sánh |
+| `B2.3` | Đóng gói config loader | Worker callable/CLI | Không hard-code grid/path |
+| `B2.4` | Chuẩn hoá scene package và seed input | GeoJSON/Parquet + metadata | Building/road/water/green cùng CRS, counts và provenance |
 
-**Mẹo debug 2D:** `matplotlib.imshow` sau mỗi 50 bước. Lỗi dấu upwind hay lỗi biên nhìn ra
-ngay — chùm khói đi ngược, nồng độ âm, hoặc vệt sọc ở biên.
+**Kết quả tuần 2:** từ DB rỗng có thể migrate + seed bằng scene package của B; API đọc study
+area/scenario; dữ liệu toà nhà, đường, mặt nước và cây xanh cùng CRS, có provenance; B tạo được
+input artifacts và Gaussian baseline.
 
-### Tuần 4 — FV lên 3D và gói seminar → M3, cổng quyết định
+### Tuần 3 — Run API và verification 2D → M2
 
 **Người A**
 
-| Mã | Việc | Output | TT |
+| ID | Công việc | Đầu ra | Tiêu chí đạt |
 |---|---|---|---|
-| A4.1 | Làm 4 hình H1–H4 cho seminar | 4 hình | ⛔ cắt — bỏ seminar |
-| A4.2 | Dựng slide 13 trang + bản PDF dự phòng | Slide + PDF | ⛔ cắt — bỏ seminar |
-| A4.3 | Viết báo cáo seminar theo **5 mục bắt buộc** | Báo cáo seminar | ⛔ cắt — bỏ seminar |
-| A4.4 | **Tập dượt bấm giờ ít nhất 2 lần** | 2 lần chạy thử đúng 10–12 phút | ⛔ cắt — bỏ seminar |
+| `A3.1` | `POST /runs` + DTO validation | Endpoint + tests | Trả `202` và `run_id` |
+| `A3.2` | `GET /runs/:id` | Status endpoint | Trả progress/error/metrics schema |
+| `A3.3` | Job table và atomic claim | SQL/service tests | Hai worker không claim cùng job |
+| `A3.4` | Mock worker integration | Fake completed run | UI/API flow test được trước solver thật |
 
 **Người B**
 
-| Mã | Việc | Output | TT |
+| ID | Công việc | Đầu ra | Tiêu chí đạt |
 |---|---|---|---|
-| B4.1 | Mở FV lên 3D (thêm trục y), gió đồng nhất | `transport_step()` nhận velocity 3 thành phần | ✅ |
-| B4.2 | **Kiểm định Bậc 1**: so Gaussian giải tích 3D, mục tiêu < 6 % | Báo cáo sai số | ❌ |
-| B4.3 | **Benchmark một kịch bản thật**: ghi Δt do CFL, số bước tới steady-state, thời gian mô phỏng và wall-clock | Bảng benchmark có đủ 4 con số; không dùng lại giả định 800–1.200 bước | ❌ |
+| `B3.1` | Verify advection 2D | Tests/plots | Blob đi đúng `u·t` trong tolerance |
+| `B3.2` | Verify diffusion 2D | Tests/metrics | `σ²=2Kt` trong tolerance chốt |
+| `B3.3` | Kiểm CFL, positivity, mass balance | Test suite | Không clip âm để che lỗi |
+| `B3.4` | Benchmark nhỏ | Bảng runtime/memory | Có số đo, không ước lượng miệng |
+| `B3.5` | Bỏ clipping che lỗi positivity | Solver + regression test | Kiểm tra giá trị âm trước correction; fail nếu vượt tolerance |
 
-> **B4.1 thực chất đã xong**: `transport_step()` làm việc trên `[z,y,x]` với velocity 3
-> thành phần, và 2D chỉ là trường hợp một trục dày 1 ô. Còn thiếu **B4.2** — chưa ai chạy
-> phép so 3D với nghiệm giải tích.
+**Kết quả tuần 3:** API tạo và hoàn tất mock run; solver 2D vượt verification gate; metrics
+schema đã ổn định để A lưu vào DB.
 
-**Cổng quyết định — cuối tuần 4.** Bộ giải FV 3D có đạt sai số < 6 % không?
+### Tuần 4 — Worker thật và pipeline end-to-end → M3
 
-| Trả lời | Làm gì |
-|---|---|
-| Đạt | Đi tiếp, tuần 5 làm trường gió |
-| Gần đạt (8–10 %) | Cho thêm tuần 5 để sửa rồi chốt lại, dời trường gió sang tuần 6 |
-| Không đạt | **Dừng phần số trị.** Dùng `C_gauss` làm kết quả chính + mask toà nhà. Dồn tuần 5–8 vào phân tích không gian, web và báo cáo. Ghi rõ trong Hạn chế. Vẫn đúng đề bài, vẫn có web, vẫn có đồ án hoàn chỉnh |
+**Người A**
+
+| ID | Công việc | Đầu ra | Tiêu chí đạt |
+|---|---|---|---|
+| `A4.1` | Worker adapter/job lifecycle | Integration service | `queued→running→succeeded/failed` |
+| `A4.2` | Heartbeat, timeout và retry policy | State transition tests | Không để run `running` vô hạn |
+| `A4.3` | Artifact + metrics persistence | DB records | Checksum/path/manifest truy xuất được |
+| `A4.4` | Error mapping/log retrieval | API response | Lỗi worker không thành HTTP 500 mơ hồ |
+| `A4.5` | Lưu verification gate theo run | DB/API fields | Run chỉ `succeeded` khi toàn bộ gate pass |
+
+**Người B**
+
+| ID | Công việc | Đầu ra | Tiêu chí đạt |
+|---|---|---|---|
+| `B4.1` | Worker entrypoint nhận `run_id` | Command/module | Chạy không cần thao tác tay |
+| `B4.2` | Mass-consistent wind 3D | `wind.nc` + metrics | Divergence dưới tolerance |
+| `B4.3` | Ghi manifest/metrics/log | Artifact bundle | Đúng contract tuần 1 |
+| `B4.4` | Failure exit codes | Test case lỗi | API phân biệt input/model/system error |
+| `B4.5` | Xuất corrected face velocities | `uf`, `vf`, `wf` contract + tests | Transport dùng đúng face flux đã được kiểm divergence |
+
+**Kết quả tuần 4:** một request thật đi từ NestJS qua job tới Python, tạo artifact và metrics,
+sau đó xem lại bằng `GET /runs/:id`. Đây là cổng quyết định quan trọng nhất.
 
 ---
 
-## 6. Giai đoạn 2 — tới sản phẩm web
+## 6. Giai đoạn 2 — Query, web, đánh giá và đóng gói
 
-### Tuần 5 — Trường gió và phân tích không gian → M4
-
-**Người A**
-
-| Mã | Việc | Output | TT |
-|---|---|---|---|
-| A5.1 | Lát cắt ngang ở z = 1,5 / 6 / 15 / 30 m | 4 lát cắt | ✅ `slices_*.png` (trên baseline Gaussian) |
-| A5.2 | Mặt cắt đứng qua hẻm phố | 1 mặt cắt đứng | ✅ `sections_*.png` |
-| A5.3 | Profile đứng tại vị trí trạm quan trắc | 1 profile | 🟡 trạm gần nhất cách 931 m, ngoài miền → thay bằng profile qua ô mặt phố cực đại |
-| A5.4 | Chuẩn hoá lưu trữ: xarray `(z,y,x)`, CF, `positive="up"` | netCDF mở được bằng QGIS | 🟡 hợp đồng `concentration_<scenario>.nc` theo CF; **chưa mở thử bằng QGIS** |
-| A5.5 | ⭐ **Bản đồ hiệu số FV − Gaussian**, lượng hoá theo độ cao và theo hẻm (H/W thấp ↔ cao) | Hình + bảng: chênh lệch trung vị/p95 theo tầng và theo nhóm H/W | ❌ chờ B6.2 |
-| A5.6 | **Phơi nhiễm mặt đứng thành sản phẩm quyết định**: toà nào, tầng nào, mặt nào hứng nặng nhất | Bảng top toà/tầng + lớp trên web | ❌ |
-
-**Người B**
-
-| Mã | Việc | Output | TT |
-|---|---|---|---|
-| B5.1 | **Chốt thứ tự thành phần gió** giữa `02_wind.py` và `03_transport.py` | Một quy ước duy nhất, ghi vào docstring cả hai file | ✅ |
-| B5.2 | Cài `sor_poisson()`: SOR ω = 1,78, dừng khi tổng biến thiên λ dưới 1e-4 | Hàm chạy, không còn `NotImplementedError` | ✅ — 3D trên mask thật: 1.659 vòng, 29 s ở dung sai 1e-2 (đo 29/09; dung sai mặc định 1e-4 chưa đo) |
-| B5.3 | Hệ số mặt = 0 ở tường, `u = v = w = 0` trong nhà | Mask tường đã áp đúng | 🟡 đúng ở mặt ô; test hiện chỉ kiểm tâm ô (tautology) |
-| B5.4 | Khôi phục `u = u₀ + (1/2α₁²)·∂λ/∂x` | `wind_field.nc` với `div(u) ≈ 0` mọi ô khí | ❌ chưa ghi `wind_field.nc` |
-| B5.5 | **Kiểm tra trực quan**: vector gió trên lát cắt z = 10 m | Hình vector — dòng phải **đi vòng qua** nhà | 🟡 mới có mặt cắt x–z 2D |
-
-> **B5.1 phải làm TRƯỚC B5.2.** `02_wind.py` đang dùng `(u,v,w) = (x,y,z)`, còn
-> `03_transport.py` dùng `(w,v,u)` khớp `[z,y,x]`. Nối hai tầng mà chưa chốt sẽ ra một
-> trường gió **xoay trục**, trong khi test đơn lẻ của từng tầng vẫn xanh.
-
-> **B5.5 là phép thử thật.** Nếu gió đi **xuyên** nhà thì hệ số mặt đang sai — bắt được
-> ngay bằng mắt, không cần test.
-
-### Tuần 6 — Kịch bản và dữ liệu cho web → M5
+### Tuần 5 — FV 3D và truy vấn PostGIS → M4
 
 **Người A**
 
-| Mã | Việc | Output | TT |
+| ID | Công việc | Đầu ra | Tiêu chí đạt |
 |---|---|---|---|
-| A6.1 | `06_export_web.py`: netCDF → JSON, gộp theo 50 tầng z | `web/data/*.json` tổng < 5 MB | ✅ `web/data/*.js` 1,38 MB (JS gán biến toàn cục thay JSON, để chạy được cả `file://`) |
-| A6.2 | Lọc bỏ ô nồng độ thấp để giảm dung lượng | Hệ số giảm mẫu đã ghi lại | ✅ lượng tử `uint8` thang log 4 thập phân, sai số ≤ 1,8 %; không bỏ ô nào |
-| A6.3 | Xuất `buildings.geojson` cho web | File toà nhà cho deck.gl | ✅ `web/data/buildings.js` |
-| A6.4 | Dựng khung web thật: MapLibre + deck.gl + `PolygonLayer` extrude | **W1** — web hiện được toà nhà 3D | ✅ |
-| A6.5 | **Xuất CityJSON LoD1** (toà nhà + chiều cao + nguồn chiều cao) và **mở mô hình trong QGIS 3D** | `output/citygml/buildings.city.json` hợp lệ `cjio validate`; ảnh chụp QGIS 3D | ❌ |
+| `A5.1` | Persist concentration slices/summaries | Importer + schema | Không nhân đôi khi retry |
+| `A5.2` | Slice endpoint | `/runs/:id/slices` | Filter đúng `z_m`/bbox |
+| `A5.3` | Exceedance endpoint | `/exceedance` | Threshold và units rõ |
+| `A5.4` | Profile + summary endpoint | `/profile`, `/summary` | Trả đúng trục z và aggregates |
+| `A5.5` | Đo query plan | File SQL/report | Có `EXPLAIN (ANALYZE, BUFFERS)` |
+| `A5.6` | Benchmark DB ở kích thước demo | Bảng latency/storage | Query chính có p50/p95 và không full-scan ngoài chủ ý |
 
 **Người B**
 
-| Mã | Việc | Output | TT |
+| ID | Công việc | Đầu ra | Tiêu chí đạt |
 |---|---|---|---|
-| B6.1 | Ghép trường gió vào bộ giải vận chuyển | Pipeline đầu-cuối chạy được | ❌ |
-| B6.2 | Chạy 3 kịch bản đã chốt: **112° / 1,62 m/s, Δ=5 m**; **227° / 1,84 m/s, Δ=5 m**; **112° / 1,62 m/s, Δ=10 m** | 3 file kết quả + log Δt/số bước/wall-clock từng ca | ❌ |
-| B6.3 | So độ phân giải 5 m vs 10 m | Bảng so sánh | ❌ |
-| B6.4 | **Viết test tích hợp đầu-cuối** — hiện chưa có cái nào | `tests/test_integration.py` | 🟡 chỉ có test giao diện gió↔vận chuyển với gió đều |
-| B6.5 | Kiểm nguồn phát thải không nằm trong voxel rắn | Test khẳng định điều đó | ✅ `emission/rasterizer.py` + test |
-| B6.6 | **Chạy thêm các ca độ nhạy**: gió TB mùa 0,70 m/s (F4), chiều cao OSM, Δ = 10 m | 3 file theo hợp đồng + log Δt/số bước/wall-clock | ❌ |
+| `B5.1` | Chạy FV 3D tới steady state | `concentration.nc` | Có stopping criterion |
+| `B5.2` | Mass budget toàn run | Metrics | emitted≈remaining+escaped |
+| `B5.3` | Numerical diffusion estimate | Bảng kết quả | Đặt cạnh physical K |
+| `B5.4` | Benchmark production grid | Runtime/memory | Có số đo trên máy demo |
+| `B5.5` | Đối chiếu geometry web với voxel mask | QA report + overlay | Footprint/height/occupancy không lệch CRS hoặc đảo trục |
+| `B5.6` | Verification trên production grid | Gate report theo run | Face divergence, mass budget, positivity và wall flux pass |
 
-> **Ngân sách bước cho B6.2 đã được tính lại theo gió thật.** Với miền 500 m, tốc độ
-> 1,62 m/s cho thời gian xuyên miền ~309 s; 1,84 m/s cho ~272 s. Dùng ngân sách 4–6
-> lần crossing time và mốc Δt=0,5 s chỉ để lập kế hoạch cho ra khoảng **2.469–3.704**
-> bước ở ca 1,62 m/s và **2.174–3.261** bước ở ca 1,84 m/s. Đây không phải số bước
-> hard-code: runtime phải dùng Δt do `cfl_time_step()` tính từ trường gió thật và dừng khi
-> đạt steady-state. B4.3 là nơi thay dự toán này bằng benchmark thực.
+**Kết quả tuần 5:** output chính là FV voxel 3D, không còn chỉ Gaussian; bốn loại query DB
+trả kết quả đúng và có bằng chứng index/query plan.
 
-### Tuần 7 — Xây web → M6
+### Tuần 6 — Web 3D đọc API và so sánh scenario → M5
 
 **Người A**
 
-| Mã | Việc | Output | TT |
+| ID | Công việc | Đầu ra | Tiêu chí đạt |
 |---|---|---|---|
-| A7.1 | Lớp nồng độ hiển thị theo tầng độ cao | **W2** | ✅ |
-| A7.2 | ⭐ **Thanh trượt chọn độ cao z** | **W3** — tính năng mang toàn bộ luận điểm đồ án | ✅ 50 tầng, 1–99 m |
-| A7.3 | Nút chuyển kịch bản gió | **W4** | ✅ |
-| A7.4 | Bật/tắt ngưỡng QCVN 45 và WHO 15 µg/m³ | **W5** | ✅ QCVN **45** (từ 01/01/2026) · WHO 15 |
-| A7.5 | Legend, tiêu đề, chú thích nguồn dữ liệu | Web đọc được không cần giải thích | ✅ |
-| A7.6 | **Nồng độ nền có nguồn** + so bậc độ lớn với trạm (Lãnh sự quán Mỹ / OpenAQ) — kiểm tra hợp lý Bậc 3, **không gọi là validation** | Giá trị nền mặc định trên web có trích nguồn; 1 bảng so sánh | ❌ cần B1.4 |
-| A7.7 | **Bối cảnh thành phố** từ tile OpenFreeMap (không khoá): mọi nhà quanh miền theo footprint + `render_height`, nhà có tâm trong miền bị loại để chỉ còn 62 toà mô hình (tô riêng, bật/tắt); sông, công viên, đường; ánh sáng mặt trời + bóng đổ theo giờ; góc camera người đi bộ / toàn cảnh | **W9** — cảnh hiện đủ, 0 lỗi console, vẫn chạy khi tile không tải được | ❌ |
-| A7.8 | **Khói 3D**: khối voxel 5 × 5 × 2 m bán trong suốt (ngưỡng hiển thị chỉnh được, trần số khối); **bong bóng WHO / QCVN** dựng từ mặt biên voxel; **mặt cắt đứng** x–z / y–z kéo được | **W8 + W9** — số khối = số ô vượt ngưỡng; khối n³ cho đúng 6n² mặt (test bằng node) | ❌ |
-| A7.9 | **Gió chạy động**: đường dòng RK2 trên trường gió 3D, dừng khi vào nhà / ra miền, TripsLayer. Dùng trường gió tạm thời từ API của B tới khi có `wind_field.nc` (B5.4), **ghi rõ trên web** | **W9** — gió đều → đường thẳng U·t; không điểm nào trong nhà | ❌ |
+| `A6.1` | Chuyển viewer từ file tĩnh sang API | API client | Không đọc `web/data/*.js` làm nguồn chính |
+| `A6.2` | Render cảnh đô thị thực tế | Building/road/water/green layers | Nhà extrude đúng footprint/height, các lớp khớp basemap |
+| `A6.3` | Height slider + legend | UI | Layer đổi đúng `z_m` |
+| `A6.4` | Scenario/run selector + threshold | UI/map layer | Đổi run không trộn dữ liệu, hiện units |
+| `A6.5` | Profile đứng và summary panel | Chart/panel | Click điểm trả profile đúng |
+| `A6.6` | Đặt FV làm kết quả mặc định | UI + API integration test | Viewer mặc định dùng `model=fv`; Gaussian chỉ là comparison toggle |
 
 **Người B**
 
-| Mã | Việc | Output | TT |
+| ID | Công việc | Đầu ra | Tiêu chí đạt |
 |---|---|---|---|
-| B7.1 | Tính sẵn profile đứng cho mỗi ô lưới ngang | JSON profile đứng (cho W6) | ✅ A làm trong web (profile giải mã từ lưới 3D) |
-| B7.2 | Tính số liệu panel: thể tích vượt ngưỡng, trung bình theo tầng | JSON số liệu (cho W7) | ✅ A làm trong `06_export_web.py` |
-| B7.3 | Giúp A giảm dung lượng nếu file quá nặng | File trong ngưỡng | ✅ 1,38 MB < 5 MB |
-| B7.4 | Dọn code, viết docstring, đảm bảo chạy lại được từ đầu | Repo sạch | ❌ |
+| `B6.1` | Chạy hai wind scenarios | Hai artifact bundles | Plume đổi hướng hợp lý |
+| `B6.2` | So sánh FV với Gaussian | Tables/figures | Gắn nhãn model rõ ràng |
+| `B6.3` | So sánh lát 1,5 m và 15 m | Figure/metrics | Có khác biệt định lượng |
+| `B6.4` | Sensitivity tối thiểu | Bảng sensitivity | Một tham số chính được thay đổi |
+| `B6.5` | Xuất scene manifest và kiểm tra coverage | Manifest + QA figures | Mọi feature hiển thị truy được nguồn; không có building đặt tay |
+| `B6.6` | Sensitivity chiều cao và benchmark/cross-check | Tables/figures | Kết luận chính không dựa vào một bộ height duy nhất; claim đúng mức bằng chứng |
 
-**Thứ Sáu tuần 7 là hạn chót của W1–W5.** Chưa xong thì bỏ deck.gl, chuyển sang
-Qgis2threejs (~2 người-ngày). Xấu hơn nhưng vẫn là web và vẫn nộp được.
+**Kết quả tuần 6:** web dựng lại study area bằng footprint và chiều cao thực, có đường, mặt
+nước/cây xanh nếu nguồn tồn tại; cảnh khớp basemap và voxel mask. Người dùng tạo/chọn run,
+kéo height slider, đổi scenario, xem threshold, profile và summary hoàn toàn qua API.
 
-### Tuần 8 — Hoàn thiện và bảo vệ → M7
+### Tuần 7 — Kiểm thử tích hợp, dashboard và báo cáo kết quả → M6
 
 **Người A**
 
-| Mã | Việc | Output | TT |
+| ID | Công việc | Đầu ra | Tiêu chí đạt |
 |---|---|---|---|
-| A8.1 | Click một điểm → hiện profile đứng | **W6** | ✅ |
-| A8.2 | Panel số liệu | **W7** | ✅ kèm hệ số nhân phát thải + nồng độ nền |
-| A8.3 | Làm đẹp giao diện | Web trình bày được | 🟡 |
-| A8.4 | **Test trên 2 máy khác nhau và điện thoại** | Biên bản test 3 thiết bị | 🟡 đã thử desktop 1400 px + giả lập điện thoại 375 px; **chưa thử máy thật** |
-| A8.5 | Viết 6 chương: Bối cảnh, Dữ liệu, Quy trình, Kết quả, Phân tích không gian, Web | 6 chương báo cáo | ❌ |
-| A8.6 | Quay video demo 1–2 phút | Video | ❌ |
-| A8.7 | **Bộ độ nhạy có số** (phần A): trọng số cấp đường ±, chiều cao Google ↔ OSM (G3) | Bảng: thay đổi thể tích vượt ngưỡng và TB tầng 1,5 m theo từng tham số | ❌ chờ B6.2 |
+| `A7.1` | Loading/error/empty states | UI states | Worker lỗi không làm UI treo |
+| `A7.2` | API e2e + DB integration tests | Test suite | Bao phủ create/status/query/failure |
+| `A7.3` | Docker Compose đầy đủ | Compose file | Một lệnh dựng services |
+| `A7.4` | Dashboard metrics/provenance | UI | Hiện version, input hash, warnings |
+| `A7.5` | Viết phần kiến trúc/DB/web | Draft report | Có ERD, sequence, query evidence |
+| `A7.6` | Clean-room E2E rehearsal | Log/script/checklist | Máy sạch chạy Compose → migrate → seed → run → query → web |
 
 **Người B**
 
-| Mã | Việc | Output | TT |
+| ID | Công việc | Đầu ra | Tiêu chí đạt |
 |---|---|---|---|
-| B8.1 | Viết 4 chương: Mô hình, Phương pháp số, Kiểm chứng, **Hạn chế** | 4 chương báo cáo | ❌ |
-| B8.2 | Chuẩn bị trả lời câu hỏi kỹ thuật (`SEMINAR.md` §7) | Bộ Q&A | ❌ |
+| `B7.1` | Chạy final verification suite | Test report | Không có test chính bị skip vô lý |
+| `B7.2` | Freeze model parameters | Config/version | Mọi run cuối dùng cùng version |
+| `B7.3` | Viết phương pháp và hạn chế | Draft report | Verification ≠ validation |
+| `B7.4` | Xuất figure/table 300 dpi | Report assets | Có caption, units, scenario |
+| `B7.5` | Viết phần dữ liệu GIS 3D và độ tin cậy hình học | Draft report | Có coverage, nguồn height, clipping và flat-terrain limitation |
+| `B7.6` | Lập bảng kết quả 9+ | Final evidence table | Mỗi claim có run_id, metric, figure/table và limitation |
 
-**Cả hai:** đọc chéo bài của nhau, kiểm mọi con số truy được nguồn, tập dượt bảo vệ 2 lần
-bấm giờ, đóng gói repo kèm hướng dẫn chạy web.
+**Kết quả tuần 7:** clean-room seed → run → verification gate → query → web chạy tự động;
+FV là lớp mặc định; draft báo cáo có kiến trúc, mô hình, sensitivity, external cross-check,
+hạn chế và bằng chứng DB query.
 
-**Chương Hạn chế phải liệt kê đủ** — đây là chương ghi điểm, không phải chương thú tội:
+### Tuần 8 — Release, báo cáo và bảo vệ → M7
 
-1. Không có xoáy tái tuần hoàn và xoáy hẻm phố → nồng độ trong hẻm bị ước lượng thấp
-2. Khuếch tán số của upwind bậc 1, kèm con số `K_num` đo được
-3. Không có rối do giao thông → sai lệch lúc lặng gió
-4. Chỉ verification, chưa validation với số liệu thực nghiệm, kèm lý do
-5. Lưu lượng giao thông là bất định lớn nhất, dùng proxy cấp đường OSM
-6. **Chiều cao nhà từ sản phẩm ML**: MAE tự đo **23,2 m**, không phải 1,5 m của Google
-7. **Trần 100 m của sản phẩm chiều cao** cắt ngọn 3 toà tháp
-8. **Giả định đất phẳng z = 0** — chưa đo độ chênh cao
-9. LoD1, không có hoá học, một trường gió tựa dừng mỗi lần chạy
-10. Web hiển thị dữ liệu đã gộp và giảm mẫu, không phải toàn bộ 500.000 voxel
-11. **OSM thiếu nhà thấp** — thấy rõ trên ảnh vệ tinh (A2.4); mô hình thiếu vật cản ở tầng thấp
-12. **Tổng phát thải EDGAR là cận dưới** cho lõi Q1: ngụ ý ~99 xe/h trên đường primary; nồng độ tuyệt đối chỉ dùng tương đối
-13. **Không có nồng độ nền** (cho tới khi A7.6 xong) — chỉ là phần đóng góp của giao thông trong miền
-14. **Gió kịch bản là một giờ ban đêm** (1,62 / 1,84 m/s); trung bình vector mùa chỉ 0,70 / 1,10 m/s (F4)
-15. **H/W đo trên chiều cao Google** nên mang cùng bất định; trục Nguyễn Huệ H/W 0,55 là đại lộ nông
+**Người A**
+
+| ID | Công việc | Đầu ra | Tiêu chí đạt |
+|---|---|---|---|
+| `A8.1` | Seed/demo dataset cố định | Demo profile | Không phụ thuộc tải dữ liệu trực tiếp |
+| `A8.2` | Runbook và README cuối | Hướng dẫn | Máy khác chạy theo được |
+| `A8.3` | Kiểm tra UI/demo flow | Checklist/video dự phòng | Demo hoàn thành trong thời lượng dự kiến |
+| `A8.4` | Chốt chương DB/web/kết quả | Final report | Khớp sản phẩm thực tế |
+| `A8.5` | Audit ma trận `QG-1..QG-10` | Release evidence index | Mỗi gate có PASS, run_id và link bằng chứng |
+
+**Người B**
+
+| ID | Công việc | Đầu ra | Tiêu chí đạt |
+|---|---|---|---|
+| `B8.1` | Chạy release scenarios | Final artifacts | Checksum và manifest đầy đủ |
+| `B8.2` | Chốt bảng verification/limitations | Final tables | Không có claim vượt bằng chứng |
+| `B8.3` | Review toàn bộ thuật ngữ khoa học | Review notes | Không gọi Röckle đầy đủ/CFD/validation |
+| `B8.4` | Chuẩn bị câu trả lời kỹ thuật | Q&A notes | Trả lời model choice, CFL, mass, bias |
+
+**Cùng thực hiện:** rehearsal luồng mở web → tạo/chọn run → đổi tầng → spatial query → giải
+thích model → nêu hạn chế. Chuẩn bị video/screenshot và artifact local làm phương án dự phòng.
+
+**Kết quả tuần 8:** release candidate có tag/version, Docker/runbook, final artifacts, báo cáo
+khớp code và một demo có phương án dự phòng.
+
+Release chỉ được chốt khi `QG-1` đến `QG-10` đều có trạng thái PASS và đường dẫn bằng chứng.
 
 ---
 
 ## 7. Ngân sách
 
-| Tuần | A | B | Cộng dồn | Trọng tâm |
-|---|---|---|---|---|
-| 1 | 2 | **3** | 5 | Dữ liệu + spike gió 2D |
-| 2 | 2 | 2 | 9 | Voxel + Gaussian |
-| 3 | **2,5** | 2 | 13,5 | FV 2D + spike khung web |
-| 4 | 2 | 2 | 17,5 | FV 3D + Seminar |
-| 5 | 2 | 2 | 21,5 | Gió + phân tích |
-| 6 | 2 | 2 | 25,5 | Kịch bản + export + test tích hợp |
-| 7 | 2,5 | 1,5 | 29,5 | Web |
-| 8 | 2 | 2 | **33,5** | Web + báo cáo |
+Ngân sách tham chiếu: khoảng 32 người-ngày cho 8 tuần, không tính thời gian chờ máy.
 
-**33,5 người-ngày trên ngân sách ~32 — vượt 1,5 ngày, và đó là chi phí của hai spike.** Không giả vờ là chúng miễn phí.
+| Hạng mục | A | B | Tổng người-ngày |
+|---|---:|---:|---:|
+| Contract, ERD, chuẩn dữ liệu | 2 | 2 | 4 |
+| PostgreSQL/PostGIS + API + job | 6 | 1 | 7 |
+| Dữ liệu GIS và scene package | 1 | 4 | 5 |
+| Worker/model/verification | 1 | 7 | 8 |
+| Web 3D + query/dashboard | 4 | 0 | 4 |
+| Integration, Docker, report, rehearsal | 2 | 2 | 4 |
+| **Tổng** | **16** | **16** | **32** |
 
-**Vì sao vẫn đáng:** cả hai spike mua lại thứ đắt hơn nhiều so với 1,5 ngày. Nếu SOR không hội tụ, biết ở tuần 1 còn bảy tuần để đổi hướng; biết ở tuần 5 thì còn hai. Nếu deck.gl không chạy, biết ở tuần 3 còn bốn tuần để chuyển Qgis2threejs; biết ở tuần 7 thì hết đường.
-
-**Bù 1,5 ngày ở đâu:** cắt kịch bản thứ 3 (Δ = 10 m) và panel số liệu web (W7) ngay từ đầu, thay vì để dành cắt sau. Hai cái cộng lại đúng khoảng 1,5 ngày và không cái nào nằm trong phần bị chấm.
-
-**Thứ tự cắt tiếp nếu vẫn trượt:** W8 isosurface web → W6 click profile → mặt cắt đứng → phân tích độ nhạy độ phân giải.
-
-**Không được cắt:** hai spike ở tuần 1 và 3, W1–W5 của web, kiểm định Bậc 1, test tích hợp, chương Hạn chế.
+Nếu trễ, cắt theo thứ tự: cache/BullMQ → sensitivity thứ hai → advanced 3D query → hiệu ứng
+thị giác. Không cắt run lifecycle, PostGIS query, FV output, verification hoặc provenance.
 
 ---
 
 ## 8. Giả định và độ tin cậy
 
-Kế hoạch đứng trên bảy giả định, liệt kê riêng từng cái để ai cũng phản bác được từng cái một.
+### Độ tin cậy kế hoạch: khoảng 75%
 
-| | Giả định | Nếu sai |
-|---|---|---|
-| A1 | Có địa bàn với độ phủ thẻ chiều cao OSM đủ tốt để extrude | Dùng raster chiều cao và báo cáo tỉ lệ nhà bị suy ra; hoặc số hoá tay ~50 nhà |
-| **A2** | **SOR Poisson hội tụ trên mask toà nhà thật trong số vòng lặp chấp nhận được** | Tầng gió tắc, kéo theo Tầng 2 và 3. **Ẩn số lớn nhất** — chính là lý do có spike tuần 1 |
-| A3 | ω = 1,78 chuyển được từ lưới so le sang lưới tâm-ô | Dò ω bằng thực nghiệm. Tốc độ hội tụ đổi, tính đúng đắn không đổi |
-| A4 | 500.000 voxel × vài trăm bước chạy dưới một phút bằng numpy | Hạ về Δ = 10 m — bảng CAIRDIO cho thấy vẫn chấp nhận được (NMSE 0,25) |
-| A5 | Xuất JSON theo tầng vừa ngân sách dung lượng trình duyệt | Giảm mẫu thêm và ghi lại hệ số giảm mẫu |
-| A6 | Cả hai thành viên chạy được toàn bộ pipeline | Đồ án có điểm chết. Kiểm ở mỗi mốc M |
-| A7 | Phát thải sai trị tuyệt đối nhưng dùng được về tương đối | Báo cáo nồng độ chuẩn hoá thay vì µg/m³ tuyệt đối, và nói rõ |
+Các giả định chính:
 
-### Độ tin cậy: ~70%
-
-**Đứng trên:** Tầng 0 và Tầng 2 đã cài xong, Tầng 2 đã verify với 12 test — khoảng một nửa rủi ro kỹ thuật đã trả.
-
-**Bị kéo xuống bởi:** A2 chưa giải quyết — chưa ai chạy phép giải này trên mask thật, mà nó nằm trên đường găng. A1 chưa đo — địa bàn chưa chọn.
-
-| Việc nâng độ tin cậy | Lên | Chi phí |
-|---|---|---|
-| SOR 2D hội tụ trên mask thật (spike tuần 1) | **~85%** | ~1 người-ngày |
-| Đếm được độ phủ thẻ chiều cao của địa bàn | +5% | ~0,5 |
-| Khung deck.gl chạy với dữ liệu giả (spike tuần 3) | +5% | ~0,5 |
-
-Dưới ~60% thì đây là bản nháp cần thử nghiệm chứ không phải kế hoạch để thực thi. Ở 70% nó thực thi được, **với điều kiện hai spike được kéo lên sớm**.
+- Docker/PostgreSQL chạy được trên máy demo.
+- Production grid chạy trong thời gian chấp nhận được; tuần 3 và 5 có benchmark để xác nhận.
+- Một study area và hai scenario là đủ cho câu hỏi đồ án.
+- Job table PostgreSQL đủ cho một vài worker; chưa cần hệ thống phân tán.
+- Dữ liệu đầu vào đã có local cache để demo không phụ thuộc Internet.
 
 ### Các tầng test
 
-| Tầng | Chứng minh gì | Trạng thái |
+| Tầng | Nội dung | Người chịu trách nhiệm |
 |---|---|---|
-| Unit, hàm thuần | hệ số σ, số học CFL, parse chiều cao | Có — `tests/test_verification.py` |
-| Verification vs giải tích | luật phương sai khuếch tán, quãng đường tải | Có — `tests/test_transport_verification.py` |
-| Bất biến ở mọi bước | bảo toàn khối lượng, không âm, tường không lọt | Có — rẻ nhất, bắt đúng lỗi quan trọng nhất |
-| **Tích hợp đầu-cuối** | 4 tầng ghép lại chạy được | **Chưa có** — thêm ở tuần 6 |
+| Unit | Toán tử số, DTO, service, query builder | A/B theo module |
+| Verification | Advection, diffusion, mass, CFL, divergence | B |
+| DB integration | Migration, constraints, SRID, indexes, query result | A |
+| Worker integration | Claim, heartbeat, retry, manifest, failure | A + B |
+| API e2e | Create run, status, result endpoints | A |
+| System smoke | Seed → run → query → web | A + B |
+| Reproducibility | Cùng input/version cho cùng manifest và metrics hợp lý | B |
 
 ---
 
 ## 9. Quy tắc làm việc
 
-1. **Git từ ngày đầu.** Một repo, hai nhánh, merge ở mỗi mốc. Không gửi file qua Zalo.
-2. **`.gitignore` cho `data/raw/` ngay commit đầu** — OSM extract Việt Nam nặng 313 MB.
-3. **Giao diện giữa hai người là file netCDF**, không phải lời gọi hàm.
-4. **Lưu mọi kết quả trung gian ra netCDF.** Chạy lại được từng tầng độc lập.
-5. **Không tối ưu sớm.** numpy slicing cho chạy đúng trước; chỉ dùng Numba khi đo được là chậm thật.
-6. **Ghi nguồn ngay lúc viết**, không để cuối kỳ mới truy lại.
-7. **Hình xuất ≥ 300 dpi ngay từ đầu.** Vẽ lại hình vào tuần 8 là lãng phí.
-8. **Web test trên ít nhất 2 máy.** "Chạy được trên máy tôi" không tính.
+1. Contract thay đổi phải cập nhật `spec.md`, migration/DTO và worker schema trong cùng PR.
+2. A sở hữu merge các thay đổi API/web/DB; B sở hữu merge solver/worker.
+3. Không truyền tensor qua JSON giữa API và worker; dùng artifact path/reference.
+4. Không đánh dấu `succeeded` nếu verification fail hoặc artifact thiếu checksum.
+5. Mỗi cuối tuần chạy smoke test trên máy của người còn lại.
+6. Kết quả báo cáo phải sinh từ release artifacts, không copy số từ run cũ không rõ version.
+7. Không dùng `git add -A`, `git add .`, `git commit -a` hoặc commit secrets.
 
 ---
 
-## 10. Bốn thứ dễ làm trượt lịch nhất
+## 10. Những thứ dễ làm trượt lịch nhất
 
-| Nguy cơ | Dấu hiệu sớm | Xử lý |
-|---|---|---|
-| Bộ giải FV không hội tụ hoặc ra nồng độ âm | Xuất hiện ngay ở 2D tuần 3 | Kiểm theo thứ tự: dấu upwind với u âm, `Cr` có thực sự ≤ 0,5, biên tường có đúng flux = 0. **Đừng đụng 3D khi 2D còn sai** |
-| Dữ liệu web quá nặng | File JSON > 20 MB, trình duyệt lag | Gộp ô cho web (Δ = 10 m), lọc ô nồng độ thấp, tách file theo tầng và tải lười |
-| ✅ **ĐÃ XẢY RA, ĐÃ XỬ LÝ** — dữ liệu chiều cao OSM tệ | Phát hiện ở tuần 1 đúng như dự kiến: **66 % số toà nhà không có thẻ chiều cao** | Google Open Buildings 2.5D phủ 100 %, không cần số hoá tay. **Phân tích độ nhạy vẫn nên làm** — nay đã có hai trường chiều cao độc lập nên chỉ tốn một lần chạy lại |
-| Web không kịp | Hết thứ Sáu tuần 7 mà W1–W5 chưa chạy | Chuyển sang Qgis2threejs export |
+| Rủi ro | Dấu hiệu sớm | Van an toàn | Owner |
+|---|---|---|---|
+| Solver 3D chậm/không ổn định | Benchmark tuần 3/5 vượt ngân sách | Giảm domain/grid cho demo, giữ full run offline | B |
+| API–worker contract thay đổi liên tục | DTO/manifest sửa mỗi tuần | Freeze v1 cuối tuần 1, version contract | A + B |
+| Lưu quá nhiều voxel vào PostGIS | Import/query tăng mạnh | Chỉ persist slices/summaries, tensor ở NetCDF | A |
+| Web payload quá lớn | Slider lag, browser hết RAM | bbox, level query, downsample/tiling | A |
+| Demo phụ thuộc Internet | Data/API ngoài timeout | Seed và artifact local cố định | A |
+| Claim khoa học vượt bằng chứng | Dùng “validation/chính xác” sai | Checklist thuật ngữ và limitations | B |
 
 ---
 
-## 11. Cấu trúc repo
+## 11. Cấu trúc repo mục tiêu
 
+```text
+apps/
+├── api/                    NestJS API — Người A
+└── web/                    Web GIS 3D — Người A
+db/
+├── migrations/             PostgreSQL/PostGIS — Người A
+├── seeds/
+└── queries/
+src/                        Python model/worker — Người B
+tests/                      Verification + integration
+config/                     Grid/scenario/model configuration
+data/                       Input cache
+artifacts/                  Run outputs, không commit file lớn
+docs/                       Research, spec, architecture, roadmap
+docker-compose.yml          API + DB + worker + web
 ```
-IE402_Voxel-air-dispersion/
-├── README.md
-├── docs/
-│   ├── RESEARCH.md · DECISION.md · spec.md · ARCHITECTURE.md · ROADMAP.md · SEMINAR.md
-│   └── img/
-├── src/
-│   ├── 01_voxelize.py         A   Tầng 0
-│   ├── emissions.py           A   nguồn phát thải
-│   ├── gaussian.py            B   baseline + chuẩn kiểm chứng
-│   ├── 02_wind.py             B   Tầng 1, SOR Poisson
-│   ├── 03_transport.py        B   Tầng 2, thể tích hữu hạn
-│   ├── 04_analysis.py         A   Tầng 3, phân tích không gian
-│   ├── 05_viz.py              A   hình cho báo cáo
-│   └── 06_export_web.py       A   netCDF → JSON cho web
-├── web/                       A   SẢN PHẨM CUỐI
-│   ├── index.html                 deck.gl + MapLibre, CDN, không build
-│   ├── app.js · styles.css
-│   └── data/                      *.json đã export, dưới 5 MB
-├── tests/
-│   ├── test_verification.py       voxel hoá
-│   ├── test_transport_verification.py   B   Bậc 1
-│   └── test_integration.py        B   thêm ở tuần 6
-├── notebooks/
-│   ├── 01_fv_2d_debug.ipynb       debug bộ giải ở 2D
-│   └── 02_wind_2d_debug.ipynb     khung spike SOR tuần 1
-├── config/project.yaml
-├── data/                          raw/ và processed/, đều gitignore
-├── output/                        netCDF + hình
-├── requirements.txt · pyproject.toml
-└── .gitignore
-```
+
+Trong thời gian chuyển đổi, thư mục `web/` hiện tại được giữ và A có thể nâng cấp tại chỗ thay
+vì chuyển ngay sang `apps/web/`. Việc đổi cấu trúc không được chặn đường găng sản phẩm.
