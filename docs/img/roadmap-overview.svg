@@ -1,6 +1,6 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1400 500" width="1400" height="500" font-family="Segoe UI,Arial,sans-serif">
   <rect width="1400" height="500" fill="#ffffff"/>
-  <text x="700" y="32" text-anchor="middle" font-size="21" font-weight="700" fill="#17324d">Roadmap 8 tuần — API · PostGIS · Python worker · Web GIS 3D</text>
+  <text x="700" y="32" text-anchor="middle" font-size="21" font-weight="700" fill="#17324d">Roadmap 8 tuần — Modular monolith · PostGIS · Python solver · Web GIS 3D</text>
   <g font-size="13" font-weight="700" text-anchor="middle" fill="#263746">
     <rect x="150" y="54" width="150" height="30" fill="#edf2f7" stroke="#aab7c4"/><text x="225" y="74">Tuần 1</text>
     <rect x="300" y="54" width="150" height="30" fill="#edf2f7" stroke="#aab7c4"/><text x="375" y="74">Tuần 2</text>
@@ -13,13 +13,13 @@
   </g>
   <rect x="20" y="100" width="120" height="105" rx="8" fill="#dcecff" stroke="#3478b8" stroke-width="2"/>
   <text x="80" y="135" text-anchor="middle" font-size="16" font-weight="700" fill="#174b75">NGƯỜI A</text>
-  <text x="80" y="160" text-anchor="middle" font-size="12" fill="#315872">API · Web · DB</text>
+  <text x="80" y="160" text-anchor="middle" font-size="12" fill="#315872">Monolith · Web · DB</text>
   <text x="80" y="180" text-anchor="middle" font-size="12" fill="#315872">GIS · Integration</text>
   <g font-size="11.5" text-anchor="middle" fill="#17324d">
     <rect x="150" y="100" width="150" height="105" fill="#eef6ff" stroke="#4b8ac1"/><text x="225" y="132">User flow · ERD</text><text x="225" y="152">NestJS skeleton</text><text x="225" y="172" font-weight="700">API contract</text>
     <rect x="300" y="100" width="150" height="105" fill="#eef6ff" stroke="#4b8ac1"/><text x="375" y="132">PostGIS migration</text><text x="375" y="152">Seed dữ liệu</text><text x="375" y="172" font-weight="700">Study/Scenario API</text>
-    <rect x="450" y="100" width="150" height="105" fill="#eef6ff" stroke="#4b8ac1"/><text x="525" y="132">POST /runs</text><text x="525" y="152">Job table</text><text x="525" y="172" font-weight="700">Mock worker</text>
-    <rect x="600" y="100" width="150" height="105" fill="#dcecff" stroke="#3478b8" stroke-width="2"/><text x="675" y="132">Worker adapter</text><text x="675" y="152">Retry · heartbeat</text><text x="675" y="172" font-weight="700">End-to-end run</text>
+    <rect x="450" y="100" width="150" height="105" fill="#eef6ff" stroke="#4b8ac1"/><text x="525" y="132">POST /runs</text><text x="525" y="152">SimulationModule</text><text x="525" y="172" font-weight="700">Mock subprocess</text>
+    <rect x="600" y="100" width="150" height="105" fill="#dcecff" stroke="#3478b8" stroke-width="2"/><text x="675" y="132">Subprocess adapter</text><text x="675" y="152">Timeout · recovery</text><text x="675" y="172" font-weight="700">End-to-end run</text>
     <rect x="750" y="100" width="150" height="105" fill="#eef6ff" stroke="#4b8ac1"/><text x="825" y="125">Slice · profile</text><text x="825" y="145">Exceedance · summary</text><text x="825" y="165" font-weight="700">EXPLAIN query</text>
     <rect x="900" y="100" width="150" height="105" fill="#fff3df" stroke="#d38a24"/><text x="975" y="125">Web đọc API</text><text x="975" y="145">Slider · scenario</text><text x="975" y="165" font-weight="700">Profile · threshold</text>
     <rect x="1050" y="100" width="150" height="105" fill="#fff3df" stroke="#d38a24"/><text x="1125" y="125">E2E tests</text><text x="1125" y="145">Docker · dashboard</text><text x="1125" y="165" font-weight="700">Draft report</text>
@@ -28,12 +28,12 @@
   <rect x="20" y="220" width="120" height="105" rx="8" fill="#ddf2e5" stroke="#3f8f5b" stroke-width="2"/>
   <text x="80" y="255" text-anchor="middle" font-size="16" font-weight="700" fill="#24633b">NGƯỜI B</text>
   <text x="80" y="280" text-anchor="middle" font-size="12" fill="#315f42">GIS Data · Model</text>
-  <text x="80" y="300" text-anchor="middle" font-size="12" fill="#315f42">Worker · Verification</text>
+  <text x="80" y="300" text-anchor="middle" font-size="12" fill="#315f42">Solver · Verification</text>
   <g font-size="11.5" text-anchor="middle" fill="#204b31">
-    <rect x="150" y="220" width="150" height="105" fill="#eff9f2" stroke="#55a46d"/><text x="225" y="252">Audit pipeline</text><text x="225" y="272">Worker contract</text><text x="225" y="292" font-weight="700">Model scope</text>
+    <rect x="150" y="220" width="150" height="105" fill="#eff9f2" stroke="#55a46d"/><text x="225" y="252">Audit pipeline</text><text x="225" y="272">CLI contract</text><text x="225" y="292" font-weight="700">Model scope</text>
     <rect x="300" y="220" width="150" height="105" fill="#eff9f2" stroke="#55a46d"/><text x="375" y="245">Scene package</text><text x="375" y="265">Voxel · emission</text><text x="375" y="285" font-weight="700">Input manifest</text>
     <rect x="450" y="220" width="150" height="105" fill="#eff9f2" stroke="#55a46d"/><text x="525" y="252">FV 2D</text><text x="525" y="272">CFL · mass</text><text x="525" y="292" font-weight="700">Verification</text>
-    <rect x="600" y="220" width="150" height="105" fill="#ddf2e5" stroke="#3f8f5b" stroke-width="2"/><text x="675" y="252">Worker entrypoint</text><text x="675" y="272">Wind 3D</text><text x="675" y="292" font-weight="700">Manifest · metrics</text>
+    <rect x="600" y="220" width="150" height="105" fill="#ddf2e5" stroke="#3f8f5b" stroke-width="2"/><text x="675" y="252">Solver CLI</text><text x="675" y="272">Wind 3D</text><text x="675" y="292" font-weight="700">Manifest · metrics</text>
     <rect x="750" y="220" width="150" height="105" fill="#eff9f2" stroke="#55a46d"/><text x="825" y="245">FV 3D</text><text x="825" y="265">Geometry QA</text><text x="825" y="285" font-weight="700">Benchmark</text>
     <rect x="900" y="220" width="150" height="105" fill="#eff9f2" stroke="#55a46d"/><text x="975" y="245">2 scenarios</text><text x="975" y="265">Scene manifest</text><text x="975" y="285" font-weight="700">3D evidence</text>
     <rect x="1050" y="220" width="150" height="105" fill="#eff9f2" stroke="#55a46d"/><text x="1125" y="245">Final verification</text><text x="1125" y="265">GIS data report</text><text x="1125" y="285" font-weight="700">Figures · model</text>

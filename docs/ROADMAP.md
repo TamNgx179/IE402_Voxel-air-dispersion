@@ -19,18 +19,18 @@ Một ứng dụng web GIS 3D cho phép người dùng chọn khu vực/kịch b
 dõi trạng thái và xem nồng độ PM2.5 theo độ cao. Hệ thống đích:
 
 ```text
-Web 3D → NestJS API → PostgreSQL/PostGIS
-                    → Job queue/table → Python simulation worker
-                                          → NetCDF/JSON artifacts
+Web GIS 3D → NestJS modular monolith → PostgreSQL/PostGIS
+                                      → Python solver subprocess
+                                      → local NetCDF/JSON artifacts
 ```
 
 | Mã | Tính năng | Người sở hữu | Bắt buộc | Trạng thái đầu kỳ |
 |---|---|---|---|---|
 | `P1` | Dựng cảnh đô thị 3D từ footprint, chiều cao, đường, sông/công viên thực | B chuẩn bị dữ liệu, A render web | Có | 🟡 dữ liệu/prototype đã có |
 | `P2` | PostgreSQL/PostGIS, migration và seed | A | Có | ⬜ |
-| `P3` | NestJS API cho study area, scenario và run | A | Có | ⬜ |
-| `P4` | Job bất đồng bộ và trạng thái `queued/running/succeeded/failed` | A | Có | ⬜ |
-| `P5` | Python worker chạy pipeline bằng `run_id` | B, A tích hợp | Có | 🟡 pipeline CLI đã có |
+| `P3` | NestJS modular monolith cho web, API, persistence và simulation orchestration | A | Có | ⬜ |
+| `P4` | Internal executor và trạng thái `queued/running/succeeded/failed` | A | Có | ⬜ |
+| `P5` | Python CLI chạy pipeline theo `run_id`, được monolith spawn nội bộ | B, A tích hợp | Có | 🟡 pipeline script đã có |
 | `P6` | Trường gió mass-consistent + FV transport | B | Có | 🟡 code/test có, còn integration |
 | `P7` | Lát cắt theo z, exceedance, profile và summary query | A | Có | 🟡 analysis Python có, API chưa có |
 | `P8` | Web 3D có height slider, scenario, threshold và profile | A | Có | 🟡 viewer tĩnh đã có |
@@ -44,10 +44,10 @@ Web 3D → NestJS API → PostgreSQL/PostGIS
 | Web | MapLibre + deck.gl | Dựng nhà LoD1 đúng footprint/height, lớp đường–nước–cây xanh và nồng độ theo z |
 | API | NestJS + TypeScript | Module/controller/service/DTO rõ, thuận tiện OpenAPI và test |
 | DB | PostgreSQL + PostGIS | Bắt buộc có DB/query; hỗ trợ geometry, GiST và spatial predicates |
-| Job | PostgreSQL job table cho MVP; BullMQ/Redis là phương án nâng cấp | Giảm hạ tầng trong đường găng |
-| Worker | Python + NumPy/SciPy/xarray | Tái sử dụng toàn bộ lõi mô phỏng hiện có |
+| Điều phối run | `SimulationModule` + bảng `simulation_runs`, concurrency=1 | Không cần broker/queue service |
+| Solver | Python CLI + NumPy/SciPy/xarray, gọi bằng child process | Tái sử dụng lõi mô phỏng mà không thành service riêng |
 | Artifact | NetCDF cho tensor; JSON/GeoJSON/Parquet cho web | Không ép PostGIS chứa toàn bộ tensor |
-| Đóng gói | Docker Compose | Dựng API, DB, worker và web bằng một quy trình |
+| Đóng gói | Một app container + PostgreSQL bằng Docker Compose | Monolith đơn giản, dễ demo và tái lập |
 
 ### Yêu cầu cảnh đô thị 3D dựa trên thực tế
 
@@ -68,12 +68,12 @@ mặt đứng/cửa sổ khi không có nguồn. Địa hình vẫn phẳng `z=0
 
 ### Luồng dữ liệu ra web
 
-![Kiến trúc API–worker–DB](./img/architecture-api-worker-db.svg)
+![Kiến trúc modular monolith](./img/architecture-monolith.svg)
 
 1. Web gửi `POST /runs`.
-2. API validate và ghi run `queued` vào DB.
-3. Worker claim job, chạy mô hình và cập nhật progress/heartbeat.
-4. Worker ghi NetCDF, manifest, metrics và slices/summaries.
+2. `SimulationModule` validate, ghi run `queued` và trả `202`.
+3. Internal executor tuần tự hoá run và spawn Python CLI bằng arguments whitelist.
+4. Python ghi NetCDF/manifest; monolith kiểm exit code, verification và persist metrics/slices.
 5. Web poll status rồi gọi API để lấy layer/query kết quả.
 
 ### Đã cắt gì để giữ đúng đường găng
@@ -95,10 +95,10 @@ mặt đứng/cửa sổ khi không có nguồn. Địa hình vẫn phẳng `z=0
 
 | Mốc | Cuối tuần | Kết quả phải có | Điều kiện qua mốc |
 |---|---:|---|---|
-| `M0` | 1 | Contract API–worker, ERD, skeleton API/DB | Hai người thống nhất schema và file contract |
+| `M0` | 1 | Contract monolith–Python CLI, ERD, skeleton ứng dụng | Hai người thống nhất command/manifest schema |
 | `M1` | 2 | DB dựng sạch, data seed, pipeline input reproducible | Migration + seed chạy trên máy mới |
 | `M2` | 3 | API tạo run mock; FV 2D verification xanh | Có `run_id`, CFL/mass tests đạt |
-| `M3` | 4 | Run mô phỏng thật đi API → worker → artifact | Một run end-to-end không thao tác tay |
+| `M3` | 4 | Run thật đi HTTP → monolith → Python subprocess → artifact | Một run end-to-end không thao tác tay |
 | `M4` | 5 | Kết quả 3D query được qua PostGIS/API | Slice/exceedance/profile/summary đúng |
 | `M5` | 6 | Web 3D đọc API, hai scenario chạy được | Không còn đọc trực tiếp file nội bộ |
 | `M6` | 7 | Demo ổn định, integration tests, số liệu báo cáo | Chạy lại từ DB rỗng và tạo kết quả |
@@ -126,10 +126,10 @@ cả điều kiện dưới đây có bằng chứng lưu trong repository/artif
 
 ## 3. Phân vai
 
-| | **Người A — API, Web, DB và tích hợp** | **Người B — Dữ liệu GIS 3D, mô hình và Python worker** |
+| | **Người A — Monolith, Web, DB và tích hợp** | **Người B — Dữ liệu GIS 3D, mô hình và Python solver** |
 |---|---|---|
-| Sở hữu | Toàn bộ NestJS, PostgreSQL/PostGIS, migration, query, web renderer, Docker, adapter gọi worker | Thu thập/chuẩn hoá dữ liệu cảnh 3D, voxel, emission, wind, FV transport, Gaussian, verification, benchmark |
-| File/thư mục đích | `apps/api/`, `apps/web/` hoặc `web/`, `db/`, `docker-compose.yml` | `src/`, `tests/`, `config/`, worker entrypoint |
+| Sở hữu | Toàn bộ NestJS modular monolith, PostgreSQL/PostGIS, migration, query, web renderer, Docker và adapter gọi Python subprocess | Thu thập/chuẩn hoá dữ liệu cảnh 3D, voxel, emission, wind, FV transport, Gaussian, verification, benchmark |
+| File/thư mục đích | `app/`, `db/`, `docker-compose.yml` | `src/`, `tests/`, `config/`, solver CLI |
 | Đầu ra chính | API contract, ERD, migrations, query plans, UI và demo | Scene package có provenance, NetCDF, manifest, metrics và kết quả khoa học |
 | Phần báo cáo | Kiến trúc, DB/query, dữ liệu GIS, web và kết quả trực quan | Phương pháp, phương trình, verification và hạn chế |
 
@@ -139,7 +139,7 @@ frontend hoặc NestJS; A không sửa geometry khoa học hay phương trình k
 
 ### Hợp đồng B → A
 
-Worker nhận `run_id` và đường dẫn/snapshot cấu hình, sau đó tạo:
+Python solver CLI nhận `run_id` và đường dẫn/snapshot cấu hình từ `SimulationModule`, sau đó tạo:
 
 ```text
 artifacts/<run_id>/
@@ -148,12 +148,12 @@ artifacts/<run_id>/
 ├── web-payload.json hoặc *.parquet
 ├── metrics.json
 ├── manifest.json
-└── worker.log
+└── solver.log
 ```
 
 `manifest.json` bắt buộc có `run_id`, `model_version`, `input_hash`, scenario, grid, units,
 artifact checksum, warnings và verification status. A chỉ đánh dấu run `succeeded` khi manifest
-hợp lệ và B trả verification pass.
+hợp lệ, subprocess thoát thành công và B trả verification pass.
 
 ---
 
@@ -171,7 +171,7 @@ hợp lệ và B trả verification pass.
 | Web | Viewer deck.gl/MapLibre đọc dữ liệu tĩnh | Trung bình; phải chuyển sang API |
 | API | Chưa có NestJS application | Chưa có |
 | Database | Chưa có PostgreSQL/PostGIS schema/migration | Chưa có |
-| Worker integration | Pipeline CLI có nhưng chưa có job lifecycle | Thấp |
+| Monolith–Python integration | Pipeline CLI có nhưng chưa có subprocess lifecycle | Thấp |
 
 ### Khoảng trống bắt buộc đóng
 
@@ -179,8 +179,8 @@ hợp lệ và B trả verification pass.
 |---|---|---|---:|
 | `G1` | Chưa có ERD/schema/migration PostGIS | A | Tuần 2 |
 | `G2` | Chưa có API và DTO | A | Tuần 3 |
-| `G3` | Chưa có state machine/job claim | A | Tuần 4 |
-| `G4` | Worker chưa nhận `run_id` và ghi manifest chuẩn | B | Tuần 4 |
+| `G3` | Chưa có state machine và internal executor | A | Tuần 4 |
+| `G4` | Solver CLI chưa nhận `run_id` và ghi manifest chuẩn | B | Tuần 4 |
 | `G5` | FV 3D chưa trở thành output chính của web | B + A | Tuần 6 |
 | `G6` | Spatial query chưa có query plan/index evidence | A | Tuần 5 |
 | `G7` | Chưa có integration test seed → run → query → web | A + B | Tuần 7 |
@@ -208,7 +208,7 @@ hợp lệ và B trả verification pass.
 |---|---|---|---|
 | `A1.1` | Vẽ user flow create run → status → result | `docs/user-flow.md` hoặc sơ đồ trong architecture | Bao phủ success/failure/retry |
 | `A1.2` | Thiết kế ERD PostGIS | ERD + data dictionary | Có PK/FK/SRID/index dự kiến |
-| `A1.3` | Scaffold NestJS module | API skeleton | `/health` chạy và có config validation |
+| `A1.3` | Scaffold NestJS modular monolith | Application skeleton | `/health` chạy, phục vụ web và có config validation |
 | `A1.4` | Chốt DTO/API endpoints | OpenAPI draft | Khớp `spec.md` |
 | `A1.5` | Chốt single source of truth cho threshold/units | Config + DB seed contract | QCVN/WHO không mâu thuẫn giữa research, config và web |
 
@@ -217,12 +217,12 @@ hợp lệ và B trả verification pass.
 | ID | Công việc | Đầu ra | Tiêu chí đạt |
 |---|---|---|---|
 | `B1.1` | Chạy lại pipeline hiện tại | Log + danh sách dependency | Xác định bước chạy được/bước lỗi |
-| `B1.2` | Chốt worker input/output contract | JSON schema/typed model | Có `run_id`, config, manifest, metrics |
+| `B1.2` | Chốt Python CLI input/output contract | JSON schema/typed model | Có `run_id`, config, manifest, metrics và exit code |
 | `B1.3` | Chốt tên mô hình và giới hạn | Đoạn phương pháp cho report | Không gọi Röckle đầy đủ/CFD |
 | `B1.4` | Kiểm kê dữ liệu dựng cảnh 3D thực tế | Bảng layer/source/license/coverage | Có footprint, height, road, water, green và provenance |
 | `B1.5` | Chọn external benchmark/cross-check khả thi | Benchmark plan + metric | Có dataset/case, cách chạy và giới hạn tuyên bố |
 
-**Kết quả tuần 1:** ERD, API contract và worker contract được review chéo; `/health` chạy;
+**Kết quả tuần 1:** ERD, API contract và Python CLI contract được review chéo; `/health` chạy;
 pipeline hiện trạng có log tái lập. Nếu chưa thống nhất contract thì chưa sang tuần 2.
 
 ### Tuần 2 — Database, dữ liệu và reproducibility → M1
@@ -242,7 +242,7 @@ pipeline hiện trạng có log tái lập. Nếu chưa thống nhất contract 
 |---|---|---|---|
 | `B2.1` | Chuẩn hoá voxel/emission input | NetCDF + manifest | `[z,y,x]`, units, CRS đầy đủ |
 | `B2.2` | Chạy Gaussian baseline | Baseline artifact | Có hai scenario để so sánh |
-| `B2.3` | Đóng gói config loader | Worker callable/CLI | Không hard-code grid/path |
+| `B2.3` | Đóng gói config loader | Python solver CLI | Không hard-code grid/path |
 | `B2.4` | Chuẩn hoá scene package và seed input | GeoJSON/Parquet + metadata | Building/road/water/green cùng CRS, counts và provenance |
 
 **Kết quả tuần 2:** từ DB rỗng có thể migrate + seed bằng scene package của B; API đọc study
@@ -257,8 +257,8 @@ input artifacts và Gaussian baseline.
 |---|---|---|---|
 | `A3.1` | `POST /runs` + DTO validation | Endpoint + tests | Trả `202` và `run_id` |
 | `A3.2` | `GET /runs/:id` | Status endpoint | Trả progress/error/metrics schema |
-| `A3.3` | Job table và atomic claim | SQL/service tests | Hai worker không claim cùng job |
-| `A3.4` | Mock worker integration | Fake completed run | UI/API flow test được trước solver thật |
+| `A3.3` | Internal executor và DB state transition | Service tests | Concurrency=1; không chạy trùng một `run_id` |
+| `A3.4` | Mock subprocess integration | Fake completed run | UI/API flow test được trước solver thật |
 
 **Người B**
 
@@ -273,29 +273,29 @@ input artifacts và Gaussian baseline.
 **Kết quả tuần 3:** API tạo và hoàn tất mock run; solver 2D vượt verification gate; metrics
 schema đã ổn định để A lưu vào DB.
 
-### Tuần 4 — Worker thật và pipeline end-to-end → M3
+### Tuần 4 — Python subprocess thật và pipeline end-to-end → M3
 
 **Người A**
 
 | ID | Công việc | Đầu ra | Tiêu chí đạt |
 |---|---|---|---|
-| `A4.1` | Worker adapter/job lifecycle | Integration service | `queued→running→succeeded/failed` |
-| `A4.2` | Heartbeat, timeout và retry policy | State transition tests | Không để run `running` vô hạn |
+| `A4.1` | `SimulationModule` và subprocess lifecycle | Integration service | `queued→running→succeeded/failed` |
+| `A4.2` | Timeout, restart recovery và retry policy | State transition tests | Không để run `running` vô hạn |
 | `A4.3` | Artifact + metrics persistence | DB records | Checksum/path/manifest truy xuất được |
-| `A4.4` | Error mapping/log retrieval | API response | Lỗi worker không thành HTTP 500 mơ hồ |
+| `A4.4` | Error mapping/log retrieval | API response | Lỗi Python process không thành HTTP 500 mơ hồ |
 | `A4.5` | Lưu verification gate theo run | DB/API fields | Run chỉ `succeeded` khi toàn bộ gate pass |
 
 **Người B**
 
 | ID | Công việc | Đầu ra | Tiêu chí đạt |
 |---|---|---|---|
-| `B4.1` | Worker entrypoint nhận `run_id` | Command/module | Chạy không cần thao tác tay |
+| `B4.1` | Solver CLI nhận `run_id` | Command/module | Chạy không cần thao tác tay |
 | `B4.2` | Mass-consistent wind 3D | `wind.nc` + metrics | Divergence dưới tolerance |
 | `B4.3` | Ghi manifest/metrics/log | Artifact bundle | Đúng contract tuần 1 |
 | `B4.4` | Failure exit codes | Test case lỗi | API phân biệt input/model/system error |
 | `B4.5` | Xuất corrected face velocities | `uf`, `vf`, `wf` contract + tests | Transport dùng đúng face flux đã được kiểm divergence |
 
-**Kết quả tuần 4:** một request thật đi từ NestJS qua job tới Python, tạo artifact và metrics,
+**Kết quả tuần 4:** một request thật được modular monolith điều phối và spawn Python subprocess, tạo artifact và metrics,
 sau đó xem lại bằng `GET /runs/:id`. Đây là cổng quyết định quan trọng nhất.
 
 ---
@@ -363,9 +363,9 @@ kéo height slider, đổi scenario, xem threshold, profile và summary hoàn to
 
 | ID | Công việc | Đầu ra | Tiêu chí đạt |
 |---|---|---|---|
-| `A7.1` | Loading/error/empty states | UI states | Worker lỗi không làm UI treo |
+| `A7.1` | Loading/error/empty states | UI states | Python process lỗi không làm UI treo |
 | `A7.2` | API e2e + DB integration tests | Test suite | Bao phủ create/status/query/failure |
-| `A7.3` | Docker Compose đầy đủ | Compose file | Một lệnh dựng services |
+| `A7.3` | Docker Compose đầy đủ | Compose file | Một lệnh dựng monolith + PostGIS |
 | `A7.4` | Dashboard metrics/provenance | UI | Hiện version, input hash, warnings |
 | `A7.5` | Viết phần kiến trúc/DB/web | Draft report | Có ERD, sequence, query evidence |
 | `A7.6` | Clean-room E2E rehearsal | Log/script/checklist | Máy sạch chạy Compose → migrate → seed → run → query → web |
@@ -423,14 +423,14 @@ Ngân sách tham chiếu: khoảng 32 người-ngày cho 8 tuần, không tính 
 | Hạng mục | A | B | Tổng người-ngày |
 |---|---:|---:|---:|
 | Contract, ERD, chuẩn dữ liệu | 2 | 2 | 4 |
-| PostgreSQL/PostGIS + API + job | 6 | 1 | 7 |
+| PostgreSQL/PostGIS + monolith orchestration | 6 | 1 | 7 |
 | Dữ liệu GIS và scene package | 1 | 4 | 5 |
-| Worker/model/verification | 1 | 7 | 8 |
+| Python solver/model/verification | 1 | 7 | 8 |
 | Web 3D + query/dashboard | 4 | 0 | 4 |
 | Integration, Docker, report, rehearsal | 2 | 2 | 4 |
 | **Tổng** | **16** | **16** | **32** |
 
-Nếu trễ, cắt theo thứ tự: cache/BullMQ → sensitivity thứ hai → advanced 3D query → hiệu ứng
+Nếu trễ, cắt theo thứ tự: cache/concurrency nâng cao → sensitivity thứ hai → advanced 3D query → hiệu ứng
 thị giác. Không cắt run lifecycle, PostGIS query, FV output, verification hoặc provenance.
 
 ---
@@ -444,7 +444,7 @@ Các giả định chính:
 - Docker/PostgreSQL chạy được trên máy demo.
 - Production grid chạy trong thời gian chấp nhận được; tuần 3 và 5 có benchmark để xác nhận.
 - Một study area và hai scenario là đủ cho câu hỏi đồ án.
-- Job table PostgreSQL đủ cho một vài worker; chưa cần hệ thống phân tán.
+- Internal executor concurrency=1 đủ cho quy mô đồ án; chưa cần broker hoặc hệ thống phân tán.
 - Dữ liệu đầu vào đã có local cache để demo không phụ thuộc Internet.
 
 ### Các tầng test
@@ -454,7 +454,7 @@ Các giả định chính:
 | Unit | Toán tử số, DTO, service, query builder | A/B theo module |
 | Verification | Advection, diffusion, mass, CFL, divergence | B |
 | DB integration | Migration, constraints, SRID, indexes, query result | A |
-| Worker integration | Claim, heartbeat, retry, manifest, failure | A + B |
+| Subprocess integration | Spawn, timeout, restart recovery, retry, manifest, failure | A + B |
 | API e2e | Create run, status, result endpoints | A |
 | System smoke | Seed → run → query → web | A + B |
 | Reproducibility | Cùng input/version cho cùng manifest và metrics hợp lý | B |
@@ -463,9 +463,9 @@ Các giả định chính:
 
 ## 9. Quy tắc làm việc
 
-1. Contract thay đổi phải cập nhật `spec.md`, migration/DTO và worker schema trong cùng PR.
-2. A sở hữu merge các thay đổi API/web/DB; B sở hữu merge solver/worker.
-3. Không truyền tensor qua JSON giữa API và worker; dùng artifact path/reference.
+1. Contract thay đổi phải cập nhật `spec.md`, migration/DTO và Python CLI schema trong cùng PR.
+2. A sở hữu merge các thay đổi monolith/web/DB; B sở hữu merge Python solver.
+3. Không truyền tensor qua JSON giữa NestJS và Python; dùng artifact path/reference.
 4. Không đánh dấu `succeeded` nếu verification fail hoặc artifact thiếu checksum.
 5. Mỗi cuối tuần chạy smoke test trên máy của người còn lại.
 6. Kết quả báo cáo phải sinh từ release artifacts, không copy số từ run cũ không rõ version.
@@ -478,7 +478,7 @@ Các giả định chính:
 | Rủi ro | Dấu hiệu sớm | Van an toàn | Owner |
 |---|---|---|---|
 | Solver 3D chậm/không ổn định | Benchmark tuần 3/5 vượt ngân sách | Giảm domain/grid cho demo, giữ full run offline | B |
-| API–worker contract thay đổi liên tục | DTO/manifest sửa mỗi tuần | Freeze v1 cuối tuần 1, version contract | A + B |
+| Monolith–Python contract thay đổi liên tục | DTO/manifest sửa mỗi tuần | Freeze v1 cuối tuần 1, version contract | A + B |
 | Lưu quá nhiều voxel vào PostGIS | Import/query tăng mạnh | Chỉ persist slices/summaries, tensor ở NetCDF | A |
 | Web payload quá lớn | Slider lag, browser hết RAM | bbox, level query, downsample/tiling | A |
 | Demo phụ thuộc Internet | Data/API ngoài timeout | Seed và artifact local cố định | A |
@@ -489,21 +489,23 @@ Các giả định chính:
 ## 11. Cấu trúc repo mục tiêu
 
 ```text
-apps/
-├── api/                    NestJS API — Người A
-└── web/                    Web GIS 3D — Người A
+app/                        NestJS modular monolith — Người A
+├── src/modules/            Study area, scenario, simulation, results
+├── public/                 Web GIS 3D được phục vụ cùng ứng dụng
+└── test/                   Unit, integration và API e2e
 db/
 ├── migrations/             PostgreSQL/PostGIS — Người A
 ├── seeds/
 └── queries/
-src/                        Python model/worker — Người B
+src/                        Python model/solver CLI — Người B
 tests/                      Verification + integration
 config/                     Grid/scenario/model configuration
 data/                       Input cache
 artifacts/                  Run outputs, không commit file lớn
 docs/                       Research, spec, architecture, roadmap
-docker-compose.yml          API + DB + worker + web
+docker-compose.yml          Modular monolith + PostgreSQL/PostGIS
 ```
 
-Trong thời gian chuyển đổi, thư mục `web/` hiện tại được giữ và A có thể nâng cấp tại chỗ thay
-vì chuyển ngay sang `apps/web/`. Việc đổi cấu trúc không được chặn đường găng sản phẩm.
+Trong thời gian chuyển đổi, thư mục `web/` hiện tại được giữ và A có thể nâng cấp tại chỗ trước
+khi đưa static assets vào `app/public/`. Chỉ có một application deployable; Python là chương
+trình tính toán được gọi nội bộ, không phải service độc lập.

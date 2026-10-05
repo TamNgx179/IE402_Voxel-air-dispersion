@@ -15,65 +15,40 @@ flowchart TB
         WEB["Web GIS 3D<br/>MapLibre + deck.gl"]
     end
 
-    subgraph PLATFORM["Nền tảng ứng dụng"]
-        API["NestJS API<br/>DTO · runs · spatial queries"]
-        JOB["Job queue / job table<br/>run_id · retry · heartbeat"]
+    subgraph APP["NestJS modular monolith — một ứng dụng triển khai"]
+        API["HTTP controllers + DTO validation"]
+        DOMAIN["StudyArea · Scenario · Simulation · Results modules"]
+        EXEC["Internal simulation executor<br/>spawn Python CLI · one run at a time"]
+        STATIC["Serve web/static assets"]
+        API --> DOMAIN
+        DOMAIN --> EXEC
+        STATIC --> API
     end
 
-    subgraph DATA["Dữ liệu"]
-        PG["PostgreSQL + PostGIS<br/>geometry · metadata · metrics · slices"]
-        ART["Artifact storage<br/>NetCDF · JSON/Parquet · logs · manifest"]
+    subgraph PY["Python solver subprocess — không phải service"]
+        VOX["GIS preparation + voxelisation"]
+        WIND["corrected face wind · SOR Poisson"]
+        TR["FV advection–diffusion"]
+        GAU["Gaussian baseline"]
+        AN["verification · analysis · export"]
+        VOX --> WIND
+        VOX --> GAU
+        WIND --> TR
+        VOX --> TR
+        TR --> AN
+        GAU --> AN
     end
 
-    subgraph SIM["Python simulation worker"]
-    subgraph IN["Inputs — all public, no credentials"]
-        OSM["OSM footprints"]
-        HGT["Building heights<br/>OSM tags + Open Buildings 2.5D"]
-        MET["Meteorology<br/>Open-Meteo, 19 pressure levels"]
-        EF["Emission factors<br/>Hanoi motorcycles"]
-    end
+    PG["PostgreSQL + PostGIS<br/>geometry · runs · metrics · slices"]
+    ART["Local artifact directory<br/>NetCDF · JSON/Parquet · logs · manifest"]
 
-    subgraph T0["Tier 0 · Geometry"]
-        VOX["GIS preparation + voxelisation<br/>footprint · height · road · water · green"]
-    end
-
-    subgraph T1["Tier 1 · Wind"]
-        WIND["power-law inflow<br/>→ SOR Poisson<br/>→ divergence-free"]
-    end
-
-    subgraph T2["Tier 2 · Transport"]
-        TR["upwind finite volume<br/>explicit, to steady state"]
-    end
-
-    subgraph BASE["Baseline"]
-        GAU["analytic Gaussian plume<br/>Briggs URBAN"]
-    end
-
-    subgraph T3["Tier 3 · Analysis and export"]
-        AN["slices · profiles · isosurfaces<br/>exceedance volume · façade exposure"]
-    end
-
-    OSM --> VOX
-    HGT --> VOX
-    EF --> VOX
-    MET --> WIND
-    VOX -->|"H (y,x) · B (z,y,x) · S (z,y,x)"| WIND
-    VOX --> GAU
-    WIND -->|"u,v,w (z,y,x)"| TR
-    VOX --> TR
-    TR -->|"C (z,y,x)"| AN
-    GAU -->|"C_gaussian (z,y,x)"| AN
-    GAU -.->|"Tier-1 verification target"| TR
-    end
-
-    WEB -->|"HTTP/JSON"| API
-    API -->|"SQL/PostGIS"| PG
-    API -->|"enqueue run_id"| JOB
-    JOB -->|"claim job"| SIM
-    PG -->|"geometry · scenario · parameters"| SIM
-    SIM -->|"status · metrics · queryable slices"| PG
-    SIM -->|"NetCDF · scene package · payload · manifest"| ART
-    API -->|"signed/local artifact reference"| ART
+    WEB -->|"same-origin HTTP/JSON"| API
+    DOMAIN -->|"SQL/PostGIS"| PG
+    EXEC -->|"child process + run_id/config path"| PY
+    PY -->|"exit code · metrics · manifest"| EXEC
+    PY --> ART
+    EXEC -->|"status + artifact metadata"| PG
+    API --> ART
 ```
 
 **Everything in the diagram shares one array shape.** The building mask, the three velocity
@@ -82,16 +57,18 @@ components, the Lagrange multiplier and the concentration are all `[z, y, x]` on
 there is no resampling, no interpolation and no coordinate translation between stages, so a bug
 cannot hide in a conversion that does not exist.
 
-Kiến trúc ngoài mô phỏng theo mẫu trong hình tham chiếu của người dùng: portal gọi API,
-API quản lý dữ liệu và job, worker riêng thực hiện tác vụ nặng, còn hệ thống ngoài chỉ được
-truy cập qua boundary rõ ràng. Khác với hình tham chiếu, domain ở đây là GIS 3D nên DB dùng
-PostgreSQL/PostGIS và artifact khoa học dùng NetCDF.
+Kiến trúc mục tiêu là **modular monolith**, không phải microservice. NestJS là một ứng dụng duy
+nhất chứa các module nghiệp vụ, phục vụ frontend và gọi pipeline Python bằng tiến trình con.
+PostgreSQL/PostGIS là cơ sở dữ liệu của monolith; NetCDF là định dạng artifact khoa học. Python
+được giữ riêng về ngôn ngữ để tái sử dụng solver NumPy/SciPy, nhưng không có API, queue hay vòng
+đời deployment riêng.
 
 ## 2 · Luồng dữ liệu
 
 Các stage số trị vẫn giao tiếp bằng **file trên đĩa/artifact**, không truyền tensor lớn qua
-HTTP hay giữ toàn bộ pipeline trong RAM của API. API và worker trao đổi bằng `run_id` cùng
-metadata; PostgreSQL là nguồn sự thật về trạng thái.
+HTTP hay giữ toàn bộ pipeline trong RAM của NestJS. `SimulationModule` tạo `run_id`, spawn
+Python CLI với config đã snapshot và đọc manifest khi tiến trình kết thúc. PostgreSQL là nguồn
+sự thật về trạng thái; không có message broker hoặc worker service.
 
 | # | Stage | Reads | Writes |
 | --- | --- | --- | --- |
@@ -101,8 +78,8 @@ metadata; PostgreSQL là nguồn sự thật về trạng thái.
 | 1 | Wind | `B`, meteorology | cell-centred `u,v,w` để phân tích + corrected face velocities `uf,vf,wf` cho transport |
 | 2 | Transport | `uf,vf,wf`, `S`, `B` | `C (z,y,x)`, mass ledger, positivity metrics |
 | 3 | Analysis and export | `C` | figures, statistics, web payload |
-| 4 | Worker persistence | outputs + manifest | artifact records, metrics, queryable slices |
-| 5 | NestJS API | run metadata, PostGIS rows, artifact refs | JSON/GeoJSON responses |
+| 4 | Python subprocess completion | outputs + manifest + exit code | monolith ghi artifact records, metrics, queryable slices |
+| 5 | NestJS monolith | run metadata, PostGIS rows, artifact refs | JSON/GeoJSON responses + static web |
 | 6 | Web 3D | API responses + versioned scene package | data-derived LoD1 city, concentration/wind layers, profiles, status dashboard |
 
 **Why files rather than a pipeline object.** Each stage re-runs alone. The wind field is the
@@ -112,9 +89,10 @@ one you cannot.
 
 ## 3 · Ranh giới và nguồn sự thật
 
-Hệ thống mục tiêu có frontend/backend/worker/database tách biệt. Prototype web tĩnh hiện tại
-được giữ làm bằng chứng trực quan ban đầu, nhưng sản phẩm cuối không đọc trực tiếp file nội bộ:
-web gọi NestJS API; API query PostGIS và điều phối worker; worker mới chạy NumPy/SciPy.
+Hệ thống chỉ có **một application boundary**: NestJS modular monolith. Bên trong có module web,
+API, simulation orchestration, results và persistence; Python là child process nội bộ chứ không
+là service. Prototype web tĩnh được giữ để tái sử dụng renderer, nhưng bản cuối dùng same-origin
+API của monolith và không đọc trực tiếp file nội bộ.
 
 | Boundary | Source of truth | How the copies stay honest |
 | --- | --- | --- |
@@ -123,10 +101,10 @@ web gọi NestJS API; API query PostGIS và điều phối worker; worker mới 
 | On-disk field contract | the netCDF writer | CF conventions, `positive="up"` on `z`, so QGIS and Panoply open it unaided |
 | Solver stability | the CFL helper | The time step is **computed from the velocity field**, never passed in as a constant, and the realised Courant number is reported back |
 | Web payload | the exporter | The viewer reads only what the exporter wrote. There is no shared schema file — the exporter *is* the definition, and the viewer fails visibly if it drifts |
-| Run state | `simulation_runs` trong PostgreSQL | API restart không làm mất trạng thái; worker chỉ cập nhật theo state machine |
+| Run state | `simulation_runs` trong PostgreSQL | monolith restart quét lại `queued/running`, đánh dấu run gián đoạn và cho phép chạy lại có kiểm soát |
 | Spatial geometry | PostGIS với SRID + GiST | mọi phép đo dùng projected CRS; migration/ingest reject geometry sai |
 | Full 3D tensor | NetCDF artifact + checksum | DB chỉ lưu metadata, metrics và slices/summaries cần query |
-| API contract | NestJS DTO/OpenAPI | browser không gọi DB hoặc Python worker trực tiếp |
+| Internal Python contract | CLI arguments + versioned manifest schema | không có network contract; NestJS kiểm exit code, checksum và schema |
 | 3D city scene | versioned scene package derived from GIS sources | building IDs, footprints, `height_m`, roads, water/green and CRS match the voxel input; no hand-placed buildings |
 | Scientific release gate | verification record attached to `run_id` | API chỉ công bố run khi face-divergence, CFL, positivity, wall flux, mass balance và artifact checksum đều pass |
 | Thresholds and units | versioned project configuration + DB seed version | API/web/report đọc cùng nguồn; không hard-code các bản sao độc lập |
@@ -246,8 +224,8 @@ In order of value per unit of effort:
    conditions, and currently absent entirely.
 5. **A time series** rather than one steady state per run, enabling a diurnal cycle.
 6. **NO₂ with the NO–O₃ reaction**, once the passive-scalar baseline is trusted.
-7. **Job queue chuyên dụng và cache** sau khi job-table MVP đã được đo tải.
-8. **Object storage/deployment** khi cần demo qua Internet; không nằm trên đường găng MVP.
+7. **Tối ưu internal executor và cache** nếu benchmark cho thấy cần; vẫn giữ monolith.
+8. **Object storage** chỉ khi artifact vượt khả năng lưu local; không đổi application boundary.
 
 ### Definition of done cho release mục tiêu 9+
 
@@ -255,9 +233,9 @@ Kiến trúc chỉ được coi là hoàn thành khi một môi trường sạch
 
 ```text
 docker compose up
-→ migrate + seed PostGIS
+→ khởi động monolith + PostGIS, migrate + seed
 → POST /runs
-→ worker tạo wind/FV artifacts
+→ monolith spawn Python subprocess tạo wind/FV artifacts
 → verification gate PASS
 → spatial queries trả kết quả có index evidence
 → web mở cảnh GIS 3D và mặc định hiển thị FV

@@ -1,9 +1,9 @@
 # IE402 — Mô phỏng lan truyền ô nhiễm không khí đô thị bằng GIS 3D (voxel)
 
 Đồ án xây dựng một mô hình khối không gian (voxel) để mô phỏng sự lan truyền PM2.5 theo
-chiều cao trong một khu vực đô thị. Hệ thống gồm **NestJS API**, **PostgreSQL/PostGIS** và
-một **Python simulation worker**. API tiếp nhận kịch bản, truy vấn dữ liệu không gian và
-điều phối worker; worker là nơi chạy voxelisation, trường gió, transport và kiểm chứng.
+chiều cao trong một khu vực đô thị. Sản phẩm dùng kiến trúc **modular monolith**: một ứng dụng
+NestJS duy nhất phục vụ web/API, truy vấn **PostgreSQL/PostGIS**, quản lý run và gọi pipeline
+Python dưới dạng tiến trình con nội bộ. Không tách API, queue và mô phỏng thành microservice.
 
 ## Tên đề tài và phạm vi chốt
 
@@ -16,13 +16,15 @@ nghiên cứu/giáo dục, chưa phải hệ thống dự báo quy chuẩn hay c
 ## Kiến trúc mục tiêu
 
 ```text
-Web 3D / Client → NestJS API → PostgreSQL/PostGIS
-                         └────→ Python Simulation Worker
-                                  └→ NetCDF/JSON artifacts + metrics về DB
+Web GIS 3D
+    └→ NestJS modular monolith
+         ├→ PostgreSQL/PostGIS
+         └→ Python solver subprocess → NetCDF/JSON artifacts
 ```
 
-API không thực hiện vòng lặp số nặng. Worker không nhận request trực tiếp từ trình duyệt.
-Mọi kết quả có `run_id`, trạng thái, phiên bản mô hình, nguồn dữ liệu và tham số.
+HTTP request không giữ kết nối cho tới khi mô phỏng xong. `SimulationModule` ghi `run_id`,
+chạy Python ở nền trong cùng ứng dụng và cập nhật trạng thái. Mọi kết quả có phiên bản mô
+hình, nguồn dữ liệu, tham số và provenance.
 
 ## Chạy phần mô hình hiện tại
 
@@ -40,7 +42,7 @@ Pipeline Python hiện tại là lõi tính toán; backend là lớp sản phẩ
 | Tài liệu | Mục đích |
 |---|---|
 | [`docs/RESEARCH.md`](docs/RESEARCH.md) | Research rút gọn, nguồn và lý do chọn mô hình |
-| [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md) | Kiến trúc API–worker–DB và luồng dữ liệu |
+| [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md) | Kiến trúc modular monolith và luồng dữ liệu |
 | [`docs/spec.md`](docs/spec.md) | Đặc tả tiếng Việt, API, dữ liệu và truy vấn |
 | [`docs/ROADMAP.md`](docs/ROADMAP.md) | Kế hoạch 8 tuần, phân công A/B, không seminar |
 

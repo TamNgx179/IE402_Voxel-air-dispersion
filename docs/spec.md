@@ -21,7 +21,7 @@ Tạo trường nồng độ PM2.5 ba chiều cho một khu vực đô thị t�
 2. trường gió chẩn đoán bảo toàn khối lượng;
 3. phương trình tải–khuếch tán giải bằng thể tích hữu hạn;
 4. các phép phân tích không gian 3D;
-5. ứng dụng web 3D có API, PostgreSQL/PostGIS và Python simulation worker.
+5. ứng dụng modular monolith NestJS có web/API, PostgreSQL/PostGIS và gọi Python solver nội bộ.
 
 Luận điểm cần chứng minh là bản đồ 2D không đủ để thể hiện biến thiên nồng độ theo chiều
 cao. Hệ thống phải trung thực về sai số, provenance và các hiện tượng vật lý chưa mô hình hoá.
@@ -44,7 +44,7 @@ cao. Hệ thống phải trung thực về sai số, provenance và các hiện 
 | `OBS-4` | Repo | Gaussian baseline, emission, voxel, analysis và web prototype đã có code/test |
 | `SCOPE-1` | Quyết định dự án | PM2.5 được coi là chất thụ động, không phản ứng |
 | `SCOPE-2` | Quyết định dự án | Verification bắt buộc; validation thực địa chưa thuộc MVP |
-| `SCOPE-3` | Quyết định dự án | NestJS API, PostgreSQL/PostGIS và Python worker là kiến trúc sản phẩm mục tiêu |
+| `SCOPE-3` | Quyết định dự án | Một NestJS modular monolith, PostgreSQL/PostGIS và Python solver subprocess là kiến trúc mục tiêu |
 
 ### Lưu ý trung thực học thuật
 
@@ -65,9 +65,9 @@ cao. Hệ thống phải trung thực về sai số, provenance và các hiện 
 - Gaussian plume analytic làm baseline so sánh.
 - Verification: nghiệm giải tích, bảo toàn khối lượng, boundedness, wall impermeability, CFL.
 - Ít nhất năm phép phân tích không gian 3D.
-- NestJS API tạo run, theo dõi trạng thái và truy vấn kết quả.
+- NestJS monolith phục vụ web/API, tạo run, theo dõi trạng thái và truy vấn kết quả.
 - PostgreSQL/PostGIS lưu metadata, geometry, metrics, slices/summaries và provenance.
-- Python worker chạy mô phỏng bất đồng bộ và xuất NetCDF/artifacts.
+- `SimulationModule` gọi Python CLI dưới dạng child process nền và xuất NetCDF/artifacts.
 - Web dựng lại study area 3D từ dữ liệu thực: footprint và chiều cao toà nhà, đường, mặt
   nước/công viên nếu nguồn có; đồng thời có height slider, scenario switch, threshold,
   profile và summary.
@@ -88,8 +88,9 @@ cao. Hệ thống phải trung thực về sai số, provenance và các hiện 
 - Tensor đầy đủ trao đổi bằng CF-conventions NetCDF-4; concentration dùng `float32`.
 - PostgreSQL/PostGIS không thay thế NetCDF cho toàn bộ tensor 3D.
 - Geometry dùng projected CRS phù hợp study area khi tính khoảng cách/diện tích.
-- `POST /runs` phải trả bất đồng bộ; API không chạy vòng lặp NumPy/SciPy trong request.
-- Hai người, tám tuần, bán thời gian; A sở hữu API/web/DB/integration, B sở hữu worker/model.
+- `POST /runs` trả `202`; HTTP handler không chờ solver, nhưng tác vụ nền vẫn thuộc cùng
+  monolith và không qua message broker/microservice.
+- Hai người, tám tuần, bán thời gian; A sở hữu monolith/web/DB/integration, B sở hữu Python solver/model.
 - Không commit secrets, file môi trường hoặc dữ liệu có giấy phép không phù hợp.
 
 ## Quy tắc nghiệp vụ
@@ -126,16 +127,16 @@ cao. Hệ thống phải trung thực về sai số, provenance và các hiện 
 | `BR-14` | Output khoa học đầy đủ là NetCDF kèm units, CRS, coordinates và provenance | `OBS-3` |
 | `BR-15` | Nguồn dữ liệu, thời điểm tải, version và phép biến đổi phải được lưu | reproducibility |
 
-### 5.4 API, worker và trạng thái run
+### 5.4 Monolith, Python subprocess và trạng thái run
 
 | Mã | Quy tắc | Nguồn |
 |---|---|---|
 | `BR-16` | `POST /runs` validate DTO, tạo snapshot tham số và trả `202 Accepted` cùng `run_id` | `SCOPE-3` |
 | `BR-17` | Trạng thái hợp lệ: `queued → running → succeeded/failed`; có thể thêm `cancelled/stale` | architecture |
-| `BR-18` | Worker không public cho browser; chỉ API được tạo và truy vấn run | architecture |
-| `BR-19` | Retry không được tạo hai kết quả thành công khác nhau cho cùng attempt; ghi attempt count | reliability |
+| `BR-18` | Python solver không mở port/API; chỉ `SimulationModule` được spawn process bằng command/arguments whitelist | architecture |
+| `BR-19` | Monolith chỉ chạy một simulation process tại một thời điểm trong MVP; retry ghi attempt count và không nhân đôi kết quả | reliability |
 | `BR-20` | Chỉ run vượt qua verification mới được đánh dấu `succeeded` | `SCOPE-2` |
-| `BR-21` | API timeout không thay đổi trạng thái worker; DB là nguồn sự thật cho run status | architecture |
+| `BR-21` | HTTP disconnect không huỷ subprocess; DB là nguồn sự thật và monolith khôi phục/đánh dấu run gián đoạn khi restart | architecture |
 
 ### 5.5 PostgreSQL/PostGIS và truy vấn
 
@@ -152,7 +153,7 @@ cao. Hệ thống phải trung thực về sai số, provenance và các hiện 
 
 | Mã | Quy tắc | Nguồn |
 |---|---|---|
-| `BR-28` | Web chỉ gọi API, không query DB hoặc gọi worker trực tiếp | architecture |
+| `BR-28` | Web chỉ gọi API same-origin của monolith, không query DB hoặc gọi Python CLI trực tiếp | architecture |
 | `BR-29` | Height slider đổi đúng lớp `z_m` mà không reload toàn trang | product objective |
 | `BR-30` | UI hiển thị units, scenario, model version, threshold và warnings | reproducibility |
 | `BR-31` | Numerical diffusion và các physics bị thiếu phải xuất hiện trong report/UI | `SCOPE-2` |
@@ -176,7 +177,7 @@ cao. Hệ thống phải trung thực về sai số, provenance và các hiện 
 
 | Method | Endpoint | Kết quả |
 |---|---|---|
-| `GET` | `/health` | trạng thái API, DB và worker heartbeat |
+| `GET` | `/health` | trạng thái monolith, DB, artifact directory và Python runtime |
 | `GET` | `/study-areas` | vùng nghiên cứu và bounds |
 | `GET` | `/scenarios` | kịch bản khí tượng/phát thải |
 | `POST` | `/runs` | tạo run bất đồng bộ, trả `run_id` |
@@ -210,10 +211,10 @@ cao. Hệ thống phải trung thực về sai số, provenance và các hiện 
 | Nguồn nằm trong solid voxel | reject hoặc relocate theo rule được ghi lại |
 | Gió bằng 0 | solver chuyển thành pure diffusion và không chia cho 0 |
 | Concentration âm | kiểm trước correction; fail nếu vượt tolerance, không che bằng clipping; round-off correction phải ghi mass delta |
-| Face velocity thiếu/không khớp grid | worker fail trước transport, không nội suy ngầm từ cell-centred field |
+| Face velocity thiếu/không khớp grid | Python run fail trước transport, không nội suy ngầm từ cell-centred field |
 | Payload web quá lớn | downsample/tiling và ghi hệ số |
-| Worker chết giữa run | run thành `stale/failed`, có thể retry theo attempt |
-| API restart | status và artifacts vẫn truy xuất được từ DB |
+| Python subprocess chết giữa run | monolith lưu exit code/stderr, run thành `failed`, có thể retry theo attempt |
+| Monolith restart | quét `queued/running`, giữ artifacts đã hoàn tất và đánh dấu run bị gián đoạn |
 | Artifact thiếu/checksum sai | không trả như kết quả hợp lệ |
 | CRS sai hoặc geometry không hợp lệ | reject khi ingest/migration |
 | Query bbox không giao study area | trả collection rỗng, không lỗi 500 |
@@ -240,17 +241,17 @@ cao. Hệ thống phải trung thực về sai số, provenance và các hiện 
 | `AC-9` | Pure diffusion và uniform advection khớp nghiệm giải tích trong ngưỡng đã ghi | `SCOPE-2` |
 | `AC-10` | Run báo `dt`, Courant, steps, simulated time và wall-clock | `BR-7..8` |
 
-### 9.3 API, worker và DB
+### 9.3 Monolith, Python subprocess và DB
 
 | ID | Tiêu chí | Truy vết |
 |---|---|---|
-| `AC-11` | Request hợp lệ trả `202` + `run_id`; request sai bị reject trước enqueue | `BR-16` |
-| `AC-12` | Run đi qua state machine và giữ được status sau khi API restart | `BR-17`, `BR-21` |
-| `AC-13` | Worker failure tạo status/error rõ ràng, không tạo artifact “thành công” | `BR-20` |
+| `AC-11` | Request hợp lệ trả `202` + `run_id`; request sai bị reject trước khi tạo run | `BR-16` |
+| `AC-12` | Run đi qua state machine và được phục hồi/đánh dấu đúng sau khi monolith restart | `BR-17`, `BR-21` |
+| `AC-13` | Python exit khác 0 tạo status/error rõ ràng, không tạo artifact “thành công” | `BR-20` |
 | `AC-14` | Migration + seed dựng DB mới từ đầu và có FK/SRID/index | `BR-22..23` |
 | `AC-15` | Slice, exceedance, profile và summary trả đúng `run_id`, `z_m`, units | `BR-26` |
 | `AC-16` | Spatial query có bằng chứng dùng index hoặc lý giải đo được | `BR-27` |
-| `AC-17` | Retry không nhân đôi output thành công ngoài ý muốn | `BR-19` |
+| `AC-17` | Hai run đồng thời được tuần tự hoá theo giới hạn concurrency=1; retry không nhân đôi output | `BR-19` |
 
 ### 9.4 Web và kết quả
 
@@ -286,15 +287,15 @@ cao. Hệ thống phải trung thực về sai số, provenance và các hiện 
 | `AC-31` | Run có verification fail không thể chuyển thành `succeeded` hoặc xuất hiện trong danh sách kết quả hợp lệ | `BR-39` |
 | `AC-32` | Test tự động so sánh threshold/units từ config, DB, API payload, web legend và report fixture, không có sai khác | `BR-40` |
 | `AC-33` | Báo cáo có sensitivity chiều cao và external benchmark/cross-check, nêu rõ đó là verification hay validation | `BR-41` |
-| `AC-34` | Trên máy/môi trường sạch, runbook tạo DB, seed dữ liệu, chạy worker, trả 4 query và mở web mà không sửa tay | `BR-42` |
+| `AC-34` | Trên môi trường sạch, runbook dựng monolith + DB, seed, spawn Python solver, trả 4 query và mở web mà không sửa tay | `BR-42` |
 | `AC-35` | Evidence index liên kết mỗi figure/table quan trọng tới `run_id`, commit/model version, input hash và manifest | `BR-43` |
 
 ## Ghi chú quan sát
 
 | Đã quan sát trong repo | Chưa được chứng minh và cần triển khai/đo |
 |---|---|
-| Pipeline voxel, emission, Gaussian, analysis và web prototype đã tồn tại | NestJS API, migrations, queue và worker adapter chưa tồn tại |
-| Contract `[z,y,x]` và NetCDF đã được dùng | Contract API–worker cần integration test |
+| Pipeline voxel, emission, Gaussian, analysis và web prototype đã tồn tại | NestJS monolith, migrations và subprocess adapter chưa tồn tại |
+| Contract `[z,y,x]` và NetCDF đã được dùng | Contract monolith–Python CLI cần integration test |
 | Có test verification cho nhiều toán tử | Kết quả FV cuối cùng cần nối với web/API |
 | Có dữ liệu study area và hai kịch bản minh hoạ | DB query plan và tải thực tế chưa đo |
 | Có giới hạn dữ liệu chiều cao/phát thải được ghi nhận | Chưa có validation hiện trường |
@@ -302,7 +303,7 @@ cao. Hệ thống phải trung thực về sai số, provenance và các hiện 
 ## Nguồn
 
 - `docs/RESEARCH.md`: cơ sở khoa học, dữ liệu, mô hình và danh mục nguồn đầy đủ.
-- `docs/ARCHITECTURE.md`: kiến trúc API–worker–DB và trade-off.
+- `docs/ARCHITECTURE.md`: kiến trúc modular monolith, Python subprocess, DB và trade-off.
 - `docs/ROADMAP.md`: tiến độ, phân công A/B và tiêu chí mốc.
 - [PostGIS 3D predicates](https://postgis.net/docs/ST_3DIntersects.html).
 - [PostGIS spatial indexes](https://postgis.net/documentation/faq/spatial-indexes/).
@@ -320,8 +321,9 @@ bị clip ở 100 m hoặc khác mạnh với OSM, warning và provenance phải
 Road graph phải loại bản sao hai chiều khi tổng hợp chiều dài/phát thải. MVP giả định mặt
 đất phẳng `z=0`; đây là hạn chế được ghi rõ, không phải kết quả đã kiểm chứng.
 
-### C. Kiến trúc API–worker–DB
+### C. Kiến trúc modular monolith
 
-So với prototype web tĩnh ban đầu, sản phẩm cuối bổ sung NestJS API, PostgreSQL/PostGIS và
-Python worker bất đồng bộ. Thay đổi này phục vụ yêu cầu cơ sở dữ liệu và truy vấn nhưng không
-thay đổi mô hình khoa học: solver vẫn dùng cùng grid, NetCDF và verification contract.
+So với prototype web tĩnh ban đầu, sản phẩm cuối bổ sung một NestJS modular monolith và
+PostgreSQL/PostGIS. Monolith phục vụ web/API và gọi Python CLI bằng child process; không có
+worker service, broker hay network hop nội bộ. Thay đổi này không làm đổi mô hình khoa học:
+solver vẫn dùng cùng grid, NetCDF và verification contract.

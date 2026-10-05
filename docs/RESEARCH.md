@@ -1077,8 +1077,9 @@ Tài liệu gốc OpenVDB: *"thư viện C++ từng đoạt giải Academy Award
 
 ## 14. Trực quan hoá 3D và phân phối trên web
 
-Viewer tĩnh được mở rộng thành kiến trúc ứng dụng: web 3D gọi NestJS API; NestJS quản lý
-request, trạng thái run và spatial query; Python worker thực hiện mô phỏng;
+Viewer tĩnh được mở rộng thành một modular monolith: web 3D được NestJS phục vụ cùng origin;
+NestJS quản lý request, trạng thái run và spatial query; `SimulationModule` gọi Python solver
+dưới dạng tiến trình con;
 PostgreSQL/PostGIS lưu geometry, metadata, metrics và lớp kết quả cần truy vấn; NetCDF giữ
 tensor đầy đủ. Backend mới không thay đổi phương trình hoặc verification contract.
 
@@ -1149,19 +1150,22 @@ tensor đầy đủ. Backend mới không thay đổi phương trình hoặc ver
 
 ⭐ **Khuyến nghị trực quan hoá (📐):** trích bề mặt đẳng trị tại các ngưỡng quy chuẩn bằng `skimage.measure.marching_cubes` (nhớ truyền `spacing` cho voxel bất đẳng hướng), xuất glTF, render cùng 3D Tiles toà nhà. Sau đó thêm **một** khung nhìn khối bán trong suốt làm sản phẩm "nâng cao", để đồ án vẫn giao được nếu volume renderer trục trặc.
 
-### 14.5 Kiến trúc API–worker–PostGIS cho sản phẩm cuối
+### 14.5 Modular monolith với PostGIS và Python solver
 
-**NestJS API.** Controller nhận HTTP request và trả response; provider/service đóng gói logic
-ứng dụng và dependency injection. Cách chia module phù hợp ở đây là `StudyAreasModule`,
-`ScenariosModule`, `RunsModule`, `ResultsModule` và `HealthModule`. API chỉ validate, tạo
-`run_id`, query và trả dữ liệu; không chạy solver NumPy trong vòng đời HTTP request ✅
+**Một ứng dụng NestJS duy nhất.** Controller nhận HTTP request và trả response;
+provider/service đóng gói logic ứng dụng và dependency injection. Cách chia module phù hợp là
+`StudyAreasModule`, `ScenariosModule`, `SimulationModule`, `ResultsModule` và `HealthModule`.
+Cùng ứng dụng này phục vụ static web, truy vấn PostGIS, tạo `run_id` và điều phối mô phỏng;
+không chạy solver NumPy trong vòng đời HTTP request ✅
 ([NestJS Controllers](https://docs.nestjs.com/controllers) ·
 [Providers](https://docs.nestjs.com/providers)).
 
-**Worker bất đồng bộ.** Một run có thể kéo dài từ giây tới phút và có failure độc lập, vì vậy
-`POST /runs` phải trả `202 Accepted`; worker claim job, cập nhật heartbeat/progress và ghi
-`succeeded` hoặc `failed`. MVP có thể dùng job table PostgreSQL; BullMQ/Redis chỉ nên thêm khi
-đã có nhu cầu retry/concurrency rõ, tránh tăng hạ tầng trước khi có số đo.
+**Python là solver nội bộ, không phải service.** Một run có thể kéo dài từ giây tới phút, vì vậy
+`POST /runs` trả `202 Accepted`; internal executor concurrency=1 lấy run `queued`, dùng
+`child_process.spawn` gọi Python CLI, kiểm tra exit code/manifest rồi cập nhật `succeeded` hoặc
+`failed`. PostgreSQL là nguồn sự thật về trạng thái; khi monolith khởi động lại, các run bị gián
+đoạn được phát hiện và cho phép chạy lại có kiểm soát. Không cần message broker, Redis, BullMQ,
+HTTP nội bộ hay một deployment worker riêng cho quy mô hai người và một máy demo.
 
 **PostgreSQL/PostGIS.** GiST spatial index và các predicate index-aware như `ST_Intersects`,
 `ST_DWithin`, `ST_3DIntersects`, `ST_3DDWithin` phù hợp để truy vấn footprint, road, bbox,
@@ -1717,10 +1721,9 @@ Mật khẩu file nén đo đạc lấy từ `ewtl.mi@uni-hamburg.de`.
 ### 19.12 API, cơ sở dữ liệu và truy vấn không gian
 
 185. NestJS Controllers — https://docs.nestjs.com/controllers · Providers — https://docs.nestjs.com/providers
-186. NestJS Queues — https://docs.nestjs.com/techniques/queues
-187. PostGIS spatial indexes — https://postgis.net/documentation/faq/spatial-indexes/
-188. PostGIS `ST_3DIntersects` — https://postgis.net/docs/ST_3DIntersects.html · `ST_3DDWithin` — https://postgis.net/docs/ST_3DDWithin.html
-189. PostgreSQL JSON/JSONB — https://www.postgresql.org/docs/current/datatype-json.html
+186. PostGIS spatial indexes — https://postgis.net/documentation/faq/spatial-indexes/
+187. PostGIS `ST_3DIntersects` — https://postgis.net/docs/ST_3DIntersects.html · `ST_3DDWithin` — https://postgis.net/docs/ST_3DDWithin.html
+188. PostgreSQL JSON/JSONB — https://www.postgresql.org/docs/current/datatype-json.html
 
 ---
 

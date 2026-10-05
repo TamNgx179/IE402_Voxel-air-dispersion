@@ -1,0 +1,89 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1280" height="720" viewBox="0 0 1280 720">
+  <style>
+    .boundary{fill:#f8fbff;stroke:#245b86;stroke-width:3;rx:18}
+    .module{fill:#eef6ff;stroke:#4a82ad;stroke-width:2;rx:12}
+    .db{fill:#fff4df;stroke:#9a6413;stroke-width:2;rx:14}
+    .solver{fill:#e9f7ee;stroke:#2d7546;stroke-width:2;rx:14}
+    .artifact{fill:#f4efff;stroke:#6e42a1;stroke-width:2;rx:14}
+    .user{fill:#ffffff;stroke:#61798b;stroke-width:2;rx:14}
+    .title{font:700 22px Arial;fill:#15324b}
+    .subtitle{font:700 17px Arial;fill:#234e70}
+    .text{font:15px Arial;fill:#243746}
+    .small{font:13px Arial;fill:#3d5363}
+    .note{font:700 14px Arial;fill:#8c342f}
+    .arrow{stroke:#405d73;stroke-width:2.4;fill:none;marker-end:url(#a)}
+    .dash{stroke:#607b8e;stroke-width:2;stroke-dasharray:7 6;fill:none;marker-end:url(#a)}
+  </style>
+  <defs>
+    <marker id="a" markerWidth="10" markerHeight="10" refX="9" refY="3" orient="auto">
+      <path d="M0,0 L10,3 L0,6 z" fill="#405d73"/>
+    </marker>
+  </defs>
+
+  <rect x="18" y="18" width="1244" height="684" fill="#fff" stroke="#7b3fe4" stroke-width="3" rx="18"/>
+  <text x="50" y="57" class="title">Voxel Air Dispersion — Modular Monolith</text>
+  <text x="50" y="82" class="note">1 application deployable · không broker · không Redis · không worker service</text>
+
+  <rect x="55" y="178" width="180" height="170" class="user"/>
+  <text x="80" y="216" class="subtitle">Người dùng</text>
+  <text x="80" y="250" class="text">Tạo/chọn run</text>
+  <text x="80" y="276" class="text">Xem đô thị 3D</text>
+  <text x="80" y="302" class="text">Slice · profile</text>
+  <text x="80" y="328" class="text">Spatial query</text>
+
+  <rect x="285" y="110" width="590" height="500" class="boundary"/>
+  <text x="315" y="145" class="title">NestJS Modular Monolith</text>
+  <text x="315" y="169" class="small">Một process ứng dụng, chia module rõ ràng và phục vụ cùng origin</text>
+
+  <rect x="320" y="195" width="240" height="125" class="module"/>
+  <text x="342" y="226" class="subtitle">Web GIS 3D</text>
+  <text x="342" y="254" class="text">MapLibre/deck.gl</text>
+  <text x="342" y="278" class="text">Building LoD1 thực tế</text>
+  <text x="342" y="302" class="small">road · water · green · voxel</text>
+
+  <rect x="600" y="195" width="240" height="125" class="module"/>
+  <text x="622" y="226" class="subtitle">HTTP / Application</text>
+  <text x="622" y="254" class="text">Controllers · DTO</text>
+  <text x="622" y="278" class="text">StudyArea · Scenario</text>
+  <text x="622" y="302" class="small">Results · Health modules</text>
+
+  <rect x="320" y="355" width="520" height="205" class="module"/>
+  <text x="342" y="388" class="subtitle">SimulationModule</text>
+  <text x="342" y="418" class="text">Internal executor, concurrency = 1</text>
+  <text x="342" y="444" class="text">queued → running → succeeded / failed</text>
+  <text x="342" y="470" class="text">Validate config · spawn Python · timeout/retry</text>
+  <text x="342" y="496" class="text">Kiểm exit code · manifest · verification gates</text>
+  <text x="342" y="526" class="small">Khởi động lại: phát hiện run gián đoạn và cho phép chạy lại có kiểm soát</text>
+
+  <rect x="935" y="112" width="285" height="205" class="db"/>
+  <text x="962" y="150" class="title">PostgreSQL + PostGIS</text>
+  <text x="962" y="184" class="text">study areas · buildings · roads</text>
+  <text x="962" y="210" class="text">scenarios · simulation_runs</text>
+  <text x="962" y="236" class="text">slices · summaries · metrics</text>
+  <text x="962" y="270" class="small">GiST/B-tree · JSONB metadata</text>
+  <text x="962" y="292" class="small">Nguồn sự thật về trạng thái run</text>
+
+  <rect x="935" y="365" width="285" height="155" class="solver"/>
+  <text x="962" y="402" class="title">Python Solver CLI</text>
+  <text x="962" y="436" class="text">Voxel · emission · wind 3D</text>
+  <text x="962" y="462" class="text">FV transport · Gaussian baseline</text>
+  <text x="962" y="488" class="small">Tiến trình con, không mở API/port</text>
+
+  <rect x="935" y="558" width="285" height="105" class="artifact"/>
+  <text x="962" y="593" class="subtitle">Local artifact directory</text>
+  <text x="962" y="620" class="text">NetCDF · JSON/Parquet · logs</text>
+  <text x="962" y="645" class="small">manifest · checksum · provenance</text>
+
+  <path d="M235 260 L320 260" class="arrow"/>
+  <text x="246" y="245" class="small">HTTPS / same origin</text>
+  <path d="M840 245 L935 205" class="arrow"/>
+  <text x="858" y="205" class="small">SQL/PostGIS</text>
+  <path d="M840 410 L935 430" class="arrow"/>
+  <text x="852" y="397" class="small">spawn CLI</text>
+  <path d="M1078 520 L1078 558" class="arrow"/>
+  <text x="1090" y="545" class="small">ghi output</text>
+  <path d="M935 615 L840 515" class="dash"/>
+  <text x="824" y="584" class="small">manifest/status</text>
+  <path d="M935 280 L840 470" class="dash"/>
+  <text x="845" y="352" class="small">run state</text>
+</svg>
