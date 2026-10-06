@@ -1,8 +1,8 @@
 """
 Gaussian baseline driven by the REAL road source and the REAL wind scenarios.
 
-`src/gaussian.py` verifies the plume formula on a synthetic line source. For
-comparison against the voxel solver (docs/DECISION.md 7.9, "Gaussian vs voxel")
+This is the project's only Gaussian run (ROADMAP B2.2). For comparison
+against the voxel solver (docs/RESEARCH.md §13.3 item 9, "Gaussian vs voxel")
 the baseline must see the same emissions the solver sees, so this superposes
 one Briggs-urban point source per non-zero cell of the transport-ready source
 field `S[z, y, x]` (kg m-3 s-1, EDGAR-normalised, A3.4).

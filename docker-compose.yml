@@ -1,0 +1,34 @@
+# Local development stack (docs/spec.md D4, docs/DATABASE.md "Chạy").
+#
+# Only the PostGIS database for now; the app container is added in batch 5.
+# The credentials below are DEV-ONLY defaults (ie402/ie402). Override them with
+# environment variables or a repo-root .env file (gitignored) and never reuse
+# them outside a local machine.
+#
+#   docker compose up -d db
+#   cd app && npm run db:reset && npm run db:seed
+
+name: ie402-voxel
+
+services:
+  db:
+    image: postgis/postgis:16-3.4
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:-ie402}
+      POSTGRES_USER: ${POSTGRES_USER:-ie402}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-ie402}
+    ports:
+      # Host port defaults to 5433 so it does not clash with a local PostgreSQL.
+      - "${DB_HOST_PORT:-5433}:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB}"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+      start_period: 10s
+
+volumes:
+  pgdata:

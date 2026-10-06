@@ -400,7 +400,7 @@ def test_derived_counts_match_between_report_and_output():
 @needs_real_data
 def test_open_buildings_supplies_the_heights():
     """
-    docs/DECISION.md §5: Google Open Buildings 2.5D is the height source for
+    docs/RESEARCH.md §12.3: Google Open Buildings 2.5D is the height source for
     Vietnam, with the OSM tags as a cross-check. If this regresses, the run
     has silently fallen back to guessing from OSM alone.
     """

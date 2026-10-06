@@ -51,11 +51,13 @@ flowchart TB
     API --> ART
 ```
 
-**Everything in the diagram shares one array shape.** The building mask, the three velocity
-components, the Lagrange multiplier and the concentration are all `[z, y, x]` on the same
-100 × 100 × 50 lattice (spec, *Constraints*). That is the architectural idea in one sentence:
-there is no resampling, no interpolation and no coordinate translation between stages, so a bug
-cannot hide in a conversion that does not exist.
+**Everything in the diagram shares one lattice.** Cell-centred fields — the building mask, the
+Lagrange multiplier, the concentration and the analysis copy of `u,v,w` — are all `[z, y, x]` on
+the same 100 × 100 × 50 grid (spec, *Ràng buộc*). The corrected face velocities are the one
+deliberate exception: `uf` is `[z, y, x+1]`, `vf` is `[z, y+1, x]`, `wf` is `[z+1, y, x]`, staggered on
+the same lattice so transport uses them without interpolation (spec BR-36). There is no resampling
+and no coordinate translation between stages, so a bug cannot hide in a conversion that does not
+exist.
 
 Kiến trúc mục tiêu là **modular monolith**, không phải microservice. NestJS là một ứng dụng duy
 nhất chứa các module nghiệp vụ, phục vụ frontend và gọi pipeline Python bằng tiến trình con.
@@ -82,6 +84,45 @@ sự thật về trạng thái; không có message broker hoặc worker service.
 | 5 | NestJS monolith | run metadata, PostGIS rows, artifact refs | JSON/GeoJSON responses + static web |
 | 6 | Web 3D | API responses + versioned scene package | data-derived LoD1 city, concentration/wind layers, profiles, status dashboard |
 
+### Vòng đời một run (user flow)
+
+```mermaid
+sequenceDiagram
+    actor U as Người dùng (web)
+    participant API as NestJS API
+    participant DB as PostgreSQL/PostGIS
+    participant EX as Internal executor
+    participant PY as Python solver (child process)
+
+    U->>API: POST /api/runs {scenario_id, model}
+    API->>API: validate DTO (sai → 400, không tạo run)
+    API->>DB: INSERT simulation_runs status=queued
+    API-->>U: 202 {run_id}
+    EX->>DB: lấy run queued cũ nhất (concurrency = 1)
+    EX->>DB: status=running (attempt giữ nguyên: 1 khi tạo, +1 mỗi lần retry)
+    EX->>PY: spawn [-m src.solver run --run-id … --config … --out …]
+    loop mỗi dòng stdout
+        PY-->>EX: {"event":"progress", …}
+        EX->>DB: cập nhật progress
+    end
+    U->>API: GET /api/runs/:id (poll)
+    API-->>U: status, progress
+    alt exit 0, manifest hợp lệ, checksum khớp, verification pass
+        EX->>DB: COPY columns.csv.gz → concentration_columns, metrics, checks, artifacts
+        EX->>DB: status=succeeded
+        U->>API: GET /api/runs/:id/slices?z_m=1.5
+        API->>DB: query (DATABASE.md §3)
+        API-->>U: GeoJSON + units + threshold + model_version
+    else exit 2 / 3 / 4, timeout, hoặc manifest sai
+        EX->>DB: status=failed, error_kind, error_message, lưu solver.log
+        U->>API: GET /api/runs/:id
+        API-->>U: failed + lý do (không phải HTTP 500)
+        U->>API: POST /api/runs/:id/retry
+        API->>DB: status=queued (giữ run_id, attempt tăng, không nhân đôi kết quả)
+    end
+    Note over EX,DB: Monolith khởi động lại: run còn running → stale, cho phép retry có kiểm soát (BR-21)
+```
+
 **Why files rather than a pipeline object.** Each stage re-runs alone. The wind field is the
 slowest thing to get right, and being able to re-run transport fifty times against one frozen
 wind field — without recomputing geometry — is the difference between a solver you can debug and
@@ -100,7 +141,7 @@ API của monolith và không đọc trực tiếp file nội bộ.
 | Array order | the grid model's documented convention | `[z, y, x]` for 3D, `[y, x]` for 2D, asserted by a unit test |
 | On-disk field contract | the netCDF writer | CF conventions, `positive="up"` on `z`, so QGIS and Panoply open it unaided |
 | Solver stability | the CFL helper | The time step is **computed from the velocity field**, never passed in as a constant, and the realised Courant number is reported back |
-| Web payload | the exporter | The viewer reads only what the exporter wrote. There is no shared schema file — the exporter *is* the definition, and the viewer fails visibly if it drifts |
+| Web payload | API DTO + OpenAPI của monolith | Bản cuối: viewer chỉ đọc response của API (spec BR-28). Prototype tĩnh hiện tại vẫn đọc `web/data/*.js` do exporter ghi — chỉ là nguồn tạm cho tới A6.1 |
 | Run state | `simulation_runs` trong PostgreSQL | monolith restart quét lại `queued/running`, đánh dấu run gián đoạn và cho phép chạy lại có kiểm soát |
 | Spatial geometry | PostGIS với SRID + GiST | mọi phép đo dùng projected CRS; migration/ingest reject geometry sai |
 | Full 3D tensor | NetCDF artifact + checksum | DB chỉ lưu metadata, metrics và slices/summaries cần query |
@@ -138,13 +179,13 @@ phải được ghi vào ledger. FV output là sản phẩm chính; Gaussian ch�
 
 | Failure | How it shows | Where it is caught |
 | --- | --- | --- |
-| Central differencing reintroduced | negative concentrations, checkerboard pattern | spec AC-11; the boundedness test, and an assertion inside the 2D debug loop |
-| Wall leakage from a wrong face coefficient | plume appears downwind of a solid block | spec AC-12 |
+| Central differencing reintroduced | negative concentrations, checkerboard pattern | spec AC-8, AC-28; `NegativeConcentrationError` on the raw update, and the boundedness test |
+| Wall leakage from a wrong face coefficient | plume appears downwind of a solid block | spec AC-5 |
 | Array order transposed in a new function | plume travels along the wrong axis — and often *looks* plausible | the `[z,y,x]` contract and its unit test |
 | Time step too large | values blow up within tens of steps | the CFL helper computes it; the realised Courant number is reported |
-| SOR fails to converge | residual divergence stays above tolerance | spec edge case *SOR hits its cap* — must fail loudly. **Not yet implemented; the wind stage is a stub** |
+| SOR fails to converge | residual divergence stays above tolerance | spec edge case *SOR không hội tụ* — run `failed`, residual and iteration count recorded. SOR exists in `src/wind/core.py`; mapping non-convergence to exit code 3 is B4.4 |
 | Emission inside a solid voxel | mass accumulates and can never leave | spec edge case *source inside a building voxel* — **not yet implemented** |
-| Silent default building height | plausible geometry, wrong heights, no warning | spec BR-11 — height resolution fails closed |
+| Silent default building height | plausible geometry, wrong heights, no warning | spec BR-13 — height resolution fails closed |
 | Web payload too large | viewer never loads | spec edge case *payload too large* — the exporter downsamples and records the factor |
 | Numerical diffusion mistaken for physics | plume looks realistically wide; it is the scheme | spec BR-31 — giá trị phải được tính và báo cáo |
 | Cell-centred wind được nội suy lại cho transport | flux transport không còn là field đã kiểm divergence | contract bắt buộc `uf,vf,wf`; integration test trên chính face field |
@@ -176,9 +217,9 @@ discovered later.
 
 | Alternative | Why rejected |
 | --- | --- |
-| **Central differencing** | unbounded; produces negative concentrations at a front. This was an *actual defect* in the first draft and is now prohibited by spec BR-4 |
+| **Central differencing** | unbounded; produces negative concentrations at a front. This was an *actual defect* in the first draft and is now prohibited by spec BR-5 |
 | **Higher-order / flux-limited** (MUSCL, van Leer) | genuinely better — far less numerical diffusion — but a limiter is a research-grade step for a team learning numpy, and a subtly wrong limiter is much harder to detect than a wrong upwind sign |
-| **Implicit time stepping** | removes the CFL cap, but needs a large sparse solve every step; at 500 000 cells that is a real memory burden and substantially complicates verification. The explicit scheme is retained; its actual runtime is measured in B4.3 rather than assumed |
+| **Implicit time stepping** | removes the CFL cap, but needs a large sparse solve every step; at 500 000 cells that is a real memory burden and substantially complicates verification. The explicit scheme is retained; its actual runtime is measured in B3.4/B5.4 rather than assumed |
 | **Lagrangian particles** | no numerical diffusion and no advective CFL limit, but needs a turbulence model this project does not have, and concentration recovery needs enough particles per voxel to be statistically stable |
 
 **Chosen: explicit upwind finite volume.** Bounded, mass-conserving, about a hundred lines, and
@@ -191,7 +232,7 @@ reported rather than absorbed (spec BR-31).
 5 m → 10 m → 20 m against wind-tunnel data (spec `EXT-2`). Halving the cell multiplies memory by
 8 and run time by roughly 16 — eight times the cells, twice the steps from CFL. 5 m sits at the
 knee: fine enough that skill has not begun degrading quickly, while remaining small enough for a
-laptop-scale benchmark. The actual per-scenario wall-clock is recorded in B4.3 rather than claimed in advance.
+laptop-scale benchmark. The actual per-scenario wall-clock is recorded in B5.4 rather than claimed in advance.
 
 ### 6.4 Web delivery
 

@@ -1,0 +1,3 @@
+# Checksummed seed files: bytes must survive checkout unchanged (docs/DATABASE.md §5)
+db/seeds/scene/** -text
+app/test/fixtures/scene/** -text

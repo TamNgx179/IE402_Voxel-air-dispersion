@@ -1,0 +1,161 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "ie402-voxel-air-dispersion/manifest.schema.json",
+  "title": "Run manifest v1",
+  "description": "Written by the Python solver into artifacts/<run_id>/manifest.json. The monolith marks a run succeeded only if the process exits 0, this schema validates, every artifact checksum matches and verification.status is 'pass'. Contract: docs/spec.md, section 'Hợp đồng v1'.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "run_id",
+    "model",
+    "model_version",
+    "input_hash",
+    "scenario",
+    "grid",
+    "units",
+    "thresholds",
+    "stopping",
+    "artifacts",
+    "verification",
+    "warnings",
+    "started_at",
+    "finished_at"
+  ],
+  "properties": {
+    "schema_version": { "const": "1.0" },
+    "run_id": { "type": "string", "format": "uuid" },
+    "model": {
+      "enum": ["fv", "gaussian"],
+      "description": "fv is the product result; gaussian is the labelled baseline (BR-4, BR-38)."
+    },
+    "model_version": {
+      "type": "string",
+      "minLength": 1,
+      "description": "Package version plus git commit, e.g. '0.1.0+321d99d'. A '-dirty' suffix marks uncommitted code."
+    },
+    "input_hash": {
+      "type": "string",
+      "pattern": "^sha256:[0-9a-f]{64}$",
+      "description": "Hash of the config snapshot and the checksums of every input file."
+    },
+    "scenario": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "wind_from_deg", "wind_speed_m_s"],
+      "properties": {
+        "id": { "type": "string", "minLength": 1 },
+        "wind_from_deg": { "type": "number", "minimum": 0, "exclusiveMaximum": 360 },
+        "wind_speed_m_s": { "type": "number", "minimum": 0 },
+        "emission_multiplier": { "type": "number", "exclusiveMinimum": 0, "default": 1 }
+      }
+    },
+    "grid": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["crs", "axis_order", "origin_x_m", "origin_y_m", "dx_m", "dy_m", "dz_m", "nx", "ny", "nz"],
+      "properties": {
+        "crs": { "type": "string", "pattern": "^EPSG:[0-9]+$" },
+        "axis_order": { "const": "z,y,x" },
+        "origin_x_m": { "type": "number", "description": "West edge of cell i = 0, projected metres." },
+        "origin_y_m": { "type": "number", "description": "South edge of cell j = 0, projected metres." },
+        "dx_m": { "type": "number", "exclusiveMinimum": 0 },
+        "dy_m": { "type": "number", "exclusiveMinimum": 0 },
+        "dz_m": { "type": "number", "exclusiveMinimum": 0 },
+        "nx": { "type": "integer", "minimum": 1 },
+        "ny": { "type": "integer", "minimum": 1 },
+        "nz": { "type": "integer", "minimum": 1 }
+      }
+    },
+    "units": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["concentration", "velocity"],
+      "properties": {
+        "concentration": { "const": "ug m-3" },
+        "velocity": { "const": "m s-1" }
+      }
+    },
+    "thresholds": {
+      "type": "object",
+      "description": "Copied from the config snapshot for traceability, never edited by hand (BR-40).",
+      "minProperties": 1,
+      "additionalProperties": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["value_ug_m3", "label"],
+        "properties": {
+          "value_ug_m3": { "type": "number", "exclusiveMinimum": 0 },
+          "label": { "type": "string" }
+        }
+      }
+    },
+    "stopping": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["criterion", "simulated_s", "steps"],
+      "properties": {
+        "criterion": { "enum": ["fixed_time", "steady_state"] },
+        "simulated_s": { "type": "number", "exclusiveMinimum": 0 },
+        "steps": { "type": "integer", "minimum": 1 },
+        "residual": { "type": ["number", "null"] }
+      }
+    },
+    "artifacts": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["kind", "path", "sha256", "size_bytes"],
+        "properties": {
+          "kind": { "enum": ["wind", "concentration", "columns", "metrics", "log", "config"] },
+          "path": {
+            "type": "string",
+            "pattern": "^[A-Za-z0-9_.-]+$",
+            "description": "File name inside the run directory; no separators, so it cannot escape it."
+          },
+          "sha256": { "type": "string", "pattern": "^[0-9a-f]{64}$" },
+          "size_bytes": { "type": "integer", "minimum": 0 }
+        }
+      }
+    },
+    "verification": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["status", "checks"],
+      "properties": {
+        "status": { "enum": ["pass", "fail"] },
+        "checks": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["cfl", "face_divergence", "positivity", "wall_flux", "mass_balance"],
+          "properties": {
+            "cfl": { "$ref": "#/$defs/check" },
+            "face_divergence": { "$ref": "#/$defs/check" },
+            "positivity": { "$ref": "#/$defs/check" },
+            "wall_flux": { "$ref": "#/$defs/check" },
+            "mass_balance": { "$ref": "#/$defs/check" },
+            "sor_convergence": { "$ref": "#/$defs/check" }
+          }
+        }
+      }
+    },
+    "warnings": { "type": "array", "items": { "type": "string" } },
+    "started_at": { "type": "string", "format": "date-time" },
+    "finished_at": { "type": "string", "format": "date-time" }
+  },
+  "$defs": {
+    "check": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["status", "value", "tolerance"],
+      "properties": {
+        "status": { "enum": ["pass", "fail"] },
+        "value": { "type": "number" },
+        "tolerance": { "type": "number", "minimum": 0 },
+        "detail": { "type": "string" }
+      }
+    }
+  }
+}

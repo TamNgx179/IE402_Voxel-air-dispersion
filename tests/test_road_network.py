@@ -189,7 +189,7 @@ def test_flat_ground_assumption_is_documented():
     """
     text = " ".join(
         (REPO_ROOT / "docs" / name).read_text(encoding="utf-8").lower()
-        for name in ("spec.md", "DECISION.md")
+        for name in ("spec.md", "RESEARCH.md")
     )
 
     assert "flat" in text or "đất phẳng" in text

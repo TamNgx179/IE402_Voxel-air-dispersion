@@ -1,0 +1,60 @@
+{
+  "schema_version": "1.0",
+  "study_area": {
+    "name": "Nguyen Hue",
+    "srid": 32648,
+    "wkt": "POLYGON ((686512.538 1191324.79, 686512.538 1191824.79, 686012.538 1191824.79, 686012.538 1191324.79, 686512.538 1191324.79))"
+  },
+  "grid": {
+    "origin_x_m": 686012.538,
+    "origin_y_m": 1191324.79,
+    "dx_m": 5.0,
+    "dy_m": 5.0,
+    "dz_m": 2.0,
+    "nx": 100,
+    "ny": 100,
+    "nz": 50
+  },
+  "counts": {
+    "buildings": 62,
+    "roads": 67,
+    "water": 1,
+    "green": 17,
+    "grid_cells": 10000
+  },
+  "files": {
+    "buildings.csv": "c692c54b72dd7f64bc6c5301fd680436fccbd59b84d2e37c742af3376593e1b3",
+    "roads.csv": "3ed2183388711a36788c8210c28d5731e35643584f639c293c938dbb897a7201",
+    "water.csv": "18c0ea6ee74b0b4948f6201a9feae4ab83ff4f29f97e159c90dff240b247b0e1",
+    "green.csv": "1356eb549fe4079b97d0e995736ecd19d57cc8bb2fee4a0908f5b593194e1e70",
+    "grid_cells.csv": "21e354c1b6538c0f74ce68dde4c988b75022fa879665244fa555b645451cf37f"
+  },
+  "provenance": {
+    "buildings": {
+      "footprint": "OpenStreetMap contributors",
+      "height": "Google Open Buildings 2.5D Temporal",
+      "license": "ODbL 1.0 (footprints); CC BY 4.0 (heights)",
+      "retrieved": "2026-09-30"
+    },
+    "roads": {
+      "source": "OpenStreetMap contributors",
+      "license": "ODbL 1.0",
+      "retrieved": "2026-09-30"
+    },
+    "water": {
+      "source": "OpenStreetMap contributors",
+      "license": "ODbL 1.0",
+      "retrieved": "2026-10-06"
+    },
+    "green": {
+      "source": "OpenStreetMap contributors",
+      "license": "ODbL 1.0",
+      "retrieved": "2026-10-06"
+    },
+    "grid_cells": {
+      "source": "voxel grid NetCDF (src/01_voxelize.py)",
+      "retrieved": "2026-09-30"
+    }
+  },
+  "generated_at": "2026-10-06T01:44:38+00:00"
+}

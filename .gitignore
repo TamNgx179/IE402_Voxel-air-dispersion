@@ -129,3 +129,19 @@ temp/
 .env
 .env.*
 !.env.example
+
+# ============================================================
+# NestJS app (app/)
+# ============================================================
+
+app/node_modules/
+app/dist/
+app/coverage/
+app/*.tsbuildinfo
+
+# ============================================================
+# Run outputs (docs/spec.md, Hop dong v1): never committed
+# ============================================================
+
+artifacts/*
+!artifacts/.gitkeep

@@ -175,6 +175,9 @@ cao. Hệ thống phải trung thực về sai số, provenance và các hiện 
 
 ## API contract
 
+Mọi endpoint nằm dưới tiền tố `/api`; `/` phục vụ web tĩnh cùng origin. OpenAPI sinh tự động
+tại `/api/docs`.
+
 | Method | Endpoint | Kết quả |
 |---|---|---|
 | `GET` | `/health` | trạng thái monolith, DB, artifact directory và Python runtime |
@@ -182,6 +185,7 @@ cao. Hệ thống phải trung thực về sai số, provenance và các hiện 
 | `GET` | `/scenarios` | kịch bản khí tượng/phát thải |
 | `POST` | `/runs` | tạo run bất đồng bộ, trả `run_id` |
 | `GET` | `/runs/:id` | status, progress, error, metrics |
+| `POST` | `/runs/:id/retry` | đưa run `failed`/`stale` về `queued`, tăng `attempt`; run `succeeded` trả `409` |
 | `GET` | `/runs/:id/slices?z_m=` | concentration layer tại cao độ |
 | `GET` | `/runs/:id/exceedance?threshold=` | cells/vùng vượt ngưỡng |
 | `GET` | `/runs/:id/profile?x=&y=` | profile theo chiều cao |
@@ -198,8 +202,94 @@ cao. Hệ thống phải trung thực về sai số, provenance và các hiện 
 | `scenarios` | `id`, `name`, `wind_from_deg`, `wind_speed_m_s`, `parameters` |
 | `simulation_runs` | `id`, `scenario_id`, `status`, `model_version`, `input_hash`, timestamps, `error` |
 | `run_metrics` | `run_id`, CFL, divergence, mass terms, steps, runtime |
-| `concentration_slices` | `run_id`, `z_m`, `geom`, `concentration_ug_m3`, threshold flags |
+| `grid_cells` | `study_area_id`, `i`, `j`, `geom` (ô 5 × 5 m), `solid_from_k` |
+| `concentration_columns` | `run_id`, `i`, `j`, `c_ug_m3 real[nz]` — một dòng cho mỗi cột voxel |
+| `thresholds` | `key`, `value_ug_m3`, `label`, `config_hash` — sinh từ config, không nhập tay |
 | `artifacts` | `run_id`, `kind`, `uri/path`, `checksum`, `size_bytes`, `manifest` |
+
+ERD, kiểu cột, khoá và index: [`DATABASE.md`](DATABASE.md).
+
+## Hợp đồng v1 — monolith ↔ Python solver ↔ DB
+
+> **Trạng thái: D1–D4 đã chốt ngày 06/10/2026 (cổng M0).** Từ đây mọi thay đổi phải tăng
+> `schema_version` và sửa spec, migration/DTO và `config/manifest.schema.json` trong cùng một
+> PR (ROADMAP §9.1). Nạp vào DB dùng `columns.csv.gz` qua `COPY`, không dùng Parquet.
+
+### D1 · Kết quả nồng độ trong PostGIS
+
+Tensor đầy đủ nằm trong `concentration.nc`. DB giữ **một dòng cho mỗi cột voxel `(i, j)`**,
+chứa mảng `c_ug_m3` dài `nz` theo thứ tự `k` tăng dần; phần tử `NULL` là voxel rắn (toà nhà).
+Geometry chỉ lưu **một lần** cho mỗi study area trong `grid_cells`.
+
+| Lý do | Hệ quả |
+|---|---|
+| 100 × 100 × 50 voxel thành 10.000 dòng/run thay vì 500.000 | Đo kích thước thật trong A5.6 |
+| Profile đứng là một dòng | `/profile` không cần aggregate |
+| Slice tại tầng `k` là `c_ug_m3[k+1]` JOIN `grid_cells` | `/slices`, `/exceedance` dùng GiST trên `grid_cells.geom` khi lọc bbox |
+| Summary theo tầng dùng `unnest(...) WITH ORDINALITY` | `/summary` không cần bảng phụ |
+
+Quy tắc cao độ: `z_m` được quy về **ô chứa nó**, `k = floor(z_m / dz)`; response trả cả
+`z_m` yêu cầu lẫn tâm tầng thực (`z_center_m`). Ví dụ `z_m = 1,5` → `k = 0`, tâm 1 m.
+
+### D2 · Lệnh gọi Python solver
+
+```text
+<PYTHON_BIN> -m src.solver run --run-id <uuid> --config <artifacts/<run_id>/config.yaml> --out <artifacts/<run_id>/>
+```
+
+`SimulationModule` ghi snapshot config trước khi spawn, chạy từ thư mục gốc repo, truyền
+arguments dạng mảng (không qua shell). Solver không mở port và không đọc DB.
+
+| Exit code | Nghĩa | Trạng thái run |
+|---:|---|---|
+| `0` | Hoàn tất, mọi verification check pass, manifest hợp lệ | `succeeded` |
+| `2` | Input/config sai (schema, file thiếu, CRS sai) | `failed` · `error.kind = input` |
+| `3` | Mô hình chạy nhưng không đạt gate (SOR không hội tụ, âm vượt tolerance, mass budget, divergence) | `failed` · `error.kind = model` |
+| `4` hoặc khác | Lỗi hệ thống (I/O, hết bộ nhớ, exception bất ngờ) | `failed` · `error.kind = system` |
+| bị kill do timeout | Monolith dừng tiến trình | `failed` · `error.kind = timeout` |
+
+Tiến độ: mỗi dòng stdout là một JSON
+`{"event": "progress", "stage": "wind|transport|export", "fraction": 0.0–1.0}`; stderr ghi vào
+`solver.log`. Monolith chỉ đánh dấu `succeeded` khi exit `0` **và** manifest khớp
+[`config/manifest.schema.json`](../config/manifest.schema.json) **và** mọi checksum khớp.
+
+Chế độ giả cho tích hợp trước khi có solver thật (A3.4):
+
+- `--mock` ghi đủ bộ artifact đúng contract với một trường nồng độ **tổng hợp** (một chùm
+  Gaussian dựng sẵn), `model = "fv"`, verification `pass`, và `warnings` luôn chứa
+  `"mock run: synthetic field, not a model result"`. Kết quả mock không bao giờ được dùng
+  trong báo cáo.
+- `--mock-fail input|model|system` thoát với mã 2/3/4 tương ứng; với `model`, manifest vẫn được
+  ghi nhưng `verification.status = "fail"`.
+- Không có `--mock` thì solver thật chạy (từ B4.1); trước đó nó thoát `4` với thông báo chưa
+  triển khai.
+
+Thư mục kết quả:
+
+```text
+artifacts/<run_id>/
+├── config.yaml              snapshot do monolith ghi
+├── wind.nc                  u,v,w tâm ô + uf,vf,wf mặt ô (BR-36)
+├── concentration.nc         C [z,y,x], ug m-3, float32
+├── columns.csv.gz           i,j,c_ug_m3 dạng mảng PostgreSQL — monolith COPY vào concentration_columns
+├── metrics.json             dt, Courant, steps, simulated_s, wall_clock_s, mass ledger
+├── manifest.json            theo manifest.schema.json
+└── solver.log
+```
+
+### D3 · Run ở mốc M3 (tuần 4)
+
+Run M3 chạy: wind SOR, rồi FV trong **thời gian mô phỏng cố định**
+(`transport.max_simulated_s` = 600 s, khoảng hai lần thời gian gió 1,6–1,8 m/s đi hết 500 m), rồi verification gate trên production grid. Tiêu chí dừng
+steady-state (BR-8) được thêm ở B5.1 qua trường `stopping.criterion` của manifest, **không đổi
+contract**: `"fixed_time"` ở M3, `"steady_state"` từ M4.
+
+### D4 · Đóng gói
+
+Một image ứng dụng (Node LTS + Python venv cài `requirements-solver.txt` — tập con của
+`requirements.txt` chỉ gồm thư viện solver cần) và một service `postgis/postgis` trong Compose.
+B sở hữu `requirements-solver.txt` và lệnh kiểm môi trường Python; A sở hữu Dockerfile và
+Compose. Không có container riêng cho Python.
 
 ## Trường hợp biên
 

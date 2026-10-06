@@ -1,6 +1,6 @@
-# Giả định phát thải (A3.5)
+# Giả định phát thải
 
-> **File sinh tự động — không sửa tay.** Tạo bởi `src/emission/assumptions.py` lúc 2026-09-29 07:15 UTC. Chạy lại pipeline phát thải để cập nhật. Mọi số dưới đây đọc từ `config/project.yaml` hoặc đo từ file pipeline đã ghi; bước chưa chạy ghi `not-run`.
+> **File sinh tự động — không sửa tay.** Tạo bởi `src/emission/assumptions.py` lúc 2026-10-06 01:21 UTC. Chạy lại pipeline phát thải để cập nhật. Mọi số dưới đây đọc từ `config/project.yaml` hoặc đo từ file pipeline đã ghi; bước chưa chạy ghi `not-run`.
 
 ## 1. Bảng giả định
 
@@ -8,10 +8,10 @@
 |---|---|---|---|---|
 | 1 | Mạng đường là đồ thị `drive` của OSM, **mỗi phố hai chiều tính một lần** | 67 cạnh, 6395.5 m; tertiary 32 cạnh / 3132 m, residential 27 cạnh / 2723 m, primary 3 cạnh / 277 m, secondary 5 cạnh / 263 m | OSM qua osmnx; bỏ cạnh ngược trùng ở `emission/roads.py::drop_reverse_duplicates` | Phố đi bộ Nguyễn Huệ (`highway=pedestrian`) không phát thải — đúng. Hướng lưu thông không phải trọng số |
 | 2 | Phân bổ theo **cấp đường** (`highway=`), trọng số → tỉ trọng phát thải | tertiary 0.50 → 57.6 %, residential 0.25 → 25.0 %, primary 1.00 → 10.2 %, secondary 0.75 → 7.3 % | **Giả định mô hình, không có số đếm** (`config/project.yaml` `emissions.allocation`) | Bất định lớn nhất của nguồn thải; cần phân tích độ nhạy trọng số |
-| 3 | **Không dùng `maxspeed`** | — | BR-28: `maxspeed` phủ 47 %, cấp đường phủ 100 % | Không mô tả được ùn tắc / tốc độ |
+| 3 | **Không dùng `maxspeed`** | — | Độ phủ thẻ OSM trên miền: `maxspeed` 47 %, cấp đường 100 % | Không mô tả được ùn tắc / tốc độ |
 | 4 | Hệ số phát thải xe máy | **0.053 g/(xe·km)**, nhãn `PM` | Tran et al. (2024), IOP Conference Series: Earth and Environmental Science 1391 012007 (10.1088/1755-1315/1391/1/012007) — đo ở **Hà Nội** | **Bị triệt tiêu khi chuẩn hoá EDGAR**: không ảnh hưởng trường S cuối; chỉ còn dùng cho phép đối chiếu lưu lượng ở §2 |
 | 5 | Nhãn chất ô nhiễm | proxy `PM` → đích `PM2.5` | config | EF là PM tổng, EDGAR là PM2.5: chỉ dùng tỉ lệ không gian của PM, không dùng trị tuyệt đối |
-| 6 | Chiều cao nguồn | 1.0 m → tầng voxel k = 0 (tâm 1 m) | ống xả xe máy | Không có rối do xe cộ (hạn chế 3 của ROADMAP §6) |
+| 6 | Chiều cao nguồn | 1.0 m → tầng voxel k = 0 (tâm 1 m) | ống xả xe máy | Không có rối do xe cộ (spec *Ngoài phạm vi*, AC-25) |
 | 7 | Đoạn đường nằm dưới voxel rắn bị loại, phần còn lại **chuẩn hoá lại trên toàn miền** | 0.0010 % proxy bị loại; 59/67 cạnh cắt miền | `emission/rasterizer.py` | Bảo toàn tổng; lượng bị loại phân bổ lên mọi đường chứ không lên ô khí gần nhất — với tỉ lệ này ảnh hưởng không đáng kể |
 | 8 | Tổng phát thải đặt bằng **EDGAR** | EDGAR v8.1 TRO 2022: flux 1.229e-11 kg m⁻² s⁻¹ → **3.073e-06 kg/s** cho miền 500 × 500 m | European Commission, Joint Research Centre (JRC), EDGAR v8.1 Global Air Pollutant Emissions | EDGAR là **trung bình ô 0,1° (~11 km)**, gồm cả vùng ít xe; áp cho lõi Quận 1 nhiều khả năng **thấp hơn thực tế** — xem §2 |
 | 9 | Lệch năm | EDGAR 2022 ↔ khí tượng 2025-01-01 – 2025-12-31 | config | Chấp nhận được cho phân bố không gian; không dùng để so trị tuyệt đối theo năm |

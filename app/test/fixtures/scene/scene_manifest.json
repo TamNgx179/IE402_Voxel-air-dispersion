@@ -1,0 +1,37 @@
+{
+  "schema_version": "1.0",
+  "study_area": {
+    "name": "Fixture 2x2",
+    "srid": 32648,
+    "wkt": "POLYGON((686000 1191300,686010 1191300,686010 1191310,686000 1191310,686000 1191300))"
+  },
+  "grid": {
+    "origin_x_m": 686000,
+    "origin_y_m": 1191300,
+    "dx_m": 5,
+    "dy_m": 5,
+    "dz_m": 2,
+    "nx": 2,
+    "ny": 2,
+    "nz": 4
+  },
+  "counts": {
+    "buildings": 2,
+    "roads": 1,
+    "water": 0,
+    "green": 1,
+    "grid_cells": 4
+  },
+  "files": {
+    "buildings.csv": "0c2c2f4f5482a075f65a60e4b3932c0f2320ba0880de12f41bcd11af7eacb91e",
+    "roads.csv": "81941ccbf3289ca3ef430c0e7d9b4ac5c0bec95e5b636bffd2503182b45b4180",
+    "water.csv": "ce6bf804dd71e8fe3318734750b3e267a14b87360a89a76c5763387a26b3dc55",
+    "green.csv": "c01cf3bc0bcef97791c879f6542a5ebd553bd14163f3605ab6a13b6e6f8763b9",
+    "grid_cells.csv": "ab5118f3d2c95fdc2880ee0d33e419d09c6d517e4243e0b53355a518b1dd9b98"
+  },
+  "provenance": {
+    "note": "synthetic test fixture for app/ tests, not real data",
+    "sources": []
+  },
+  "generated_at": "2026-10-06T00:00:00Z"
+}

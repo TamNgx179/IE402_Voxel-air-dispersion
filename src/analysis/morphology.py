@@ -1,8 +1,8 @@
 """
 Street-canyon aspect ratio H/W, measured on the model's own geometry.
 
-docs/DECISION.md section 4 asks for "a district with distinct street
-canyons", and Nguyen Hue is a wide boulevard, so whether the study area has
+The study area was chosen as "a district with distinct street
+canyons" (docs/RESEARCH.md §5.1), and Nguyen Hue is a wide boulevard, so whether the study area has
 canyons at all is a measurable question, not a matter of opinion.
 
 Method, stated so it can be disputed:

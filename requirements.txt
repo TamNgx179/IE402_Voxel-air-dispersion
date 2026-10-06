@@ -33,6 +33,10 @@ python-dotenv>=1.0
 # but is imported directly, so it is declared directly.
 Pillow>=10.0
 
+# Run manifest contract (config/manifest.schema.json). Arrives via jupyter,
+# but tests and the solver validate against it directly, so it is declared.
+jsonschema>=4.20
+
 # Jupyter / debugging
 jupyter>=1.1
 ipykernel>=6.29

@@ -7,7 +7,7 @@ tested against a field whose answer is known in closed form.
 
 "Exceedance volume" and "facade exposure" have no standard definition in the
 GIS literature; they are this project's own operators, anchored to QCVN/WHO
-thresholds and to the voxel spacing (docs/DECISION.md section 7).
+thresholds and to the voxel spacing (docs/RESEARCH.md §13.2).
 
 Convention for missing values: a solid (building) voxel holds no air, so it is
 NaN in every derived field. Zero is a real concentration and is never used to
@@ -226,7 +226,7 @@ def facade_mask(solid: np.ndarray) -> np.ndarray:
     Air voxels that share a horizontal face with a solid voxel.
 
     4-neighbourhood in the horizontal plane only: an air voxel above a roof
-    touches the building but is not on its facade (docs/DECISION.md 7.6).
+    touches the building but is not on its facade (docs/RESEARCH.md §13.3 item 6).
     """
 
     solid = np.asarray(solid, dtype=bool)

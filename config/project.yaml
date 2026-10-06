@@ -13,6 +13,15 @@ paths:
 
   roads: "data/raw/roads.geojson"
 
+  # Scene-only layers (src/00_prepare_landcover.py); not model inputs.
+  water: "data/raw/water.geojson"
+
+  green: "data/raw/green.geojson"
+
+  # Scene package seeded into PostGIS (src/07_export_scene.py). Committed,
+  # so a clean machine can seed without Internet (docs/DATABASE.md §5).
+  scene_package_dir: "db/seeds/scene"
+
   # A3.1
   road_class_summary: "output/analysis/road_class_summary.csv"
 
@@ -277,6 +286,23 @@ emissions:
 
 
 # ============================================================
+# TRANSPORT (src/03_transport.py) - contract v1, docs/spec.md D3
+# ============================================================
+
+transport:
+
+  # M3 stops after a fixed simulated time: about twice the time the
+  # 1.6-1.8 m/s scenario winds take to cross the 500 m domain. The
+  # steady-state criterion (spec BR-8) replaces it in B5.1.
+  stopping_criterion: "fixed_time"
+
+  max_simulated_s: 600.0
+
+  # Upwind is stable at Courant <= 1; 0.5 keeps a margin (spec BR-7).
+  courant_target: 0.5
+
+
+# ============================================================
 # VOXELIZATION
 # ============================================================
 
@@ -385,7 +411,7 @@ analysis:
   report_pattern: "output/analysis/analysis_{scenario}.json"
 
   # Horizontal slices: breathing height, 2nd floor, 15 m, 30 m
-  # (docs/DECISION.md section 7.1).
+  # (docs/RESEARCH.md §13.3, item 1).
   slice_heights_m: [1.5, 6.0, 15.0, 30.0]
 
   # Building floor height for facade exposure, same as
@@ -394,8 +420,8 @@ analysis:
 
   # PM2.5, ug m-3. QCVN 05:2023/BTNMT Table 1: 24 h = 50, and 45
   # from 01/01/2026 (footnote *); annual = 25. WHO 2021 AQG:
-  # 24 h = 15, annual = 5. Sources and caveats: docs/DECISION.md,
-  # Amendment 29/09/2026 section A.
+  # 24 h = 15, annual = 5. Read from the official PDF on 06/10/2026:
+  # docs/RESEARCH.md §1.3. This is the only copy of these numbers.
   thresholds_ug_m3:
 
     qcvn_24h:

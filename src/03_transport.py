@@ -11,6 +11,11 @@ K_num ~ 0.5*u*dx*(1-Cr), reported by numerical_diffusion().
 Flux form: fluxes are taken on cell faces and differenced, so mass is
 conserved to machine precision. Check it with total_mass().
 
+Positivity is checked on the raw update, before any correction (spec BR-10,
+BR-37). A negative value beyond round-off raises NegativeConcentrationError;
+round-off negatives are zeroed and the mass this adds is written to the
+optional ledger, so a correction can never hide inside a green test.
+
 All 3D arrays are [z, y, x]. Velocity components always follow the shared
 project convention (u, v, w) = (x, y, z); they are mapped to array axes
 internally before fluxes are computed.
@@ -26,6 +31,23 @@ import numpy as np
 AXIS_Z = 0
 AXIS_Y = 1
 AXIS_X = 2
+
+# A raw negative smaller than this fraction of the field's peak is round-off.
+# Upwind under the CFL limit is bounded, so anything larger is a real defect.
+NEGATIVE_RTOL = 1e-9
+
+
+class NegativeConcentrationError(RuntimeError):
+    """The raw update went negative beyond round-off: the step is unstable."""
+
+    def __init__(self, min_value: float, tolerance: float) -> None:
+        super().__init__(
+            f"raw concentration reached {min_value:.3e}, beyond the "
+            f"round-off tolerance -{tolerance:.3e}; reduce dt or check the "
+            "velocity field"
+        )
+        self.min_value = min_value
+        self.tolerance = tolerance
 
 
 def _as_triplet(value: float | Iterable[float]) -> tuple[float, float, float]:
@@ -121,6 +143,8 @@ def transport_step(
     dx_m: float = 1.0,
     solid: np.ndarray | None = None,
     ground_is_reflective: bool = True,
+    negative_rtol: float = NEGATIVE_RTOL,
+    ledger: dict[str, float] | None = None,
 ) -> np.ndarray:
     """
     Advance the concentration field by one explicit finite-volume step.
@@ -131,6 +155,14 @@ def transport_step(
     diffusivity    m^2/s; scalar or (Kz, Ky, Kx)
     dt             seconds; choose it with cfl_time_step()
     solid          optional [z, y, x] bool mask, True = building
+    negative_rtol  round-off allowance for negatives, relative to the peak
+    ledger         optional dict; accumulates, in kg,
+                   "positivity_correction_kg" (mass added by zeroing
+                   round-off negatives) and "solid_removed_kg" (mass found
+                   in building voxels and dropped)
+
+    Raises NegativeConcentrationError when the raw update is negative beyond
+    the allowance.
     """
 
     if concentration.shape != source.shape:
@@ -177,11 +209,32 @@ def transport_step(
 
     updated = concentration + dt * (source - net_outflow)
 
+    cell_volume = dz_m * dy_m * dx_m
+
     if solid is not None:
+        if ledger is not None:
+            removed = float(np.sum(updated[solid])) * cell_volume
+            ledger["solid_removed_kg"] = ledger.get("solid_removed_kg", 0.0) + removed
         updated = np.where(solid, 0.0, updated)
 
-    # Upwind in flux form is bounded; clip only to absorb round-off.
-    return np.maximum(updated, 0.0)
+    # Check the raw update, before any correction touches it.
+    tolerance = negative_rtol * float(np.max(np.abs(updated), initial=0.0))
+    min_value = float(np.min(updated, initial=0.0))
+
+    if min_value < -tolerance:
+        raise NegativeConcentrationError(min_value, tolerance)
+
+    negative = updated < 0.0
+
+    if np.any(negative):
+        if ledger is not None:
+            added = -float(np.sum(updated[negative])) * cell_volume
+            ledger["positivity_correction_kg"] = (
+                ledger.get("positivity_correction_kg", 0.0) + added
+            )
+        updated = np.where(negative, 0.0, updated)
+
+    return updated
 
 
 def cfl_time_step(

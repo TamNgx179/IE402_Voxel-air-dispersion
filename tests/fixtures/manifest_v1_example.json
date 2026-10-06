@@ -1,0 +1,53 @@
+{
+  "schema_version": "1.0",
+  "run_id": "3f2b8c1e-6a4d-4e2b-9c1a-7d5e0f9a2b10",
+  "model": "fv",
+  "model_version": "0.1.0+321d99d",
+  "input_hash": "sha256:0f1e2d3c4b5a69788796a5b4c3d2e1f00f1e2d3c4b5a69788796a5b4c3d2e1f0",
+  "scenario": {
+    "id": "dry_nov_apr",
+    "wind_from_deg": 112.0,
+    "wind_speed_m_s": 1.62,
+    "emission_multiplier": 1.0
+  },
+  "grid": {
+    "crs": "EPSG:32648",
+    "axis_order": "z,y,x",
+    "origin_x_m": 686012.5382820893,
+    "origin_y_m": 1191324.7902596025,
+    "dx_m": 5.0,
+    "dy_m": 5.0,
+    "dz_m": 2.0,
+    "nx": 100,
+    "ny": 100,
+    "nz": 50
+  },
+  "units": { "concentration": "ug m-3", "velocity": "m s-1" },
+  "thresholds": {
+    "qcvn_24h": { "value_ug_m3": 45.0, "label": "QCVN 05:2023 · 24 h (từ 01/01/2026)" },
+    "who_24h": { "value_ug_m3": 15.0, "label": "WHO 2021 · 24 h" }
+  },
+  "stopping": { "criterion": "fixed_time", "simulated_s": 600.0, "steps": 1200, "residual": null },
+  "artifacts": [
+    { "kind": "config", "path": "config.yaml", "sha256": "a3f1c2d4e5b6a7980f1e2d3c4b5a69788796a5b4c3d2e1f00f1e2d3c4b5a6978", "size_bytes": 14210 },
+    { "kind": "wind", "path": "wind.nc", "sha256": "b3f1c2d4e5b6a7980f1e2d3c4b5a69788796a5b4c3d2e1f00f1e2d3c4b5a6978", "size_bytes": 8120400 },
+    { "kind": "concentration", "path": "concentration.nc", "sha256": "c3f1c2d4e5b6a7980f1e2d3c4b5a69788796a5b4c3d2e1f00f1e2d3c4b5a6978", "size_bytes": 2010300 },
+    { "kind": "columns", "path": "columns.csv.gz", "sha256": "d3f1c2d4e5b6a7980f1e2d3c4b5a69788796a5b4c3d2e1f00f1e2d3c4b5a6978", "size_bytes": 1904000 },
+    { "kind": "metrics", "path": "metrics.json", "sha256": "e3f1c2d4e5b6a7980f1e2d3c4b5a69788796a5b4c3d2e1f00f1e2d3c4b5a6978", "size_bytes": 1830 },
+    { "kind": "log", "path": "solver.log", "sha256": "f3f1c2d4e5b6a7980f1e2d3c4b5a69788796a5b4c3d2e1f00f1e2d3c4b5a6978", "size_bytes": 5402 }
+  ],
+  "verification": {
+    "status": "pass",
+    "checks": {
+      "cfl": { "status": "pass", "value": 0.5, "tolerance": 0.5 },
+      "face_divergence": { "status": "pass", "value": 3.1e-7, "tolerance": 1e-5 },
+      "positivity": { "status": "pass", "value": 0.0, "tolerance": 1e-9, "detail": "positivity_correction_kg / emitted_kg" },
+      "wall_flux": { "status": "pass", "value": 0.0, "tolerance": 0.0 },
+      "mass_balance": { "status": "pass", "value": 2.4e-12, "tolerance": 1e-9, "detail": "|emitted - remaining - escaped - corrections| / emitted" },
+      "sor_convergence": { "status": "pass", "value": 8.7e-5, "tolerance": 1e-4 }
+    }
+  },
+  "warnings": [],
+  "started_at": "2026-10-27T09:00:00+07:00",
+  "finished_at": "2026-10-27T09:03:12+07:00"
+}

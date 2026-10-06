@@ -43,7 +43,8 @@ Pipeline Python hiện tại là lõi tính toán; backend là lớp sản phẩ
 |---|---|
 | [`docs/RESEARCH.md`](docs/RESEARCH.md) | Research rút gọn, nguồn và lý do chọn mô hình |
 | [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md) | Kiến trúc modular monolith và luồng dữ liệu |
-| [`docs/spec.md`](docs/spec.md) | Đặc tả tiếng Việt, API, dữ liệu và truy vấn |
+| [`docs/spec.md`](docs/spec.md) | Đặc tả tiếng Việt, API, dữ liệu, truy vấn và hợp đồng v1 monolith ↔ solver |
+| [`docs/DATABASE.md`](docs/DATABASE.md) | ERD, index và bốn query PostGIS bắt buộc |
 | [`docs/ROADMAP.md`](docs/ROADMAP.md) | Kế hoạch 8 tuần, phân công A/B, không seminar |
 
 ## Nguyên tắc học thuật

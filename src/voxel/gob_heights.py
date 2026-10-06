@@ -1,7 +1,7 @@
 """
 Building heights from Google Open Buildings 2.5D Temporal.
 
-The source chosen in docs/DECISION.md §5. Reached over plain HTTPS with no
+The source chosen in docs/RESEARCH.md §12.3. Reached over plain HTTPS with no
 credentials: Google's own download notebook authenticates with
 AnonymousCredentials, and the GeoTIFFs are Cloud-Optimised, so a 500 m window
 is a range read of a few hundred kB rather than a 1.5 GB download.

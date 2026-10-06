@@ -104,7 +104,7 @@ def build_assumptions_markdown(config: dict[str, Any]) -> str:
     transport_path = resolve_repo_path(config, "paths.emission_source_transport_netcdf")
 
     lines: list[str] = [
-        "# Giả định phát thải (A3.5)",
+        "# Giả định phát thải",
         "",
         "> **File sinh tự động — không sửa tay.** Tạo bởi `src/emission/assumptions.py` lúc "
         f"{datetime.now(timezone.utc).strftime('%Y-%m-%d %H:%M UTC')}. Chạy lại pipeline "
@@ -140,10 +140,10 @@ def build_assumptions_markdown(config: dict[str, Any]) -> str:
     lines += [
         f"| 1 | Mạng đường là đồ thị `drive` của OSM, **mỗi phố hai chiều tính một lần** | {network} | OSM qua osmnx; bỏ cạnh ngược trùng ở `emission/roads.py::drop_reverse_duplicates` | Phố đi bộ Nguyễn Huệ (`highway=pedestrian`) không phát thải — đúng. Hướng lưu thông không phải trọng số |",
         f"| 2 | Phân bổ theo **cấp đường** (`highway=`), trọng số → tỉ trọng phát thải | {allocation} | **Giả định mô hình, không có số đếm** (`config/project.yaml` `emissions.allocation`) | Bất định lớn nhất của nguồn thải; cần phân tích độ nhạy trọng số |",
-        "| 3 | **Không dùng `maxspeed`** | — | BR-28: `maxspeed` phủ 47 %, cấp đường phủ 100 % | Không mô tả được ùn tắc / tốc độ |",
+        "| 3 | **Không dùng `maxspeed`** | — | Độ phủ thẻ OSM trên miền: `maxspeed` 47 %, cấp đường 100 % | Không mô tả được ùn tắc / tốc độ |",
         f"| 4 | Hệ số phát thải xe máy | **{ef} g/(xe·km)**, nhãn `{emissions.get('pollutant')}` | {emissions['emission_factor'].get('source')} ({emissions['emission_factor'].get('doi')}) — đo ở **Hà Nội** | **Bị triệt tiêu khi chuẩn hoá EDGAR**: không ảnh hưởng trường S cuối; chỉ còn dùng cho phép đối chiếu lưu lượng ở §2 |",
         f"| 5 | Nhãn chất ô nhiễm | proxy `{emissions.get('pollutant')}` → đích `{normalization.get('target_pollutant', 'not-run')}` | config | EF là PM tổng, EDGAR là PM2.5: chỉ dùng tỉ lệ không gian của PM, không dùng trị tuyệt đối |",
-        f"| 6 | Chiều cao nguồn | {get_required(config, 'emissions.rasterization.source_height_m')} m → tầng voxel k = 0 (tâm 1 m) | ống xả xe máy | Không có rối do xe cộ (hạn chế 3 của ROADMAP §6) |",
+        f"| 6 | Chiều cao nguồn | {get_required(config, 'emissions.rasterization.source_height_m')} m → tầng voxel k = 0 (tâm 1 m) | ống xả xe máy | Không có rối do xe cộ (spec *Ngoài phạm vi*, AC-25) |",
     ]
 
     relative = _attrs(relative_path)

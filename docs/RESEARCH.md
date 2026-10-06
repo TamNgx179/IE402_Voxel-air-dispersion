@@ -53,14 +53,24 @@ Bổ sung 3 lập luận vật lý (📐, nhưng có nguồn hỗ trợ từng p
 
 **QCVN 05:2023/BTNMT** — ban hành theo Thông tư 01/2023/TT-BTNMT (13/03/2023), **hiệu lực 12/09/2023**, thay thế QCVN 05:2013 và QCVN 06:2009; bao 7 thông số cơ bản: SO₂, CO, NO₂, O₃, TSP, PM10, PM2.5 ✅ ([luatvietnam.vn](https://luatvietnam.vn/tai-nguyen/quy-chuan-viet-nam-qcvn-05-2023-btnmt-245815-d3.html) · [bản PDF gov.vn](http://huulung.langson.gov.vn/upload/105417/20250327/01-btnmt-qc05_a74c1.pdf)).
 
-| Chất | 1 giờ | 8 giờ | 24 giờ | Trung bình năm | Độ tin cậy |
-|---|---|---|---|---|---|
-| **PM2.5** | — | — | **50 µg/m³** | **25 µg/m³** | ✅ hai nguồn độc lập khớp nhau |
-| SO₂ | 350 | — | 125 | 50 | ⚠️ một nguồn |
-| CO | 30.000 | 10.000 | — | — | ⚠️ một nguồn |
-| NO₂ | 200 | — | 100 | 40 | ⚠️ một nguồn |
-| O₃ | 200 | 120 | — | — | ⚠️ một nguồn |
-| PM10, TSP, Pb | — | — | *mâu thuẫn* | *mâu thuẫn* | 🔴 **phải tự đọc Bảng 1 trong PDF** |
+Bảng 1 dưới đây được đọc trực tiếp từ ảnh trang PDF ở **hai bản độc lập** (bản lưu của
+UBND xã Hữu Lũng, Lạng Sơn và bản của thuvienmoitruong.vn), kiểm ngày 06/10/2026 ✅. Đơn vị
+µg/Nm³.
+
+| Chất | 1 giờ | 8 giờ | 24 giờ | Trung bình năm |
+|---|---|---|---|---|
+| **PM2.5** | — | — | **50**; **45 từ 01/01/2026** (\*) | **25** |
+| PM10 | — | — | 100 | 50 |
+| TSP | 300 | — | 200 | 100 |
+| SO₂ | 350 | — | 125 | 50 |
+| CO | 30.000 | 10.000 | — | — |
+| NO₂ | 200 | — | 100 | 40 |
+| O₃ | 200 | 120 | — | — |
+
+(\*) Nguyên văn ghi chú Bảng 1: *"Giá trị nồng độ áp dụng từ ngày 01 tháng 01 năm 2026."*
+Ô 24 giờ của PM2.5 được chia làm hai: 50 và 45⁽\*⁾. Vì đồ án chạy năm 2026, **ngưỡng 24 giờ
+dùng là 45 µg/m³**; nguồn duy nhất của con số này là `config/project.yaml`
+(`analysis.thresholds_ug_m3.qcvn_24h`). Pb thuộc Bảng 2: trung bình 24 giờ 1,5 µg/Nm³.
 
 **WHO 2021 Global Air Quality Guidelines** ✅ ([WHO, ISBN 9789240034228](https://www.who.int/publications/i/item/9789240034228); số liệu lấy qua [EEA](https://www.eea.europa.eu/en/analysis/publications/europes-air-quality-status-2024) vì WHO đăng bảng dưới dạng **ảnh**, không phải text):
 
@@ -71,7 +81,7 @@ Bổ sung 3 lập luận vật lý (📐, nhưng có nguồn hỗ trợ từng p
 | NO₂ | năm / 24h | **10** / **25** µg/m³ |
 | O₃ | mùa cao điểm 8h / 8h | **60** / **100** µg/m³ |
 
-📐 **Điểm nhấn cho báo cáo:** ngưỡng PM2.5 trung bình năm của Việt Nam (**25**) cao **gấp 5 lần** khuyến nghị WHO (**5**); ngưỡng 24 giờ (**50**) cao **gấp hơn 3 lần** mức WHO (**15**). Vẽ kết quả mô phỏng đối chiếu **cả hai ngưỡng** là một phần Kết quả rất mạnh.
+📐 **Điểm nhấn cho báo cáo:** ngưỡng PM2.5 trung bình năm của Việt Nam (**25**) cao **gấp 5 lần** khuyến nghị WHO (**5**); ngưỡng 24 giờ (**45** từ 2026) cao **gấp 3 lần** mức WHO (**15**). Vẽ kết quả mô phỏng đối chiếu **cả hai ngưỡng** là một phần Kết quả rất mạnh.
 
 ---
 
@@ -1066,7 +1076,7 @@ Tài liệu gốc OpenVDB: *"thư viện C++ từng đoạt giải Academy Award
 1. **Lát cắt ngang (horizontal slice)** ở z = 1,5 m (mực hô hấp người đi bộ), 6 m (tầng 2), 15 m, 30 m → chứng minh nồng độ thay đổi theo độ cao.
 2. **Mặt cắt đứng (vertical section)** cắt ngang một hẻm phố → cho thấy xoáy tái tuần hoàn và chênh lệch leeward/windward.
 3. **Profile đứng** tại vị trí trạm quan trắc → so sánh với CAMS EAC4 (§15.3).
-4. **Bề mặt đẳng trị** tại ngưỡng QCVN 05:2023 (PM2.5 24h = 50 µg/m³) và ngưỡng WHO (15 µg/m³) → hai "bong bóng" lồng nhau, hình ảnh rất mạnh về mặt truyền thông.
+4. **Bề mặt đẳng trị** tại ngưỡng QCVN 05:2023 (PM2.5 24h = 45 µg/m³ từ 01/01/2026) và ngưỡng WHO (15 µg/m³) → hai "bong bóng" lồng nhau, hình ảnh rất mạnh về mặt truyền thông.
 5. **Thể tích vượt ngưỡng** (m³) theo giờ trong ngày → một đường cong duy nhất tóm tắt cả mô phỏng.
 6. **Phơi nhiễm mặt đứng toà nhà** — nồng độ trung bình trên các voxel tiếp giáp tường, phân theo độ cao tầng.
 7. **Phơi nhiễm dân số** — giao lưới voxel mực người đi bộ với raster dân số WorldPop 100 m (§15.6).
@@ -1446,7 +1456,7 @@ Mật khẩu file nén đo đạc lấy từ `ewtl.mi@uni-hamburg.de`.
 | # | Vấn đề | Việc phải làm |
 |---|---|---|
 | 1 | **Ngưỡng chấp nhận Chang & Hanna** — ba giá trị NMSE (1,5 / 3 / 4) đang lưu hành cho cùng một trích dẫn | Mở [DOI 2004](https://doi.org/10.1007/s00703-003-0070-7) và [DOI 2012](https://doi.org/10.1007/s00703-011-0177-1) qua thư viện, chép bảng |
-| 2 | **QCVN 05:2023 — PM10, TSP, Pb** và các hàng SO₂/CO/NO₂/O₃ (một nguồn). Ba lần đọc PDF cho kết quả **mâu thuẫn nhau** (một lần PM10 24h = 150, lần khác = 100; một lần SO₂ 24h = 50 và năm = 20, bất hợp lý nội tại) | **Mở PDF chính thức và đọc Bảng 1, Bảng 2 bằng mắt.** Chỉ PM2.5 = 50/25 là được hai nguồn độc lập xác nhận. ⚠️ Một lần trích còn nhắc tới giá trị chuyển tiếp PM2.5 năm = 45 µg/m³ đến 01/01/2026 — **chưa xác thực, chỉ 1 nguồn, phải kiểm hoặc bỏ** |
+| 2 | ~~**QCVN 05:2023 — PM10, TSP, Pb**, SO₂/CO/NO₂/O₃ và giá trị chuyển tiếp 45~~ | ✅ **ĐÃ GIẢI QUYẾT 06/10/2026** bằng ảnh trang Bảng 1–2 của hai bản PDF độc lập — xem §1.3. Giá trị 45 thuộc cột **24 giờ** (không phải năm), áp dụng từ 01/01/2026 |
 | 3 | **WHO 2021 — SO₂ 24h và CO 24h** | WHO đăng bảng dưới dạng **ảnh** (`pollutants_2005_2021_new.jpg`), IRIS trả 403. Các giá trị khác lấy từ EEA (cách WHO một bước). **Mở PDF WHO và trích Bảng 4.1 trực tiếp** |
 | 4 | **Ngưỡng H/W của Oke (1988)** — tên ba chế độ đã xác nhận, các ranh giới số thì không (0,65 vs 0,7 tuỳ nguồn) | Mở [DOI 10.1016/0378-7788(88)90026-6](https://doi.org/10.1016/0378-7788(88)90026-6) |
 | 5 | **Giá trị z₀ Davenport–Wieringa bằng mét** — WMO xác nhận danh sách LỚP, không có con số | Mở [Wieringa 1992, DOI 10.1016/0167-6105(92)90434-C](https://doi.org/10.1016/0167-6105(92)90434-C) |

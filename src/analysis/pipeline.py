@@ -119,7 +119,7 @@ def _profile_record(field_: ConcentrationField, x_m: float, y_m: float, label: s
 
 
 def analyse(field_: ConcentrationField, config: dict[str, Any]) -> dict[str, Any]:
-    """Every DECISION section-7 product this tier computes, as plain numbers."""
+    """Every docs/RESEARCH.md §13.3 product this tier computes, as plain numbers."""
 
     dz, dy, dx = field_.spacing
     c = field_.concentration

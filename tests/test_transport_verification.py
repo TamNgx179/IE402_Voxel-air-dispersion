@@ -3,7 +3,7 @@ Tier-1 verification for the finite-volume transport solver.
 
 Verification asks whether the code solves the equation correctly. That is not
 validation, which asks whether the equation matches reality and is out of
-scope here (docs/DECISION.md section 6).
+scope here (docs/spec.md SCOPE-2).
 
 Each test compares the solver against something known: mass conservation,
 boundedness, zero flux through a wall, advection distance, and the analytic
@@ -160,6 +160,79 @@ def test_concentration_never_goes_negative() -> None:
         )
 
         assert concentration.min() >= 0.0
+
+
+def test_unstable_step_fails_before_any_clipping() -> None:
+    """
+    spec AC-28: a time step far beyond the CFL limit must be reported, not
+    hidden. Before 06/10/2026 the solver clipped negatives to zero, which
+    made the boundedness test pass whatever dt was.
+    """
+
+    shape = (4, 8, 20)
+
+    concentration = np.zeros(shape)
+    concentration[:, :, :5] = 1.0
+
+    velocity = _uniform_x_wind(shape, 4.0)
+
+    stable = transport.cfl_time_step(
+        velocity, 0.0, dz_m=DZ, dy_m=DY, dx_m=DX, courant=1.0
+    )
+
+    with pytest.raises(transport.NegativeConcentrationError) as error:
+        transport.transport_step(
+            concentration, velocity, np.zeros(shape), 0.0, 3.0 * stable,
+            dz_m=DZ, dy_m=DY, dx_m=DX,
+        )
+
+    assert error.value.min_value < 0.0
+
+
+def test_stable_run_needs_no_positivity_correction() -> None:
+    """spec AC-29: the correction ledger exists and stays at ~0 when stable."""
+
+    shape = (8, 16, 40)
+
+    concentration = np.zeros(shape)
+    concentration[:, :, :5] = 1.0
+
+    velocity = _uniform_x_wind(shape, 4.0)
+
+    dt = transport.cfl_time_step(
+        velocity, 0.1, dz_m=DZ, dy_m=DY, dx_m=DX, courant=0.5
+    )
+
+    ledger: dict[str, float] = {}
+    initial = transport.total_mass(concentration, dz_m=DZ, dy_m=DY, dx_m=DX)
+
+    for _ in range(150):
+        concentration = transport.transport_step(
+            concentration, velocity, np.zeros(shape), 0.1, dt,
+            dz_m=DZ, dy_m=DY, dx_m=DX, ledger=ledger,
+        )
+
+    assert ledger.get("positivity_correction_kg", 0.0) <= 1e-12 * initial
+
+
+def test_mass_dropped_in_a_building_is_booked() -> None:
+    """Mass found inside a solid voxel is removed, and the ledger says how much."""
+
+    shape = (6, 12, 12)
+
+    solid = np.zeros(shape, dtype=bool)
+    solid[0:3, 4:8, 4:8] = True
+
+    ledger: dict[str, float] = {}
+
+    transport.transport_step(
+        np.ones(shape), _zero_velocity(shape), np.zeros(shape), 0.0, 1.0,
+        dz_m=DZ, dy_m=DY, dx_m=DX, solid=solid, ledger=ledger,
+    )
+
+    assert ledger["solid_removed_kg"] == pytest.approx(
+        solid.sum() * DZ * DY * DX
+    )
 
 
 def test_no_new_maximum_is_created() -> None:
@@ -325,7 +398,8 @@ def test_diffusive_spread_matches_the_analytic_law() -> None:
 
     relative_error = abs(variance - analytic_variance) / analytic_variance
 
-    # Target from docs/DECISION.md section 6: better than 6 per cent.
+    # Better than 6 per cent: the QES-Plume reference error is 5.91 %
+    # (docs/RESEARCH.md §16.4).
     assert relative_error < 0.06
 
 

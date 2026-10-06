@@ -810,8 +810,8 @@ def sample_open_buildings(
     """
     One Google Open Buildings 2.5D height per footprint, or None.
 
-    The primary height source, per docs/DECISION.md §5 and
-    docs/RESEARCH.md §1007: OSM footprints carry the geometry, this carries
+    The primary height source, per docs/RESEARCH.md §12.3 and
+    docs/spec.md Phụ lục A: OSM footprints carry the geometry, this carries
     the height. Needs no credentials.
     """
 
@@ -978,7 +978,7 @@ def prepare_building_output(
     """
     Prepare buildings for 01_voxelize.py.
 
-    Height priority, as docs/DECISION.md §5 and docs/RESEARCH.md §1007 set it
+    Height priority, as docs/RESEARCH.md §12.3 and docs/spec.md Phụ lục A set it
     for Vietnam: OSM supplies the footprint geometry, Google Open Buildings
     2.5D supplies the height, and the OSM tags cross-check it.
 
@@ -1204,7 +1204,7 @@ def prepare_building_output(
 # ============================================================
 #
 # Traffic is the emission source for this model, and the road
-# class is how it gets distributed: docs/DECISION.md section 5
+# class is how it gets distributed: docs/RESEARCH.md §15.5
 # records that no open traffic count exists for HCMC, so the
 # OSM class is a RELATIVE allocator, not a measurement.
 #
