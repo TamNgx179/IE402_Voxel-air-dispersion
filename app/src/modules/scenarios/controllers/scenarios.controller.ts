@@ -1,6 +1,6 @@
 import { Controller, Get } from '@nestjs/common';
 import { ApiOkResponse, ApiOperation, ApiTags } from '@nestjs/swagger';
-import { ScenariosService } from './scenarios.service.js';
+import { ScenariosService } from '../services/scenarios.service.js';
 
 @ApiTags('scenarios')
 @Controller('scenarios')

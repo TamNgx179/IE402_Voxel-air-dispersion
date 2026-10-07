@@ -18,19 +18,20 @@ import {
   ApiOperation,
   ApiTags,
 } from '@nestjs/swagger';
-import { CreateRunDto } from './dto/create-run.dto.js';
-import { ListRunsQueryDto } from './dto/list-runs-query.dto.js';
-import { type RunAccepted, RunsService, type RunView } from './runs.service.js';
+import { CreateRunDto } from '../dto/create-run.dto.js';
+import { ListRunsQueryDto } from '../dto/list-runs-query.dto.js';
+import type { RunAccepted, RunView } from '../schemas/simulation-run.schema.js';
+import { SimulationRunsService } from '../services/simulation-runs.service.js';
 
 /**
  * Run lifecycle (BR-16..BR-21). POST /runs validates the DTO, snapshots the
  * parameters and returns 202 + run_id; the internal executor
- * (SimulationExecutor) is the only code that spawns the Python solver.
+ * (SimulationExecutorService) is the only code that spawns the Python solver.
  */
 @ApiTags('runs')
 @Controller('runs')
-export class SimulationController {
-  constructor(private readonly runs: RunsService) {}
+export class SimulationRunsController {
+  constructor(private readonly runs: SimulationRunsService) {}
 
   @Get()
   @ApiOperation({ summary: 'List recent runs for the web viewer' })

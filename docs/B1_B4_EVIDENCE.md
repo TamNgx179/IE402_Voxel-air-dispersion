@@ -66,9 +66,10 @@ npm run test:e2e
 
 Lần nghiệm thu 07/10/2026:
 
-- Python: **202 pass, 13 skip**; các skip phụ thuộc processed/external data.
-- NestJS unit: **86 pass, 1 skip**.
-- NestJS E2E: **41 pass**.
+- Python: **207 pass, 9 skip** trên 216 test; processed release input đã có nên các test
+  provenance/output liên quan được chạy thật thay vì skip.
+- NestJS unit: **87 pass, 1 skip**.
+- NestJS E2E: **42 pass**, gồm real Python solver E2E qua PostGIS.
 - `npm run build`: pass.
 
 Real smoke CLI và real exit-3 failure manifest đều chạy trong suite, không bị skip. Không copy

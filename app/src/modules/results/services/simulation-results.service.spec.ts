@@ -1,6 +1,6 @@
 import { ConflictException } from '@nestjs/common';
 import { describe, expect, it, vi } from 'vitest';
-import { ResultsService } from './results.service.js';
+import { SimulationResultsService } from './simulation-results.service.js';
 
 const context = {
   id: '00000000-0000-4000-8000-000000000001',
@@ -23,53 +23,40 @@ const context = {
 };
 
 function service(status = 'succeeded') {
-  const query = vi.fn(async (sql: string) => {
-    if (sql.includes('FROM simulation_runs r'))
-      return { rows: [{ ...context, status }] };
-    if (sql.includes('ST_AsGeoJSON(ST_Transform(g.geom')) {
-      return {
-        rows: [
-          {
-            i: 0,
-            j: 0,
-            concentration: 10,
-            geometry: { type: 'Polygon', coordinates: [] },
-          },
-          {
-            i: 1,
-            j: 0,
-            concentration: 20,
-            geometry: { type: 'Polygon', coordinates: [] },
-          },
-        ],
-      };
-    }
-    if (sql.startsWith('SELECT i, j, c_ug_m3')) {
-      return {
-        rows: [
-          { i: 0, j: 0, c_ug_m3: [null, 10, 5, 1] },
-          { i: 1, j: 0, c_ug_m3: [20, 10, 5, 2] },
-        ],
-      };
-    }
-    if (sql.includes('SELECT c.c_ug_m3')) {
-      return {
-        rows: [
-          {
-            c_ug_m3: [20, 10, 5, 2],
-            centre: { type: 'Point', coordinates: [1, 2] },
-          },
-        ],
-      };
-    }
-    return { rows: [] };
-  });
-  const db = { query };
+  const cells = [
+    {
+      i: 0,
+      j: 0,
+      concentration: 10,
+      geometry: { type: 'Polygon', coordinates: [] },
+    },
+    {
+      i: 1,
+      j: 0,
+      concentration: 20,
+      geometry: { type: 'Polygon', coordinates: [] },
+    },
+  ];
+  const repository = {
+    runContext: vi.fn(async () => ({ ...context, status })),
+    concentrationSlice: vi.fn(async () => cells),
+    verticalProfile: vi.fn(async () => ({
+      c_ug_m3: [20, 10, 5, 2],
+      centre: { type: 'Point', coordinates: [1, 2] },
+    })),
+    columns: vi.fn(async () => [
+      { i: 0, j: 0, c_ug_m3: [null, 10, 5, 1] },
+      { i: 1, j: 0, c_ug_m3: [20, 10, 5, 2] },
+    ]),
+  };
   const config = { get: () => 'C:/tmp/artifacts' };
-  return { results: new ResultsService(db as never, config as never), query };
+  return {
+    results: new SimulationResultsService(repository as never, config as never),
+    repository,
+  };
 }
 
-describe('ResultsService', () => {
+describe('SimulationResultsService', () => {
   it('maps a z request to the nearest layer and returns GeoJSON statistics', async () => {
     const { results } = service();
     const value = await results.slice(context.id, { z_m: 1.5 });

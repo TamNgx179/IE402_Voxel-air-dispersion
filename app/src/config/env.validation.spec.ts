@@ -20,6 +20,9 @@ describe('validate (env config)', () => {
     const cfg = validate({}, { appRoot, platform: 'linux' });
     expect(cfg.PORT).toBe(3000);
     expect(cfg.REPO_ROOT).toBe(resolve(repoRoot));
+    expect(cfg.PROJECT_CONFIG_PATH).toBe(
+      resolve(repoRoot, 'config', 'project.yaml'),
+    );
     expect(cfg.ARTIFACT_DIR).toBe(resolve(repoRoot, 'artifacts'));
     expect(cfg.PYTHON_BIN).toBe(resolve(repoRoot, '.venv', 'bin', 'python'));
     expect(cfg.DATABASE_URL).toBeUndefined();
@@ -62,6 +65,12 @@ describe('validate (env config)', () => {
     expect(() =>
       validate({ REPO_ROOT: join(repoRoot, 'missing') }, { appRoot }),
     ).toThrow(/REPO_ROOT must be an existing directory/);
+  });
+
+  it('rejects an explicit PROJECT_CONFIG_PATH that is not a file', () => {
+    expect(() =>
+      validate({ PROJECT_CONFIG_PATH: join(repoRoot, 'missing.yaml') }, { appRoot }),
+    ).toThrow(/PROJECT_CONFIG_PATH must be an existing file/);
   });
 
   it('rejects a non-postgres DATABASE_URL without echoing it', () => {

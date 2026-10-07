@@ -4,6 +4,26 @@
 tĩnh tại `/`. Python solver **không** phải service; `SimulationModule` spawn nó như một tiến
 trình con (BR-18), mỗi lúc một tiến trình (BR-19).
 
+## Cấu trúc module
+
+Mỗi feature dùng cùng một quy ước để tránh trộn HTTP, nghiệp vụ và SQL:
+
+```text
+src/modules/<feature>/
+├── <feature>.module.ts       # đăng ký dependency của feature
+├── controllers/             # route, pipe và HTTP status; không chứa SQL
+├── dto/                     # validate request/query bằng class-validator
+├── schemas/                 # kiểu domain/response và state contract
+├── services/                # use case và quy tắc nghiệp vụ
+├── repositories/            # toàn bộ SQL/PostGIS và transaction persistence
+└── infrastructure/          # adapter solver/file/manifest nếu feature cần
+```
+
+Tên file/lớp phải nêu rõ đối tượng, ví dụ `SimulationRunsService`,
+`SimulationResultsRepository`, không dùng tên chung như `RunsService`. Dự án dùng PostgreSQL
+thuần nên `schemas/` không phải Mongoose schema; database schema thật nằm trong
+`db/migrations/`.
+
 ## Chạy
 
 ```bash
@@ -49,10 +69,11 @@ Các lệnh đọc `app/.env` (biến môi trường thật được ưu tiên).
 ## Vòng đời một run
 
 `POST /api/runs {scenario_id, model?}` → `202 {run_id, status: "queued", attempt: 1}`; snapshot
-`config/project.yaml` + khối `run: {run_id, scenario_id, model}` được lưu vào
+YAML tại `PROJECT_CONFIG_PATH` (mặc định `<REPO_ROOT>/config/project.yaml`) + khối
+`run: {run_id, scenario_id, model}` được lưu vào
 `simulation_runs.config_snapshot` ngay lúc này, nên retry chạy lại đúng cấu hình cũ.
 
-Executor nội bộ (`SimulationExecutor`, không broker) poll DB mỗi `EXECUTOR_POLL_MS`, nhận run
+Executor nội bộ (`SimulationExecutorService`, không broker) poll DB mỗi `EXECUTOR_POLL_MS`, nhận run
 `queued` cũ nhất bằng `FOR UPDATE SKIP LOCKED` (chỉ khi không có run nào `running`), ghi
 `artifacts/<run_id>/config.yaml` rồi spawn
 
@@ -88,6 +109,7 @@ tương đối được tính từ thư mục `app/`.
 |---|---|---|
 | `PORT` | `3000` | số nguyên 1–65535 |
 | `REPO_ROOT` | `..` | phải là thư mục tồn tại |
+| `PROJECT_CONFIG_PATH` | `<REPO_ROOT>/config/project.yaml` | config duy nhất được snapshot cho mỗi run; real E2E dùng fixture riêng |
 | `ARTIFACT_DIR` | `<REPO_ROOT>/artifacts` | không bắt buộc tồn tại lúc khởi động |
 | `PYTHON_BIN` | `<REPO_ROOT>/.venv/Scripts/python.exe` (Windows), `<REPO_ROOT>/.venv/bin/python` (khác) | |
 | `DATABASE_URL` | — | `postgres://` / `postgresql://`; compose dev: `postgres://ie402:ie402@localhost:5433/ie402` |

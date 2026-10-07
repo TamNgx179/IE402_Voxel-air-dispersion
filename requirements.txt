@@ -36,6 +36,7 @@ Pillow>=10.0
 # Run manifest contract (config/manifest.schema.json). Arrives via jupyter,
 # but tests and the solver validate against it directly, so it is declared.
 jsonschema>=4.20
+psutil>=6.0,<8.0
 
 # Jupyter / debugging
 jupyter>=1.1

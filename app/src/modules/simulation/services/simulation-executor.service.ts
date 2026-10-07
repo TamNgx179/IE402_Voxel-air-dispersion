@@ -10,25 +10,20 @@ import {
 } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import type { ValidateFunction } from 'ajv/dist/2020.js';
-import type pg from 'pg';
 import { stringify } from 'yaml';
-import { sha256Hex } from '../../common/hash.js';
+import { sha256Hex } from '../../../common/hash.js';
 import {
   buildRunSnapshot,
   loadProjectConfig,
   manifestSchemaPath,
-  projectConfigPath,
-} from '../../common/project-config.js';
-import type { AppConfig } from '../../config/env.validation.js';
-import { DatabaseService } from '../../database/database.service.js';
+} from '../../../common/project-config.js';
+import type { AppConfig } from '../../../config/env.validation.js';
 import {
   compileManifestSchema,
-  type ManifestArtifact,
-  metricsRow,
   readManifest,
   type RunManifest,
   verifyRunOutput,
-} from './manifest-verifier.js';
+} from '../infrastructure/manifest-verifier.js';
 import {
   buildSolverInvocation,
   classifyExit,
@@ -38,16 +33,10 @@ import {
   overallProgress,
   parseProgressLine,
   TailBuffer,
-} from './solver-protocol.js';
-import { importConcentrationColumns } from './result-importer.js';
-
-interface ClaimedRun {
-  id: string;
-  scenario_id: string;
-  model: string;
-  attempt: number;
-  config_snapshot: Record<string, unknown> | null;
-}
+} from '../infrastructure/solver-protocol.js';
+import { SimulationExecutionRepository } from '../repositories/simulation-execution.repository.js';
+import { SimulationRunsRepository } from '../repositories/simulation-runs.repository.js';
+import type { ClaimedRun } from '../schemas/simulation-run.schema.js';
 
 const STDERR_TAIL_CHARS = 4096;
 const KILL_GRACE_MS = 5_000;
@@ -61,10 +50,10 @@ const SHUTDOWN_WAIT_MS = 15_000;
  * table and the manifest/checksum gate before marking the run succeeded.
  */
 @Injectable()
-export class SimulationExecutor
+export class SimulationExecutorService
   implements OnApplicationBootstrap, OnModuleDestroy
 {
-  private readonly logger = new Logger('SimulationExecutor');
+  private readonly logger = new Logger(SimulationExecutorService.name);
   private validate?: ValidateFunction;
   private timer?: NodeJS.Timeout;
   private loop?: Promise<void>;
@@ -75,7 +64,8 @@ export class SimulationExecutor
   private lastPollError?: string;
 
   constructor(
-    private readonly db: DatabaseService,
+    private readonly execution: SimulationExecutionRepository,
+    private readonly runs: SimulationRunsRepository,
     private readonly config: ConfigService<AppConfig, true>,
   ) {}
 
@@ -88,7 +78,7 @@ export class SimulationExecutor
       this.logger.log('executor disabled (EXECUTOR_ENABLED=false)');
       return;
     }
-    if (!this.db.configured) {
+    if (!this.execution.configured) {
       this.logger.warn('executor idle: DATABASE_URL is not set');
       return;
     }
@@ -155,35 +145,14 @@ export class SimulationExecutor
 
   /** BR-21: a run left `running` by a previous process can never finish. */
   private async recoverInterrupted(): Promise<void> {
-    const { rows } = await this.db.query<{ id: string }>(
-      `UPDATE simulation_runs
-       SET status = 'stale', finished_at = now(),
-           error_message = 'interrupted: the monolith restarted while this run was running; retry it'
-       WHERE status = 'running'
-       RETURNING id`,
-    );
-    for (const r of rows)
-      this.logger.warn(`run ${r.id} was running at startup → stale`);
+    const ids = await this.runs.recoverInterrupted();
+    for (const id of ids)
+      this.logger.warn(`run ${id} was running at startup → stale`);
   }
 
   /** Oldest queued run → running, only when nothing else runs (concurrency 1). */
   private async claim(): Promise<ClaimedRun | null> {
-    const { rows } = await this.db.query<ClaimedRun>(
-      `WITH next AS (
-         SELECT id FROM simulation_runs
-         WHERE status = 'queued'
-           AND NOT EXISTS (SELECT 1 FROM simulation_runs WHERE status = 'running')
-         ORDER BY created_at, id
-         LIMIT 1
-         FOR UPDATE SKIP LOCKED
-       )
-       UPDATE simulation_runs r
-       SET status = 'running', started_at = now(), finished_at = NULL, progress = 0,
-           error_kind = NULL, error_message = NULL
-       FROM next WHERE r.id = next.id
-       RETURNING r.id, r.scenario_id, r.model, r.attempt, r.config_snapshot`,
-    );
-    return rows[0] ?? null;
+    return this.runs.claimNext();
   }
 
   private async execute(run: ClaimedRun): Promise<void> {
@@ -198,17 +167,14 @@ export class SimulationExecutor
       let snapshot = run.config_snapshot;
       if (!snapshot) {
         const project = await loadProjectConfig(
-          projectConfigPath(this.cfg('REPO_ROOT')),
+          this.cfg('PROJECT_CONFIG_PATH'),
         );
         snapshot = buildRunSnapshot(project.data, {
           run_id: run.id,
           scenario_id: run.scenario_id,
           model: run.model,
         });
-        await this.db.query(
-          'UPDATE simulation_runs SET config_snapshot = $2 WHERE id = $1',
-          [run.id, snapshot],
-        );
+        await this.runs.updateSnapshot(run.id, snapshot);
       }
       // A fresh directory per attempt: files of a failed attempt never verify.
       await rm(runDir, { recursive: true, force: true });
@@ -234,12 +200,7 @@ export class SimulationExecutor
 
     const exit = await this.spawnSolver(run, configPath, runDir);
     if (this.killedForShutdown) {
-      await this.db.query(
-        `UPDATE simulation_runs SET status = 'stale', finished_at = now(),
-           error_message = 'interrupted: the monolith shut down during this run; retry it'
-         WHERE id = $1 AND status = 'running'`,
-        [run.id],
-      );
+      await this.runs.markStaleAfterShutdown(run.id);
       return;
     }
 
@@ -318,11 +279,8 @@ export class SimulationExecutor
           written = progress;
           const value = progress;
           updates = updates.then(() =>
-            this.db
-              .query(
-                `UPDATE simulation_runs SET progress = $2 WHERE id = $1 AND status = 'running'`,
-                [run.id, value],
-              )
+            this.runs
+              .updateProgress(run.id, value)
               .catch((err) =>
                 this.logger.warn(
                   `progress update failed: ${errorMessage(err)}`,
@@ -401,54 +359,13 @@ export class SimulationExecutor
         );
       }
     }
-    const m = metricsRow(metrics, manifest);
-
     try {
-      await this.db.transaction(async (client) => {
-        await clearResults(client, run.id);
-        await client.query(
-          `INSERT INTO run_metrics (run_id, dt_s, courant, steps, simulated_s, wall_clock_s,
-             emitted_kg, remaining_kg, escaped_kg, correction_kg, stopping_criterion)
-           VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)`,
-          [
-            run.id,
-            m.dt_s,
-            m.courant,
-            m.steps,
-            m.simulated_s,
-            m.wall_clock_s,
-            m.emitted_kg,
-            m.remaining_kg,
-            m.escaped_kg,
-            m.correction_kg,
-            m.stopping_criterion,
-          ],
-        );
-        await insertChecks(client, run.id, manifest);
-        await insertArtifacts(client, run.id, artifacts);
-        const columns = artifacts.find(
-          (artifact) => artifact.kind === 'columns',
-        );
-        if (!columns)
-          throw new Error('verified manifest has no columns artifact');
-        await importConcentrationColumns(
-          client,
-          run.id,
-          join(runDir, columns.path),
-        );
-        const done = await client.query(
-          `UPDATE simulation_runs
-           SET status = 'succeeded', progress = 1, model_version = $2, input_hash = $3,
-               warnings = $4, finished_at = now(), error_kind = NULL, error_message = NULL
-           WHERE id = $1 AND status = 'running'`,
-          [
-            run.id,
-            manifest.model_version,
-            manifest.input_hash,
-            manifest.warnings,
-          ],
-        );
-        if (done.rowCount !== 1) throw new Error('run is no longer running');
+      await this.execution.persistSuccess({
+        runId: run.id,
+        runDir,
+        metrics,
+        manifest,
+        artifacts,
       });
       const warn = manifest.warnings.length
         ? ` (warnings: ${manifest.warnings.join('; ')})`
@@ -472,55 +389,7 @@ export class SimulationExecutor
     this.logger.warn(
       `run ${runId} → failed/${kind}: ${message.split('\n')[0]}`,
     );
-    await this.db.transaction(async (client) => {
-      await clearResults(client, runId);
-      if (manifest) await insertChecks(client, runId, manifest);
-      await client.query(
-        `UPDATE simulation_runs
-         SET status = 'failed', error_kind = $2, error_message = $3, finished_at = now()
-         WHERE id = $1 AND status = 'running'`,
-        [runId, kind, message.slice(0, 8192)],
-      );
-    });
-  }
-}
-
-async function clearResults(client: pg.PoolClient, runId: string) {
-  for (const table of [
-    'concentration_columns',
-    'run_metrics',
-    'verification_checks',
-    'artifacts',
-  ]) {
-    await client.query(`DELETE FROM ${table} WHERE run_id = $1`, [runId]);
-  }
-}
-
-async function insertChecks(
-  client: pg.PoolClient,
-  runId: string,
-  manifest: RunManifest,
-) {
-  for (const [name, c] of Object.entries(manifest.verification.checks)) {
-    await client.query(
-      `INSERT INTO verification_checks (run_id, check_name, status, value, tolerance)
-       VALUES ($1, $2, $3, $4, $5)`,
-      [runId, name, c.status, c.value, c.tolerance],
-    );
-  }
-}
-
-async function insertArtifacts(
-  client: pg.PoolClient,
-  runId: string,
-  artifacts: ManifestArtifact[],
-) {
-  for (const a of artifacts) {
-    await client.query(
-      `INSERT INTO artifacts (run_id, kind, path, sha256, size_bytes) VALUES ($1, $2, $3, $4, $5)`,
-      // Stored relative to ARTIFACT_DIR so the tree can move.
-      [runId, a.kind, `${runId}/${a.path}`, a.sha256, a.size_bytes],
-    );
+    await this.execution.persistFailure(runId, kind, message, manifest);
   }
 }
 

@@ -12,6 +12,8 @@ import { fileURLToPath } from 'node:url';
 export interface AppConfig {
   PORT: number;
   REPO_ROOT: string;
+  /** Single project YAML used to snapshot each queued run. */
+  PROJECT_CONFIG_PATH: string;
   ARTIFACT_DIR: string;
   PYTHON_BIN: string;
   /** PostgreSQL/PostGIS connection; without it DB-backed routes answer 503. */
@@ -114,6 +116,21 @@ export function validate(
   if (!existsSync(repoRoot) || !statSync(repoRoot).isDirectory()) {
     problems.push(
       `REPO_ROOT must be an existing directory (got "${repoRoot}")`,
+    );
+  }
+
+  const rawProjectConfigPath = readString(env, 'PROJECT_CONFIG_PATH');
+  const projectConfigPath = toAbsolute(
+    appRoot,
+    rawProjectConfigPath ??
+      resolve(repoRoot, 'config', 'project.yaml'),
+  );
+  if (
+    rawProjectConfigPath !== undefined &&
+    (!existsSync(projectConfigPath) || !statSync(projectConfigPath).isFile())
+  ) {
+    problems.push(
+      `PROJECT_CONFIG_PATH must be an existing file (got "${projectConfigPath}")`,
     );
   }
 
@@ -240,6 +257,7 @@ export function validate(
   return {
     PORT: port,
     REPO_ROOT: repoRoot,
+    PROJECT_CONFIG_PATH: projectConfigPath,
     ARTIFACT_DIR: artifactDir,
     PYTHON_BIN: pythonBin,
     ...(databaseUrl !== undefined ? { DATABASE_URL: databaseUrl } : {}),

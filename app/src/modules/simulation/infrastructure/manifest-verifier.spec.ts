@@ -8,7 +8,7 @@ import {
 } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join, resolve } from 'node:path';
-import { APP_ROOT } from '../../config/env.validation.js';
+import { APP_ROOT } from '../../../config/env.validation.js';
 import {
   compileManifestSchema,
   metricsRow,

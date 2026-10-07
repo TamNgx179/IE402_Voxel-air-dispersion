@@ -27,11 +27,24 @@ SCHEMA = json.loads((REPO_ROOT / "config" / "manifest.schema.json").read_text(en
 pytestmark = pytest.mark.skipif(not SCENE.exists(), reason="scene package not exported")
 
 
-def _run(tmp_path: Path, *extra: str, run_id: str | None = None, config_run_id: str | None = None, scenario="dry_nov_apr"):
+def _run(
+    tmp_path: Path,
+    *extra: str,
+    run_id: str | None = None,
+    config_run_id: str | None = None,
+    scenario="dry_nov_apr",
+    force_missing_source: bool = False,
+):
     run_id = run_id or str(uuid.uuid4())
     out = tmp_path / "run"
     out.mkdir(parents=True)
     config = (REPO_ROOT / "config" / "project.yaml").read_text(encoding="utf-8")
+    if force_missing_source:
+        parsed = yaml.safe_load(config)
+        parsed["paths"]["emission_source_transport_netcdf"] = str(
+            tmp_path / "deliberately-missing-source.nc"
+        )
+        config = yaml.safe_dump(parsed, sort_keys=False)
     config += f'\nrun:\n  run_id: "{config_run_id or run_id}"\n  scenario_id: {scenario}\n  model: fv\n'
     (out / "config.yaml").write_text(config, encoding="utf-8")
 
@@ -123,7 +136,7 @@ def test_unknown_scenario_is_an_input_error(tmp_path: Path) -> None:
 
 
 def test_real_solver_refuses_a_missing_absolute_source(tmp_path: Path) -> None:
-    result, out = _run(tmp_path)
+    result, out = _run(tmp_path, force_missing_source=True)
     assert result.returncode == 2
     assert "transport source not found" in (out / "solver.log").read_text(encoding="utf-8")
     assert not (out / "manifest.json").exists()

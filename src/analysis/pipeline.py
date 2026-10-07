@@ -200,13 +200,29 @@ def street_canyons(config: dict[str, Any]) -> tuple[dict[str, Any], Path]:
     """G5: H/W of the study area's street canyons, from voxel_grid.nc and the roads."""
 
     from emission.roads import load_roads
+    import geopandas as gpd
+    import pandas as pd
+    from shapely import wkt
 
     with xr.open_dataset(resolve_repo_path(config, "paths.voxel_netcdf")) as voxel:
         height = voxel["H"].values.astype(float)
         x, y = voxel["x"].values.astype(float), voxel["y"].values.astype(float)
         crs = str(voxel.attrs["model_crs"])
 
-    roads = load_roads(resolve_repo_path(config, "paths.roads")).to_crs(crs)
+    roads_path = resolve_repo_path(config, "paths.roads")
+    if roads_path.exists():
+        roads = load_roads(roads_path).to_crs(crs)
+    else:
+        # A clean checkout intentionally omits mutable raw OSM downloads.  The
+        # frozen scene package is the geometry actually used by DB/web/solver,
+        # so use its checksum-locked road centrelines for reproducible QA.
+        scene_dir = resolve_repo_path(config, "paths.scene_package_dir")
+        rows = pd.read_csv(scene_dir / "roads.csv")
+        roads = gpd.GeoDataFrame(
+            rows.drop(columns=["wkt"]),
+            geometry=rows["wkt"].map(wkt.loads),
+            crs=crs,
+        )
     lines = [geom for geom in roads.geometry]
     names = [None if not isinstance(n, str) else n for n in roads.get("name", [None] * len(roads))]
 

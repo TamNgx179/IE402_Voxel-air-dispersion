@@ -15,15 +15,15 @@ import {
   ApiOperation,
   ApiTags,
 } from '@nestjs/swagger';
-import { ExceedanceQueryDto } from './dto/exceedance-query.dto.js';
-import { ProfileQueryDto } from './dto/profile-query.dto.js';
-import { SliceQueryDto } from './dto/slice-query.dto.js';
-import { ResultsService } from './results.service.js';
+import { ExceedanceQueryDto } from '../dto/exceedance-query.dto.js';
+import { ProfileQueryDto } from '../dto/profile-query.dto.js';
+import { SliceQueryDto } from '../dto/slice-query.dto.js';
+import { SimulationResultsService } from '../services/simulation-results.service.js';
 
 @ApiTags('results')
 @Controller('runs/:id')
-export class ResultsController {
-  constructor(private readonly results: ResultsService) {}
+export class SimulationResultsController {
+  constructor(private readonly results: SimulationResultsService) {}
 
   @Get('slices')
   @ApiOperation({ summary: 'Concentration GeoJSON at the nearest z layer' })

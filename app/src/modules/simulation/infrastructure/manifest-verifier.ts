@@ -3,7 +3,7 @@ import { lstat, readFile } from 'node:fs/promises';
 import { dirname, join, resolve } from 'node:path';
 import { Ajv2020, type ValidateFunction } from 'ajv/dist/2020.js';
 import addFormatsModule from 'ajv-formats';
-import { sha256File } from '../../common/hash.js';
+import { sha256File } from '../../../common/hash.js';
 
 /**
  * Gate between "the solver exited 0" and "the run succeeded" (spec D2,

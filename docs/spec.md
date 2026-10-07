@@ -237,8 +237,9 @@ Quy tắc cao độ: `z_m` được quy về **ô chứa nó**, `k = floor(z_m /
 <PYTHON_BIN> -m src.solver run --run-id <uuid> --config <artifacts/<run_id>/config.yaml> --out <artifacts/<run_id>/>
 ```
 
-`SimulationModule` ghi snapshot config trước khi spawn, chạy từ thư mục gốc repo, truyền
-arguments dạng mảng (không qua shell). Solver không mở port và không đọc DB.
+`SimulationModule` đọc source YAML từ `PROJECT_CONFIG_PATH` (mặc định
+`<REPO_ROOT>/config/project.yaml`), ghi snapshot bất biến theo run trước khi spawn, chạy từ thư
+mục gốc repo và truyền arguments dạng mảng (không qua shell). Solver không mở port và không đọc DB.
 
 | Exit code | Nghĩa | Trạng thái run |
 |---:|---|---|
@@ -380,15 +381,16 @@ Compose. Không có container riêng cho Python.
 | `AC-34` | Trên môi trường sạch, runbook dựng monolith + DB, seed, spawn Python solver, trả 4 query và mở web mà không sửa tay | `BR-42` |
 | `AC-35` | Evidence index liên kết mỗi figure/table quan trọng tới `run_id`, commit/model version, input hash và manifest | `BR-43` |
 
-## Ghi chú quan sát
+## Ghi chú quan sát (cập nhật 07/10/2026)
 
 | Đã quan sát trong repo | Chưa được chứng minh và cần triển khai/đo |
 |---|---|
-| Pipeline voxel, emission, Gaussian, analysis và web prototype đã tồn tại | NestJS monolith, migrations và subprocess adapter chưa tồn tại |
-| Contract `[z,y,x]` và NetCDF đã được dùng | Contract monolith–Python CLI cần integration test |
-| Có test verification cho nhiều toán tử | Kết quả FV cuối cùng cần nối với web/API |
-| Có dữ liệu study area và hai kịch bản minh hoạ | DB query plan và tải thực tế chưa đo |
-| Có giới hạn dữ liệu chiều cao/phát thải được ghi nhận | Chưa có validation hiện trường |
+| NestJS modular monolith, migration/seed PostGIS và internal executor đã tồn tại | Clean-room Compose rehearsal tuần 7–8 chưa thực hiện |
+| Real E2E đã chạy HTTP → queued/running → Python wind/FV → manifest → PostGIS query | Production-grid FV chưa trở thành output mặc định của web |
+| Input `100×100×50` tái dựng từ scene khóa checksum; EDGAR normalization và hai Gaussian baseline đã chạy | B5 phải chạy FV production-grid tới stopping criterion và mass budget pass |
+| Contract `[z,y,x]`, corrected `uf,vf,wf`, NetCDF/manifest và exit code có test | External benchmark/cross-check và sensitivity chiều cao chưa hoàn thành |
+| B3.4 đã đo real solver fixture 9.216 voxel; DB có query benchmark riêng | B5.4 vẫn phải đo runtime/RSS production grid trên máy demo |
+| Dữ liệu cảnh có provenance và hạn chế phát thải được ghi nhận | Chưa có validation hiện trường; không được tuyên bố “đã validation” |
 
 ## Nguồn
 

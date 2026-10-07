@@ -4,35 +4,19 @@ import { access, stat } from 'node:fs/promises';
 import { createRequire } from 'node:module';
 import { Injectable } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
-import type { AppConfig } from '../../config/env.validation.js';
-import {
-  DatabaseService,
-  type DatabaseStatus,
-} from '../../database/database.service.js';
+import type { AppConfig } from '../../../config/env.validation.js';
+import { DatabaseService } from '../../../database/database.service.js';
+import type {
+  ArtifactDirectoryHealth,
+  HealthReportSchema,
+  PythonRuntimeHealth,
+} from '../schemas/health-report.schema.js';
 
 const require = createRequire(import.meta.url);
-const APP_VERSION = (require('../../../package.json') as { version: string })
+const APP_VERSION = (require('../../../../package.json') as { version: string })
   .version;
 
 const PYTHON_TIMEOUT_MS = 5_000;
-
-export interface ArtifactDirHealth {
-  path: string;
-  exists: boolean;
-  writable: boolean;
-}
-
-export type PythonHealth =
-  | { bin: string; ok: true; version: string }
-  | { bin: string; ok: false; error: string };
-
-export interface HealthReport {
-  status: 'ok' | 'degraded';
-  app: { version: string };
-  artifactDir: ArtifactDirHealth;
-  python: PythonHealth;
-  database: DatabaseStatus;
-}
 
 @Injectable()
 export class HealthService {
@@ -41,7 +25,7 @@ export class HealthService {
     private readonly database: DatabaseService,
   ) {}
 
-  async check(): Promise<HealthReport> {
+  async check(): Promise<HealthReportSchema> {
     const [artifactDir, python, database] = await Promise.all([
       this.checkArtifactDir(),
       this.checkPython(),
@@ -63,7 +47,7 @@ export class HealthService {
     };
   }
 
-  private async checkArtifactDir(): Promise<ArtifactDirHealth> {
+  private async checkArtifactDir(): Promise<ArtifactDirectoryHealth> {
     const path = this.config.get('ARTIFACT_DIR', { infer: true });
     let exists = false;
     let writable = false;
@@ -84,7 +68,7 @@ export class HealthService {
   }
 
   /** Runs `PYTHON_BIN --version` without a shell (argument array, 5 s timeout). */
-  private checkPython(): Promise<PythonHealth> {
+  private checkPython(): Promise<PythonRuntimeHealth> {
     const bin = this.config.get('PYTHON_BIN', { infer: true });
     return new Promise((resolve) => {
       execFile(

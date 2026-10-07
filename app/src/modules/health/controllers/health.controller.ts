@@ -1,6 +1,7 @@
 import { Controller, Get } from '@nestjs/common';
 import { ApiOkResponse, ApiOperation, ApiTags } from '@nestjs/swagger';
-import { HealthService, type HealthReport } from './health.service.js';
+import type { HealthReportSchema } from '../schemas/health-report.schema.js';
+import { HealthService } from '../services/health.service.js';
 
 @ApiTags('health')
 @Controller('health')
@@ -14,7 +15,7 @@ export class HealthController {
   @ApiOkResponse({
     description: 'Always 200; `status` is "degraded" when a dependency fails',
   })
-  check(): Promise<HealthReport> {
+  check(): Promise<HealthReportSchema> {
     return this.health.check();
   }
 }

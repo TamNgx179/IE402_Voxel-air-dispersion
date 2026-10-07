@@ -1,6 +1,6 @@
 # Giả định phát thải
 
-> **File sinh tự động — không sửa tay.** Tạo bởi `src/emission/assumptions.py` lúc 2026-10-06 01:21 UTC. Chạy lại pipeline phát thải để cập nhật. Mọi số dưới đây đọc từ `config/project.yaml` hoặc đo từ file pipeline đã ghi; bước chưa chạy ghi `not-run`.
+> **File sinh tự động — không sửa tay.** Tạo bởi `src/emission/assumptions.py` lúc 2026-10-07 14:44 UTC. Chạy lại pipeline phát thải để cập nhật. Mọi số dưới đây đọc từ `config/project.yaml` hoặc đo từ file pipeline đã ghi; bước chưa chạy ghi `not-run`.
 
 ## 1. Bảng giả định
 

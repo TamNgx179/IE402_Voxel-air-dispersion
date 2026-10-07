@@ -65,11 +65,17 @@ PostgreSQL/PostGIS là cơ sở dữ liệu của monolith; NetCDF là định d
 được giữ riêng về ngôn ngữ để tái sử dụng solver NumPy/SciPy, nhưng không có API, queue hay vòng
 đời deployment riêng.
 
+Trong mỗi NestJS feature, dependency đi một chiều:
+`controller → service → repository → DatabaseService`. DTO chỉ validate input; `schemas/` giữ
+domain/response contract; adapter file/solver/manifest nằm trong `infrastructure/`. Controller và
+service không chứa SQL, còn repository không ném HTTP exception.
+
 ## 2 · Luồng dữ liệu
 
 Các stage số trị vẫn giao tiếp bằng **file trên đĩa/artifact**, không truyền tensor lớn qua
-HTTP hay giữ toàn bộ pipeline trong RAM của NestJS. `SimulationModule` tạo `run_id`, spawn
-Python CLI với config đã snapshot và đọc manifest khi tiến trình kết thúc. PostgreSQL là nguồn
+HTTP hay giữ toàn bộ pipeline trong RAM của NestJS. `SimulationModule` đọc file gốc được trỏ bởi
+`PROJECT_CONFIG_PATH`, tạo `run_id`, lưu config snapshot bất biến theo run, spawn Python CLI với
+snapshot đó và đọc manifest khi tiến trình kết thúc. PostgreSQL là nguồn
 sự thật về trạng thái; không có message broker hoặc worker service.
 
 | # | Stage | Reads | Writes |
@@ -81,7 +87,7 @@ sự thật về trạng thái; không có message broker hoặc worker service.
 | 2 | Transport | `uf,vf,wf`, `S`, `B` | `C (z,y,x)`, mass ledger, positivity metrics |
 | 3 | Analysis and export | `C` | figures, statistics, web payload |
 | 4 | Python subprocess completion | outputs + manifest + exit code | executor kiểm checksum/gate rồi import `columns.csv.gz` theo batch trong transaction |
-| 5 | `ResultsModule` | run metadata, PostGIS columns, artifact refs | slice/exceedance/profile/summary/volume DTO + artifact download |
+| 5 | `SimulationResultsModule` | run metadata, PostGIS columns, artifact refs | slice/exceedance/profile/summary/volume DTO + artifact download |
 | 6 | Web 3D | API responses + versioned scene package | data-derived LoD1 city, concentration/wind layers, profiles, status dashboard |
 
 ### Vòng đời một run (user flow)
@@ -96,7 +102,8 @@ sequenceDiagram
 
     U->>API: POST /api/runs {scenario_id, model}
     API->>API: validate DTO (sai → 400, không tạo run)
-    API->>DB: INSERT simulation_runs status=queued
+    API->>API: đọc PROJECT_CONFIG_PATH + tạo snapshot theo run_id
+    API->>DB: INSERT simulation_runs status=queued + config_snapshot
     API-->>U: 202 {run_id}
     EX->>DB: lấy run queued cũ nhất (concurrency = 1)
     EX->>DB: status=running (attempt giữ nguyên: 1 khi tạo, +1 mỗi lần retry)
@@ -137,7 +144,7 @@ API của monolith và không đọc trực tiếp file nội bộ.
 
 | Boundary | Source of truth | How the copies stay honest |
 | --- | --- | --- |
-| Grid geometry | the project configuration file | Nothing else defines domain or spacing. One constructor builds the grid; a spacing literal anywhere else is a defect |
+| Grid geometry | file `PROJECT_CONFIG_PATH`, mặc định `config/project.yaml` | Mỗi run lưu snapshot bất biến trước khi queued; solver chỉ đọc snapshot đó. Nothing else defines domain or spacing |
 | Array order | the grid model's documented convention | `[z, y, x]` for 3D, `[y, x]` for 2D, asserted by a unit test |
 | On-disk field contract | the netCDF writer | CF conventions, `positive="up"` on `z`, so QGIS and Panoply open it unaided |
 | Solver stability | the CFL helper | The time step is **computed from the velocity field**, never passed in as a constant, and the realised Courant number is reported back |

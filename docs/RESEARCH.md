@@ -1164,7 +1164,7 @@ tensor đầy đủ. Backend mới không thay đổi phương trình hoặc ver
 
 **Một ứng dụng NestJS duy nhất.** Controller nhận HTTP request và trả response;
 provider/service đóng gói logic ứng dụng và dependency injection. Cách chia module phù hợp là
-`StudyAreasModule`, `ScenariosModule`, `SimulationModule`, `ResultsModule` và `HealthModule`.
+`StudyAreasModule`, `ScenariosModule`, `SimulationModule`, `SimulationResultsModule` và `HealthModule`.
 Cùng ứng dụng này phục vụ static web, truy vấn PostGIS, tạo `run_id` và điều phối mô phỏng;
 không chạy solver NumPy trong vòng đời HTTP request ✅
 ([NestJS Controllers](https://docs.nestjs.com/controllers) ·

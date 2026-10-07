@@ -2,11 +2,12 @@ import { Module } from '@nestjs/common';
 import {
   ScenariosController,
   ThresholdsController,
-} from './scenarios.controller.js';
-import { ScenariosService } from './scenarios.service.js';
+} from './controllers/scenarios.controller.js';
+import { ScenariosRepository } from './repositories/scenarios.repository.js';
+import { ScenariosService } from './services/scenarios.service.js';
 
 @Module({
   controllers: [ScenariosController, ThresholdsController],
-  providers: [ScenariosService],
+  providers: [ScenariosRepository, ScenariosService],
 })
 export class ScenariosModule {}

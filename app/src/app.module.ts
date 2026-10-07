@@ -5,7 +5,7 @@ import { ServeStaticModule } from '@nestjs/serve-static';
 import { APP_ROOT, type AppConfig, validate } from './config/env.validation.js';
 import { DatabaseModule } from './database/database.module.js';
 import { HealthModule } from './modules/health/health.module.js';
-import { ResultsModule } from './modules/results/results.module.js';
+import { SimulationResultsModule } from './modules/results/simulation-results.module.js';
 import { ScenariosModule } from './modules/scenarios/scenarios.module.js';
 import { SimulationModule } from './modules/simulation/simulation.module.js';
 import { StudyAreasModule } from './modules/study-areas/study-areas.module.js';
@@ -35,7 +35,7 @@ import { StudyAreasModule } from './modules/study-areas/study-areas.module.js';
     StudyAreasModule,
     ScenariosModule,
     SimulationModule,
-    ResultsModule,
+    SimulationResultsModule,
   ],
 })
 export class AppModule {}

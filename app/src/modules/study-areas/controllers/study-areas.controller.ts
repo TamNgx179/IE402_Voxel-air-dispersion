@@ -1,6 +1,6 @@
 import { Controller, Get, Param, ParseUUIDPipe } from '@nestjs/common';
 import { ApiOkResponse, ApiOperation, ApiTags } from '@nestjs/swagger';
-import { StudyAreasService } from './study-areas.service.js';
+import { StudyAreasService } from '../services/study-areas.service.js';
 
 @ApiTags('study-areas')
 @Controller('study-areas')
