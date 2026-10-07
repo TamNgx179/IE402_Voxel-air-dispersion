@@ -1,0 +1,8 @@
+# Minimal runtime used by `python -m src.solver` inside the monolith image.
+# Keep versions aligned with requirements.txt; GIS/download tooling is intentionally excluded.
+numpy>=2.0,<3.0
+pandas>=2.2,<3.0
+xarray>=2024.7
+netCDF4>=1.7
+PyYAML>=6.0,<7.0
+jsonschema>=4.20

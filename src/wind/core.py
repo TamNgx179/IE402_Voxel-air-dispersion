@@ -42,6 +42,12 @@ class WindResult:
     v: np.ndarray
     w: np.ndarray
 
+    # Corrected staggered velocities.  These are the authoritative fluxes
+    # consumed by transport; cell-centred u/v/w are for analysis and plots.
+    uf: np.ndarray
+    vf: np.ndarray
+    wf: np.ndarray
+
     lam: np.ndarray
 
     divergence_before: np.ndarray
@@ -1077,6 +1083,9 @@ def project_mass_consistent(
         u=u,
         v=v,
         w=w,
+        uf=ufc,
+        vf=vfc,
+        wf=wfc,
         lam=sor.lam,
         divergence_before=div_before,
         divergence_after=div_after,

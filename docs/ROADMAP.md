@@ -30,11 +30,11 @@ Web GIS 3D → NestJS modular monolith → PostgreSQL/PostGIS
 | `P2` | PostgreSQL/PostGIS, migration và seed | A | Có | ✅ Docker DB healthy; migrate/seed thật đã kiểm tra |
 | `P3` | NestJS modular monolith cho web, API, persistence và simulation orchestration | A | Có | ✅ module/controller/service/DTO và test đã có |
 | `P4` | Internal executor và trạng thái `queued/running/succeeded/failed` | A | Có | ✅ run mock thật qua API → executor → Python → DB đã `succeeded` |
-| `P5` | Python CLI chạy pipeline theo `run_id`, được monolith spawn nội bộ | B, A tích hợp | Có | 🟡 contract/E2E mock đã pass; còn chạy production FV thật |
-| `P6` | Trường gió mass-consistent + FV transport | B | Có | 🟡 code/test có, còn integration |
+| `P5` | Python CLI chạy pipeline theo `run_id`, được monolith spawn nội bộ | B, A tích hợp | Có | ✅ real CLI smoke 3D + contract/exit code pass; production grid thuộc B5 |
+| `P6` | Trường gió mass-consistent + FV transport | B | Có | ✅ B4 real smoke dùng trực tiếp corrected `uf,vf,wf` đã pass; production-grid là B5 |
 | `P7` | Lát cắt theo z, exceedance, profile và summary query | A | Có | ✅ API, E2E, EXPLAIN và benchmark 500.000 voxel đã có |
 | `P8` | Web 3D có camera 2D/3D, height slider, scenario, threshold, profile và lớp gió | A | Có | 🟡 UI/API live, camera và gió nền đã visual-QA; còn endpoint vector `u,v,w` + production FV thật |
-| `P9` | Verification và provenance theo từng run | B | Có | 🟡 nhiều test đã có, chưa gắn run |
+| `P9` | Verification và provenance theo từng run | B | Có | 🟡 smoke run đã gắn gate, checksum và input hash; production evidence thuộc B5–B7 |
 | `P10` | Docker/demo, runbook, báo cáo và số liệu cuối | A + B | Có | ⬜ |
 
 ### Công nghệ
@@ -180,7 +180,7 @@ hợp lệ, subprocess thoát thành công và B trả verification pass.
 | `G1` | Chưa có ERD/schema/migration PostGIS | A | Tuần 2 |
 | `G2` | Chưa có API và DTO | A | Tuần 3 |
 | `G3` | Chưa có state machine và internal executor | A | Tuần 4 |
-| `G4` | Solver CLI chưa nhận `run_id` và ghi manifest chuẩn | B | Tuần 4 |
+| `G4` | ✅ Solver CLI thật nhận `run_id`, chạy wind→FV và ghi manifest chuẩn; còn production-grid ở G5/B5 | B | Tuần 4 |
 | `G5` | FV 3D chưa trở thành output chính của web | B + A | Tuần 6 |
 | `G6` | Spatial query chưa có query plan/index evidence | A | Tuần 5 |
 | `G7` | Chưa có integration test seed → run → query → web | A + B | Tuần 7 |
@@ -297,6 +297,11 @@ schema đã ổn định để A lưu vào DB.
 
 **Kết quả tuần 4:** một request thật được modular monolith điều phối và spawn Python subprocess, tạo artifact và metrics,
 sau đó xem lại bằng `GET /runs/:id`. Đây là cổng quyết định quan trọng nhất.
+
+**Trạng thái 07/10/2026:** B1–B4 đã có real CLI smoke 3D, corrected face velocities,
+verification manifest và exit-code regression test; bằng chứng ở `docs/B1_B4_EVIDENCE.md`.
+Không suy diễn smoke run thành production result: dữ liệu EDGAR local, production grid và
+steady-state vẫn thuộc B5.
 
 ---
 

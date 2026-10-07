@@ -50,6 +50,150 @@ class NegativeConcentrationError(RuntimeError):
         self.tolerance = tolerance
 
 
+def _face_flux_divergence_staggered(
+    concentration: np.ndarray,
+    face_velocity: np.ndarray,
+    diffusivity: float,
+    spacing_m: float,
+    axis: int,
+    solid: np.ndarray | None,
+    closed_lower_face: bool,
+) -> tuple[np.ndarray, float]:
+    """Divergence and outward boundary flux from an authoritative face field."""
+
+    c = np.moveaxis(concentration, axis, 0)
+    vel = np.moveaxis(face_velocity, axis, 0)
+    expected = (c.shape[0] + 1,) + c.shape[1:]
+    if vel.shape != expected:
+        raise ValueError(
+            f"face velocity for axis {axis} has shape {vel.shape}, expected {expected}"
+        )
+    solid_axis = None if solid is None else np.moveaxis(solid, axis, 0)
+    flux = np.zeros_like(vel, dtype=np.result_type(c, vel, float))
+
+    if c.shape[0] >= 2:
+        left = c[:-1]
+        right = c[1:]
+        interior_velocity = vel[1:-1]
+        advective = np.where(
+            interior_velocity >= 0.0,
+            interior_velocity * left,
+            interior_velocity * right,
+        )
+        diffusive = -diffusivity * (right - left) / spacing_m
+        flux[1:-1] = advective + diffusive
+
+    # Clean inflow and advective outflow. Diffusive domain flux is zero.
+    flux[0] = np.where(vel[0] < 0.0, vel[0] * c[0], 0.0)
+    flux[-1] = np.where(vel[-1] > 0.0, vel[-1] * c[-1], 0.0)
+    if closed_lower_face:
+        flux[0] = 0.0
+
+    if solid_axis is not None:
+        if c.shape[0] >= 2:
+            flux[1:-1] = np.where(
+                solid_axis[:-1] | solid_axis[1:], 0.0, flux[1:-1]
+            )
+        flux[0] = np.where(solid_axis[0], 0.0, flux[0])
+        flux[-1] = np.where(solid_axis[-1], 0.0, flux[-1])
+
+    face_area = 1.0  # multiplied by the two perpendicular spacings by caller
+    outward_per_area = float(np.sum(np.maximum(-flux[0], 0.0)))
+    outward_per_area += float(np.sum(np.maximum(flux[-1], 0.0)))
+    divergence = (flux[1:] - flux[:-1]) / spacing_m
+    return np.moveaxis(divergence, 0, axis), outward_per_area * face_area
+
+
+def transport_step_faces(
+    concentration: np.ndarray,
+    face_velocity: tuple[np.ndarray, np.ndarray, np.ndarray],
+    source: np.ndarray,
+    diffusivity: float | Iterable[float],
+    dt: float,
+    *,
+    dz_m: float,
+    dy_m: float,
+    dx_m: float,
+    solid: np.ndarray | None = None,
+    negative_rtol: float = NEGATIVE_RTOL,
+    ledger: dict[str, float] | None = None,
+) -> np.ndarray:
+    """Advance one step using corrected staggered ``(uf, vf, wf)`` directly."""
+
+    if concentration.shape != source.shape:
+        raise ValueError("concentration and source must have the same shape")
+    if len(face_velocity) != 3 or dt <= 0.0:
+        raise ValueError("face_velocity must be (uf, vf, wf) and dt must be positive")
+    if solid is not None and solid.shape != concentration.shape:
+        raise ValueError("solid mask must match concentration")
+
+    uf, vf, wf = face_velocity
+    kz, ky, kx = _as_triplet(diffusivity)
+    components = ((wf, kz, dz_m, 0, True, dx_m * dy_m),
+                  (vf, ky, dy_m, 1, False, dx_m * dz_m),
+                  (uf, kx, dx_m, 2, False, dy_m * dz_m))
+    net_outflow = np.zeros_like(concentration, dtype=float)
+    escaped_rate = 0.0
+    for velocity, k, spacing, axis, closed_lower, area in components:
+        divergence, boundary_flux = _face_flux_divergence_staggered(
+            concentration, velocity, k, spacing, axis, solid, closed_lower
+        )
+        net_outflow += divergence
+        escaped_rate += boundary_flux * area
+
+    updated = concentration + dt * (source - net_outflow)
+    cell_volume = dz_m * dy_m * dx_m
+    if ledger is not None:
+        ledger["emitted_kg"] = ledger.get("emitted_kg", 0.0) + float(source.sum()) * cell_volume * dt
+        ledger["escaped_kg"] = ledger.get("escaped_kg", 0.0) + escaped_rate * dt
+
+    if solid is not None:
+        removed = float(np.sum(updated[solid])) * cell_volume
+        if ledger is not None:
+            ledger["solid_removed_kg"] = ledger.get("solid_removed_kg", 0.0) + removed
+        updated = np.where(solid, 0.0, updated)
+
+    tolerance = negative_rtol * float(np.max(np.abs(updated), initial=0.0))
+    min_value = float(np.min(updated, initial=0.0))
+    if min_value < -tolerance:
+        raise NegativeConcentrationError(min_value, tolerance)
+    negative = updated < 0.0
+    if np.any(negative):
+        added = -float(np.sum(updated[negative])) * cell_volume
+        if ledger is not None:
+            ledger["positivity_correction_kg"] = ledger.get("positivity_correction_kg", 0.0) + added
+        updated = np.where(negative, 0.0, updated)
+    return updated
+
+
+def cfl_time_step_faces(
+    face_velocity: tuple[np.ndarray, np.ndarray, np.ndarray],
+    diffusivity: float | Iterable[float],
+    *, dz_m: float, dy_m: float, dx_m: float, courant: float = 0.5,
+) -> float:
+    """Stable explicit step computed from corrected face velocities."""
+    if not 0.0 < courant <= 1.0:
+        raise ValueError("courant must be in (0, 1]")
+    uf, vf, wf = face_velocity
+    advective_rate = np.max(np.abs(uf)) / dx_m + np.max(np.abs(vf)) / dy_m + np.max(np.abs(wf)) / dz_m
+    kz, ky, kx = _as_triplet(diffusivity)
+    diffusive_rate = kz / dz_m**2 + ky / dy_m**2 + kx / dx_m**2
+    limits = ([1.0 / advective_rate] if advective_rate > 0.0 else [])
+    if diffusive_rate > 0.0:
+        limits.append(0.5 / diffusive_rate)
+    if not limits:
+        raise ValueError("A zero velocity and zero diffusivity impose no limit.")
+    return courant * min(limits)
+
+
+def courant_number_faces(
+    face_velocity: tuple[np.ndarray, np.ndarray, np.ndarray], dt: float,
+    *, dz_m: float, dy_m: float, dx_m: float,
+) -> float:
+    uf, vf, wf = face_velocity
+    return float(dt * (np.max(np.abs(uf)) / dx_m + np.max(np.abs(vf)) / dy_m + np.max(np.abs(wf)) / dz_m))
+
+
 def _as_triplet(value: float | Iterable[float]) -> tuple[float, float, float]:
     """Accept a scalar or a (Kz, Ky, Kx) triplet and return a triplet."""
 

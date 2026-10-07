@@ -226,6 +226,10 @@ def test_x_wind_from_wind_solver_moves_plume_only_along_x() -> None:
         0.0,
     )
 
+    assert wind_result.uf.shape == (shape[0], shape[1], shape[2] + 1)
+    assert wind_result.vf.shape == (shape[0], shape[1] + 1, shape[2])
+    assert wind_result.wf.shape == (shape[0] + 1, shape[1], shape[2])
+
     # ---------------------------------------------------------
     # INITIAL SMOKE
     # ---------------------------------------------------------
@@ -256,19 +260,19 @@ def test_x_wind_from_wind_solver_moves_plume_only_along_x() -> None:
     #
     # Do NOT reorder components here.
     #
-    # Wind output goes directly into transport using the shared
-    # convention:
+    # Corrected staggered wind output goes directly into transport using the
+    # shared physical convention:
     #
-    #     (u, v, w)
+    #     (uf, vf, wf)
     #
-    velocity = (
-        wind_result.u,
-        wind_result.v,
-        wind_result.w,
+    face_velocity = (
+        wind_result.uf,
+        wind_result.vf,
+        wind_result.wf,
     )
 
-    dt = transport.cfl_time_step(
-        velocity,
+    dt = transport.cfl_time_step_faces(
+        face_velocity,
         0.0,
         dz_m=DZ,
         dy_m=DY,
@@ -291,9 +295,9 @@ def test_x_wind_from_wind_solver_moves_plume_only_along_x() -> None:
     # ---------------------------------------------------------
 
     for _ in range(steps):
-        concentration = transport.transport_step(
+        concentration = transport.transport_step_faces(
             concentration,
-            velocity,
+            face_velocity,
             source,
             0.0,
             dt,

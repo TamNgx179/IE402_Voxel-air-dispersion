@@ -261,8 +261,8 @@ Chế độ giả cho tích hợp trước khi có solver thật (A3.4):
   trong báo cáo.
 - `--mock-fail input|model|system` thoát với mã 2/3/4 tương ứng; với `model`, manifest vẫn được
   ghi nhưng `verification.status = "fail"`.
-- Không có `--mock` thì solver thật chạy (từ B4.1); trước đó nó thoát `4` với thông báo chưa
-  triển khai.
+- Không có `--mock` thì solver thật chạy wind SOR → corrected face flux → FV transport.
+  Smoke grid dùng để nghiệm thu B4; production-grid result được tạo ở B5.
 
 Thư mục kết quả:
 

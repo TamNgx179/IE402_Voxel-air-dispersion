@@ -13,7 +13,11 @@ import sys
 import uuid
 from pathlib import Path
 
+import numpy as np
 import pytest
+import pandas as pd
+import xarray as xr
+import yaml
 from jsonschema import Draft202012Validator, FormatChecker
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
@@ -118,9 +122,80 @@ def test_unknown_scenario_is_an_input_error(tmp_path: Path) -> None:
     assert result.returncode == 2
 
 
-def test_real_solver_is_not_faked(tmp_path: Path) -> None:
-    """Without --mock nothing pretends to succeed before B4.1 wires the solver."""
-
+def test_real_solver_refuses_a_missing_absolute_source(tmp_path: Path) -> None:
     result, out = _run(tmp_path)
-    assert result.returncode == 4
+    assert result.returncode == 2
+    assert "transport source not found" in (out / "solver.log").read_text(encoding="utf-8")
     assert not (out / "manifest.json").exists()
+
+
+def test_real_solver_is_not_faked(tmp_path: Path) -> None:
+    """Without --mock the B4 wind→face-flux→FV path writes real artifacts."""
+
+    run_id = str(uuid.uuid4())
+    scene = tmp_path / "scene"
+    out = tmp_path / "run"
+    scene.mkdir()
+    out.mkdir()
+    grid = {"origin_x_m": 0.0, "origin_y_m": 0.0, "dx_m": 5.0, "dy_m": 5.0, "dz_m": 2.0,
+            "nx": 16, "ny": 12, "nz": 8}
+    rows = []
+    for j in range(grid["ny"]):
+        for i in range(grid["nx"]):
+            obstacle = 7 <= i <= 8 and 4 <= j <= 7
+            rows.append({"i": i, "j": j, "solid_from_k": 0 if obstacle else None,
+                         "solid_to_k": 3 if obstacle else None, "wkt": "POLYGON EMPTY"})
+    cells = scene / "grid_cells.csv"
+    pd.DataFrame(rows).to_csv(cells, index=False)
+    digest = hashlib.sha256(cells.read_bytes()).hexdigest()
+    (scene / "scene_manifest.json").write_text(json.dumps({
+        "schema_version": "1.0", "study_area": {"name": "smoke", "srid": 32648},
+        "grid": grid, "files": {"grid_cells.csv": digest},
+    }), encoding="utf-8")
+
+    source = np.zeros((8, 12, 16), dtype=np.float64)
+    source[0, 6, 2] = 1e-12
+    source_path = tmp_path / "source.nc"
+    xr.Dataset({"S": (("z", "y", "x"), source, {"units": "kg m-3 s-1"})}).to_netcdf(source_path)
+    config = yaml.safe_load((REPO_ROOT / "config" / "project.yaml").read_text(encoding="utf-8"))
+    config["paths"]["scene_package_dir"] = str(scene)
+    config["paths"]["emission_source_transport_netcdf"] = str(source_path)
+    config["transport"]["max_simulated_s"] = 20.0
+    config["run"] = {"run_id": run_id, "scenario_id": "dry_nov_apr", "model": "fv"}
+    config_path = out / "config.yaml"
+    config_path.write_text(yaml.safe_dump(config, sort_keys=False), encoding="utf-8")
+    result = subprocess.run(
+        [sys.executable, "-m", "src.solver", "run", "--run-id", run_id,
+         "--config", str(config_path), "--out", str(out)],
+        cwd=REPO_ROOT, capture_output=True, text=True, timeout=300,
+    )
+    assert result.returncode == 0, result.stderr
+    manifest = json.loads((out / "manifest.json").read_text(encoding="utf-8"))
+    assert manifest["verification"]["status"] == "pass"
+    assert "mock run" not in " ".join(manifest["warnings"])
+    with xr.open_dataset(out / "wind.nc") as wind:
+        assert {"u", "v", "w", "uf", "vf", "wf"}.issubset(wind.data_vars)
+        assert wind["uf"].shape == (8, 12, 17)
+    metrics = json.loads((out / "metrics.json").read_text(encoding="utf-8"))
+    assert metrics["emitted_kg"] > 0.0
+    assert metrics["correction_kg"] <= 1e-9 * metrics["emitted_kg"]
+
+    # A genuine numerical failure is exit 3 and still leaves gate evidence
+    # for the monolith to persist; it must not collapse into system error 4.
+    failed_id = str(uuid.uuid4())
+    failed_out = tmp_path / "failed"
+    failed_out.mkdir()
+    config["run"]["run_id"] = failed_id
+    config["wind"]["max_iter"] = 1
+    config["wind"]["sor_tolerance"] = 1e-20
+    failed_config = failed_out / "config.yaml"
+    failed_config.write_text(yaml.safe_dump(config, sort_keys=False), encoding="utf-8")
+    failed = subprocess.run(
+        [sys.executable, "-m", "src.solver", "run", "--run-id", failed_id,
+         "--config", str(failed_config), "--out", str(failed_out)],
+        cwd=REPO_ROOT, capture_output=True, text=True, timeout=300,
+    )
+    assert failed.returncode == 3, failed.stderr
+    failed_manifest = json.loads((failed_out / "manifest.json").read_text(encoding="utf-8"))
+    assert failed_manifest["verification"]["status"] == "fail"
+    assert failed_manifest["verification"]["checks"]["sor_convergence"]["status"] == "fail"

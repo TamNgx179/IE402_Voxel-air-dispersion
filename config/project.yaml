@@ -134,6 +134,21 @@ meteorology:
 
 
 # ============================================================
+# MASS-CONSISTENT DIAGNOSTIC WIND (B4)
+# ============================================================
+
+wind:
+  profile_exponent: 0.25
+  reference_height_m: 10.0
+  alpha1: 1.0
+  alpha2: 1.0
+  omega: 1.78
+  sor_tolerance: 0.0001
+  divergence_tolerance_s_1: 0.001
+  max_iter: 10000
+
+
+# ============================================================
 # TRAFFIC EMISSIONS
 # ============================================================
 
@@ -300,6 +315,13 @@ transport:
 
   # Upwind is stable at Courant <= 1; 0.5 keeps a margin (spec BR-7).
   courant_target: 0.5
+
+  # Explicit modelling assumptions, kept out of source code. B5 sensitivity
+  # must vary these before final scientific claims are made.
+  horizontal_diffusivity_m2_s: 2.0
+  vertical_diffusivity_m2_s: 1.0
+  mass_balance_tolerance: 0.000001
+  positivity_correction_tolerance: 0.000000001
 
 
 # ============================================================

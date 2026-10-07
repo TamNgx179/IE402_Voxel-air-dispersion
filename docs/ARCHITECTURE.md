@@ -183,8 +183,8 @@ phải được ghi vào ledger. FV output là sản phẩm chính; Gaussian ch�
 | Wall leakage from a wrong face coefficient | plume appears downwind of a solid block | spec AC-5 |
 | Array order transposed in a new function | plume travels along the wrong axis — and often *looks* plausible | the `[z,y,x]` contract and its unit test |
 | Time step too large | values blow up within tens of steps | the CFL helper computes it; the realised Courant number is reported |
-| SOR fails to converge | residual divergence stays above tolerance | spec edge case *SOR không hội tụ* — run `failed`, residual and iteration count recorded. SOR exists in `src/wind/core.py`; mapping non-convergence to exit code 3 is B4.4 |
-| Emission inside a solid voxel | mass accumulates and can never leave | spec edge case *source inside a building voxel* — **not yet implemented** |
+| SOR fails to converge | residual divergence stays above tolerance | run `failed/model` (exit 3), residual được ghi trong failure manifest để monolith lưu verification check |
+| Emission inside a solid voxel | mass accumulates and can never leave | real CLI kiểm tra `S[solid]` và từ chối input trước khi chạy transport |
 | Silent default building height | plausible geometry, wrong heights, no warning | spec BR-13 — height resolution fails closed |
 | Web payload too large | viewer never loads | spec edge case *payload too large* — the exporter downsamples and records the factor |
 | Numerical diffusion mistaken for physics | plume looks realistically wide; it is the scheme | spec BR-31 — giá trị phải được tính và báo cáo |

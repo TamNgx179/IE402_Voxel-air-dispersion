@@ -169,15 +169,15 @@ def test_contract_wrong_units_are_refused(tmp_path):
         load_field(tmp_path / "bad_units.nc", VOXEL_PATH)
 
 
-# --- EC-6: the viewer must not need a server -------------------------------
+# --- EC-6: the product viewer reads the same-origin monolith API -----------
 
-def test_ec6_viewer_loads_data_by_script_tag_never_fetch():
+def test_ec6_viewer_loads_same_origin_api_not_legacy_data_scripts():
     app = (WEB_DIR / "app.js").read_text(encoding="utf-8")
     html = (WEB_DIR / "index.html").read_text(encoding="utf-8")
 
-    assert "fetch(" not in app and "XMLHttpRequest" not in app
+    assert "fetch(`/api${path}`" in app
     for name in ("manifest.js", "buildings.js", "roads.js"):
-        assert f'src="./data/{name}"' in html
+        assert f'src="./data/{name}"' not in html
 
 
 def test_viewer_pins_exact_library_versions():
