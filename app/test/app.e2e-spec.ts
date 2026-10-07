@@ -52,10 +52,10 @@ describe('API (e2e)', () => {
     expect(body.status).toBe(healthy ? 'ok' : 'degraded');
   });
 
-  it('result routes are still 501 Not Implemented', async () => {
+  it('result routes validate UUID before touching the database', async () => {
     await request(app.getHttpServer())
       .get('/api/runs/abc/slices?z_m=2')
-      .expect(501);
+      .expect(400);
   });
 
   it('POST /api/runs validates the body before touching the database', async () => {

@@ -24,16 +24,16 @@ Web GIS 3D → NestJS modular monolith → PostgreSQL/PostGIS
                                       → local NetCDF/JSON artifacts
 ```
 
-| Mã | Tính năng | Người sở hữu | Bắt buộc | Trạng thái đầu kỳ |
+| Mã | Tính năng | Người sở hữu | Bắt buộc | Trạng thái hiện tại |
 |---|---|---|---|---|
-| `P1` | Dựng cảnh đô thị 3D từ footprint, chiều cao, đường, sông/công viên thực | B chuẩn bị dữ liệu, A render web | Có | 🟡 dữ liệu/prototype đã có |
-| `P2` | PostgreSQL/PostGIS, migration và seed | A | Có | ⬜ |
-| `P3` | NestJS modular monolith cho web, API, persistence và simulation orchestration | A | Có | ⬜ |
-| `P4` | Internal executor và trạng thái `queued/running/succeeded/failed` | A | Có | ⬜ |
-| `P5` | Python CLI chạy pipeline theo `run_id`, được monolith spawn nội bộ | B, A tích hợp | Có | 🟡 pipeline script đã có |
+| `P1` | Dựng cảnh đô thị 3D từ footprint, chiều cao, đường, sông/công viên thực | B chuẩn bị dữ liệu, A render web | Có | ✅ scene DB/API và render 3D đã kiểm tra; còn QA khoa học với voxel mask |
+| `P2` | PostgreSQL/PostGIS, migration và seed | A | Có | ✅ Docker DB healthy; migrate/seed thật đã kiểm tra |
+| `P3` | NestJS modular monolith cho web, API, persistence và simulation orchestration | A | Có | ✅ module/controller/service/DTO và test đã có |
+| `P4` | Internal executor và trạng thái `queued/running/succeeded/failed` | A | Có | ✅ run mock thật qua API → executor → Python → DB đã `succeeded` |
+| `P5` | Python CLI chạy pipeline theo `run_id`, được monolith spawn nội bộ | B, A tích hợp | Có | 🟡 contract/E2E mock đã pass; còn chạy production FV thật |
 | `P6` | Trường gió mass-consistent + FV transport | B | Có | 🟡 code/test có, còn integration |
-| `P7` | Lát cắt theo z, exceedance, profile và summary query | A | Có | 🟡 analysis Python có, API chưa có |
-| `P8` | Web 3D có height slider, scenario, threshold và profile | A | Có | 🟡 viewer tĩnh đã có |
+| `P7` | Lát cắt theo z, exceedance, profile và summary query | A | Có | ✅ API, E2E, EXPLAIN và benchmark 500.000 voxel đã có |
+| `P8` | Web 3D có camera 2D/3D, height slider, scenario, threshold, profile và lớp gió | A | Có | 🟡 UI/API live, camera và gió nền đã visual-QA; còn endpoint vector `u,v,w` + production FV thật |
 | `P9` | Verification và provenance theo từng run | B | Có | 🟡 nhiều test đã có, chưa gắn run |
 | `P10` | Docker/demo, runbook, báo cáo và số liệu cuối | A + B | Có | ⬜ |
 
@@ -61,7 +61,7 @@ GIS mà voxeliser sử dụng, để hình học mô phỏng và hình học ng�
 | Sông/mặt nước | OSM polygon/line | Polygon đúng vị trí | B chuẩn hoá, A render |
 | Công viên/cây xanh | OSM landuse/leisure/natural | Polygon lớp phủ | B chuẩn hoá, A render |
 | Nền địa lý | MapLibre basemap | Kiểm tra CRS và alignment | A |
-| Nồng độ/gió | Output đúng `run_id` | Voxel/slab và vector/particle overlay | B xuất, A render |
+| Nồng độ/gió | Output đúng `run_id` | Voxel/slab; gió nền có nhãn nguồn, trường `u,v,w` dùng vector/particle overlay riêng | B xuất vector, A render |
 
 MVP dùng toà nhà **LoD1**: footprint thực và mái phẳng theo chiều cao dữ liệu. Không tự tạo
 mặt đứng/cửa sổ khi không có nguồn. Địa hình vẫn phẳng `z=0` và phải được ghi là hạn chế.
@@ -145,7 +145,7 @@ Python solver CLI nhận `run_id` và đường dẫn/snapshot cấu hình từ 
 artifacts/<run_id>/
 ├── concentration.nc
 ├── wind.nc
-├── web-payload.json hoặc *.parquet
+├── columns.csv.gz
 ├── metrics.json
 ├── manifest.json
 └── solver.log
@@ -341,6 +341,7 @@ trả kết quả đúng và có bằng chứng index/query plan.
 | `A6.4` | Scenario/run selector + threshold | UI/map layer | Đổi run không trộn dữ liệu, hiện units |
 | `A6.5` | Profile đứng và summary panel | Chart/panel | Click điểm trả profile đúng |
 | `A6.6` | Đặt FV làm kết quả mặc định | UI + API integration test | Viewer mặc định dùng `model=fv`; Gaussian chỉ là comparison toggle |
+| `A6.7` | Camera và lớp gió | Nút xoay/reset/2D–3D + wind overlay | Xoay bằng chuột/nút; gió nền ghi rõ nguồn; hỗ trợ reduced motion |
 
 **Người B**
 
@@ -352,6 +353,7 @@ trả kết quả đúng và có bằng chứng index/query plan.
 | `B6.4` | Sensitivity tối thiểu | Bảng sensitivity | Một tham số chính được thay đổi |
 | `B6.5` | Xuất scene manifest và kiểm tra coverage | Manifest + QA figures | Mọi feature hiển thị truy được nguồn; không có building đặt tay |
 | `B6.6` | Sensitivity chiều cao và benchmark/cross-check | Tables/figures | Kết luận chính không dựa vào một bộ height duy nhất; claim đúng mức bằng chứng |
+| `B6.7` | Xuất trường gió web | Artifact/API `u,v,w` downsampled | Vector gắn đúng `run_id`, cao độ và solid mask; không dùng metadata gió nền thay cho kết quả solver |
 
 **Kết quả tuần 6:** web dựng lại study area bằng footprint và chiều cao thực, có đường, mặt
 nước/cây xanh nếu nguồn tồn tại; cảnh khớp basemap và voxel mask. Người dùng tạo/chọn run,

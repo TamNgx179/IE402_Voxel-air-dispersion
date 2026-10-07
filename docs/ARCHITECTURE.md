@@ -16,8 +16,8 @@ flowchart TB
     end
 
     subgraph APP["NestJS modular monolith — một ứng dụng triển khai"]
-        API["HTTP controllers + DTO validation"]
-        DOMAIN["StudyArea · Scenario · Simulation · Results modules"]
+        API["DTO validation → Controllers"]
+        DOMAIN["StudyArea · Scenario · Simulation · Results services"]
         EXEC["Internal simulation executor<br/>spawn Python CLI · one run at a time"]
         STATIC["Serve web/static assets"]
         API --> DOMAIN
@@ -47,7 +47,7 @@ flowchart TB
     EXEC -->|"child process + run_id/config path"| PY
     PY -->|"exit code · metrics · manifest"| EXEC
     PY --> ART
-    EXEC -->|"status + artifact metadata"| PG
+    EXEC -->|"status + metrics + concentration columns"| PG
     API --> ART
 ```
 
@@ -80,8 +80,8 @@ sự thật về trạng thái; không có message broker hoặc worker service.
 | 1 | Wind | `B`, meteorology | cell-centred `u,v,w` để phân tích + corrected face velocities `uf,vf,wf` cho transport |
 | 2 | Transport | `uf,vf,wf`, `S`, `B` | `C (z,y,x)`, mass ledger, positivity metrics |
 | 3 | Analysis and export | `C` | figures, statistics, web payload |
-| 4 | Python subprocess completion | outputs + manifest + exit code | monolith ghi artifact records, metrics, queryable slices |
-| 5 | NestJS monolith | run metadata, PostGIS rows, artifact refs | JSON/GeoJSON responses + static web |
+| 4 | Python subprocess completion | outputs + manifest + exit code | executor kiểm checksum/gate rồi import `columns.csv.gz` theo batch trong transaction |
+| 5 | `ResultsModule` | run metadata, PostGIS columns, artifact refs | slice/exceedance/profile/summary/volume DTO + artifact download |
 | 6 | Web 3D | API responses + versioned scene package | data-derived LoD1 city, concentration/wind layers, profiles, status dashboard |
 
 ### Vòng đời một run (user flow)
@@ -108,7 +108,7 @@ sequenceDiagram
     U->>API: GET /api/runs/:id (poll)
     API-->>U: status, progress
     alt exit 0, manifest hợp lệ, checksum khớp, verification pass
-        EX->>DB: COPY columns.csv.gz → concentration_columns, metrics, checks, artifacts
+        EX->>DB: import batch columns.csv.gz → concentration_columns, metrics, checks, artifacts
         EX->>DB: status=succeeded
         U->>API: GET /api/runs/:id/slices?z_m=1.5
         API->>DB: query (DATABASE.md §3)
@@ -141,10 +141,10 @@ API của monolith và không đọc trực tiếp file nội bộ.
 | Array order | the grid model's documented convention | `[z, y, x]` for 3D, `[y, x]` for 2D, asserted by a unit test |
 | On-disk field contract | the netCDF writer | CF conventions, `positive="up"` on `z`, so QGIS and Panoply open it unaided |
 | Solver stability | the CFL helper | The time step is **computed from the velocity field**, never passed in as a constant, and the realised Courant number is reported back |
-| Web payload | API DTO + OpenAPI của monolith | Bản cuối: viewer chỉ đọc response của API (spec BR-28). Prototype tĩnh hiện tại vẫn đọc `web/data/*.js` do exporter ghi — chỉ là nguồn tạm cho tới A6.1 |
+| Web payload | API DTO + OpenAPI của monolith | Viewer lấy study area/scene/scenario/run/volume từ `/api`; `web/data/*.js` chỉ còn fixture cũ, không được nạp trong `index.html` |
 | Run state | `simulation_runs` trong PostgreSQL | monolith restart quét lại `queued/running`, đánh dấu run gián đoạn và cho phép chạy lại có kiểm soát |
 | Spatial geometry | PostGIS với SRID + GiST | mọi phép đo dùng projected CRS; migration/ingest reject geometry sai |
-| Full 3D tensor | NetCDF artifact + checksum | DB chỉ lưu metadata, metrics và slices/summaries cần query |
+| Full 3D tensor | NetCDF artifact + checksum | NetCDF là bản khoa học gốc; DB giữ bản dẫn xuất `concentration_columns` (`real[]` theo z) để query/profile/web, được import lại idempotent từ artifact đã kiểm checksum |
 | Internal Python contract | CLI arguments + versioned manifest schema | không có network contract; NestJS kiểm exit code, checksum và schema |
 | 3D city scene | versioned scene package derived from GIS sources | building IDs, footprints, `height_m`, roads, water/green and CRS match the voxel input; no hand-placed buildings |
 | Scientific release gate | verification record attached to `run_id` | API chỉ công bố run khi face-divergence, CFL, positivity, wall flux, mass balance và artifact checksum đều pass |
@@ -244,7 +244,11 @@ laptop-scale benchmark. The actual per-scenario wall-clock is recorded in B5.4 r
 | **Server-rendered toàn bộ viewer** | làm API phải dựng layer/HTML, khó tách tải tính toán và khó tận dụng GPU phía client |
 
 **Chọn: deck.gl + MapLibre cho client, NestJS cho API.** Viewer dùng grid layer theo cao độ,
-building extrusion và slider đổi active level. API không render voxel và không chạy solver.
+building extrusion, slider đổi active level và camera xoay/nghiêng 2D–3D. Lớp particle hiện tại
+chỉ biểu diễn **gió nền của scenario** (`wind_from_deg`, `wind_speed_m_s`) và phải luôn mang nhãn
+đó. Khi hoàn tất contract web cho `wind.nc`, API trả vector `u,v,w` downsampled theo `run_id`,
+`z_m` và solid mask; lúc ấy viewer mới được gọi lớp này là **trường gió mô phỏng quanh công
+trình**. API không render voxel và không chạy solver trong request HTTP.
 
 ### 6.5 Data interchange
 

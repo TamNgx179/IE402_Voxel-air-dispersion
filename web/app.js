@@ -3,17 +3,16 @@
 /*
  * 3D voxel PM2.5 viewer.
  *
- * Data comes from web/data/*.js, written by src/06_export_web.py. Every file
- * assigns a global, so the page also works from file://. Concentration is one
- * uint8 per voxel on a log scale (see src/analysis/web_export.py); this file
- * only decodes it, it never invents a value.
+ * Data comes from the same-origin NestJS API. The API loads verified Python
+ * artifacts into PostGIS and returns a compact uint8 volume for rendering.
  *
  * Arrays are [z, y, x] flattened in C order: index = (k * ny + j) * nx + i,
  * with y increasing northward and x eastward.
  */
 
-const M = window.VOXEL_MANIFEST;
-const GRID = M ? M.grid : null;
+let M = null;
+let GRID = null;
+let AVAILABLE_SCENARIOS = [];
 
 const SCENARIO_NAMES = {
   dry_nov_apr: "Mùa khô (tháng 11–4)",
@@ -52,12 +51,18 @@ const state = {
   selected: null,
   showBuildings: true,
   showRoads: false,
+  showWind: true,
 };
 
 const cache = {};
+let map = null;
 let overlay = null;
 let nodes = null;
 let cells = null;
+let windSeeds = [];
+let windAnimationFrame = null;
+let lastWindFrame = 0;
+const reducedMotion = window.matchMedia("(prefers-reduced-motion: reduce)");
 
 const $ = (id) => document.getElementById(id);
 
@@ -67,16 +72,19 @@ main();
 // start-up
 // --------------------------------------------------------------------------
 
-function main() {
-  if (!M) {
-    setStatus("Thiếu web/data/manifest.js — chạy src/06_export_web.py", "error");
+async function main() {
+  try {
+    await loadBootstrap();
+  } catch (error) {
+    setStatus(`Không kết nối được API: ${error.message}`, "error");
     return;
   }
 
   nodes = buildNodes();
   cells = buildCells();
+  windSeeds = buildWindSeeds();
 
-  state.scenario = M.scenarios[0].id;
+  state.scenario = M.scenarios[0]?.id || null;
   Object.keys(M.thresholds).forEach((key) => (state.thresholds[key] = false));
 
   buildControls();
@@ -87,11 +95,69 @@ function main() {
     return;
   }
 
-  loadScenario(state.scenario).then(() => {
-    setStatus("Đã có dữ liệu · đang tải bản đồ nền…");
-    createMap();
+  createMap();
+  if (state.scenario) {
+    loadScenario(state.scenario).then(() => {
+      setStatus("Đã tải run từ API", "pass");
+      refresh();
+    }).catch((error) => setStatus(error.message, "error"));
+  } else {
+    setStatus("Chưa có run thành công · bấm Chạy mô phỏng FV", "error");
     refresh();
+  }
+}
+
+async function api(path, options) {
+  const response = await fetch(`/api${path}`, {
+    headers: { "Content-Type": "application/json", ...(options?.headers || {}) },
+    ...options,
   });
+  const payload = await response.json().catch(() => ({}));
+  if (!response.ok) {
+    const message = Array.isArray(payload.message) ? payload.message.join("; ") : payload.message;
+    throw new Error(message || `${response.status} ${response.statusText}`);
+  }
+  return payload;
+}
+
+async function loadBootstrap() {
+  const [areas, scenarios, thresholds, runs] = await Promise.all([
+    api("/study-areas"),
+    api("/scenarios"),
+    api("/thresholds"),
+    api("/runs?status=succeeded&limit=20"),
+  ]);
+  if (!areas.length) throw new Error("DB chưa có study area; chạy db:seed");
+  const area = areas[0];
+  const scene = await api(`/study-areas/${area.id}/scene`);
+  window.VOXEL_BUILDINGS = scene.buildings;
+  window.VOXEL_ROADS = scene.roads;
+  window.VOXEL_WATER = scene.water;
+  window.VOXEL_GREEN = scene.green;
+  AVAILABLE_SCENARIOS = scenarios;
+  const [west, south, east, north] = area.bounds;
+  GRID = {
+    ...area.grid,
+    z_centres_m: Array.from({ length: area.grid.nz }, (_, k) => (k + 0.5) * area.grid.dz_m),
+  };
+  M = {
+    grid: GRID,
+    corners_wgs84: { sw: [west, south], se: [east, south], ne: [east, north], nw: [west, north] },
+    scenarios: runs.map((run) => ({
+      id: run.run_id,
+      scenario_id: run.scenario_id,
+      name: run.scenario_name,
+      wind_from_deg: run.wind_from_deg,
+      wind_speed_m_s: run.wind_speed_m_s,
+      model: run.model,
+      model_version: run.model_version,
+      warnings: run.warnings || [],
+    })),
+    thresholds: Object.fromEntries(thresholds.map((item) => [item.key, { value: item.value_ug_m3, label: item.label }])),
+    provenance: area.provenance || {},
+    units: "µg/m³",
+    pollutant: "PM2.5 passive scalar",
+  };
 }
 
 function buildNodes() {
@@ -136,6 +202,31 @@ function cellCentre(i, j) {
   return [(a[0] + b[0]) / 2, (a[1] + b[1]) / 2];
 }
 
+function geoAt(s, t) {
+  const c = M.corners_wgs84;
+  const x = ((s % 1) + 1) % 1;
+  const y = ((t % 1) + 1) % 1;
+  return [
+    (1 - x) * (1 - y) * c.sw[0] + x * (1 - y) * c.se[0] + x * y * c.ne[0] + (1 - x) * y * c.nw[0],
+    (1 - x) * (1 - y) * c.sw[1] + x * (1 - y) * c.se[1] + x * y * c.ne[1] + (1 - x) * y * c.nw[1],
+  ];
+}
+
+function buildWindSeeds() {
+  const seeds = [];
+  for (let row = 0; row < 9; row += 1) {
+    for (let column = 0; column < 12; column += 1) {
+      const n = row * 12 + column;
+      seeds.push({
+        s: (column + 0.22 + ((n * 37) % 53) / 90) / 12,
+        t: (row + 0.2 + ((n * 29) % 47) / 82) / 9,
+        phase: ((n * 67) % 101) / 101,
+      });
+    }
+  }
+  return seeds;
+}
+
 // --------------------------------------------------------------------------
 // data
 // --------------------------------------------------------------------------
@@ -150,25 +241,20 @@ function loadScenario(id) {
   }
 
   const entry = scenarioEntry(id);
-  setStatus(`Đang tải kịch bản ${id}…`);
-
-  return new Promise((resolve, reject) => {
-    const tag = document.createElement("script");
-    tag.src = `./data/${entry.file}`;
-    tag.onload = () => {
-      const payload = (window.VOXEL_DATA || {})[id];
-      if (!payload) {
-        reject(new Error(`${entry.file} không chứa ${id}`));
-        return;
-      }
-      cache[id] = decode(entry, payload);
-      resolve(cache[id]);
-    };
-    tag.onerror = () => {
-      setStatus(`Không tải được data/${entry.file}`, "error");
-      reject(new Error(entry.file));
-    };
-    document.head.appendChild(tag);
+  if (!entry) return Promise.reject(new Error(`Không tìm thấy run ${id}`));
+  setStatus(`Đang tải run ${id.slice(0, 8)} từ API…`);
+  return Promise.all([
+    api(`/runs/${id}/volume`),
+    api(`/runs/${id}/summary`),
+  ]).then(([payload, summary]) => {
+    entry.scale = payload.scale;
+    payload.layer_mean_ug_m3 = summary.layers.map((layer) => layer.mean_ug_m3);
+    payload.exceedance_volume_by_layer_m3 = Object.fromEntries(
+      summary.thresholds.map((threshold) => [threshold.key, [threshold.exceedance_volume_m3]]),
+    );
+    entry.summary = summary;
+    cache[id] = decode(entry, payload);
+    return cache[id];
   });
 }
 
@@ -210,8 +296,9 @@ function value(k, j, i) {
 }
 
 function colourScale() {
-  const cMax = Math.max(...M.scenarios.map((s) => s.scale.c_max));
-  const decades = M.scenarios[0].scale.decades;
+  const data = current();
+  const cMax = data?.entry.scale.c_max || 1;
+  const decades = data?.entry.scale.decades || 4;
   const hi = state.multiplier * cMax + state.background;
   let lo = Math.max(hi / 10 ** decades, state.background);
   if (!(lo < hi)) {
@@ -277,6 +364,7 @@ function exactMode() {
 
 function layerStats() {
   const d = current();
+  if (!d) return { air: 0, max: NaN, mean: NaN, area: {} };
   const k = state.layer;
   const { dx_m: dx, dy_m: dy } = GRID;
   let air = 0;
@@ -306,6 +394,7 @@ function layerStats() {
 
 function domainExceedance() {
   const d = current();
+  if (!d) return {};
   const key = `${state.multiplier}|${state.background}`;
 
   if (d.domainExceedance && d.domainExceedance.key === key) {
@@ -340,7 +429,7 @@ function createMap() {
   const c = M.corners_wgs84;
   const centre = [(c.sw[0] + c.ne[0]) / 2, (c.sw[1] + c.ne[1]) / 2];
 
-  const map = new maplibregl.Map({
+  map = new maplibregl.Map({
     container: "map",
     style: "https://tiles.openfreemap.org/styles/positron",
     center: centre,
@@ -350,6 +439,9 @@ function createMap() {
     maxPitch: 80,
     attributionControl: { compact: true },
   });
+
+  map.dragRotate.enable();
+  if (map.touchZoomRotate?.enableRotation) map.touchZoomRotate.enableRotation();
 
   map.addControl(new maplibregl.NavigationControl({ visualizePitch: true }), "top-right");
   map.addControl(new maplibregl.ScaleControl({ unit: "metric", maxWidth: 120 }), "bottom-left");
@@ -371,9 +463,14 @@ function createMap() {
   map.once("load", () => {
     setStatus(`Sẵn sàng · deck.gl ${deck.VERSION || ""} · ${kind}`, "pass");
   });
+  map.on("rotate", updateCameraControls);
+  map.on("pitch", updateCameraControls);
+  updateCameraControls();
+  startWindAnimation();
 }
 
 function concentrationLayer() {
+  if (!current()) return null;
   const z = GRID.z_centres_m[state.layer];
   const scale = colourScale();
   const thresholds = activeThresholds();
@@ -431,6 +528,78 @@ function roadLayer() {
   });
 }
 
+function windVectors(timeMs = 0) {
+  const entry = scenarioEntry(state.scenario);
+  if (!entry) return [];
+  const from = (entry.wind_from_deg * Math.PI) / 180;
+  const speed = Math.max(0, entry.wind_speed_m_s);
+  // Meteorological direction is where wind comes FROM. The particles move TO.
+  const u = -Math.sin(from);
+  const v = -Math.cos(from);
+  const seconds = reducedMotion.matches ? 0 : timeMs / 1000;
+  const travel = 0.026 * Math.max(0.45, speed);
+  const trail = 0.025 + Math.min(speed, 8) * 0.006;
+  const z = GRID.z_centres_m[state.layer] + 1.2;
+
+  return windSeeds.map((seed) => {
+    const offset = seed.phase + seconds * travel;
+    const s = seed.s + u * offset;
+    const t = seed.t + v * offset;
+    return {
+      head: [...geoAt(s, t), z],
+      path: [[...geoAt(s - u * trail, t - v * trail), z], [...geoAt(s, t), z]],
+    };
+  });
+}
+
+function windLayers(timeMs) {
+  const data = windVectors(timeMs);
+  return [
+    new deck.PathLayer({
+      id: "wind-trails",
+      data,
+      visible: state.showWind,
+      getPath: (item) => item.path,
+      getColor: [34, 211, 238, 205],
+      getWidth: 2.3,
+      widthUnits: "pixels",
+      widthMinPixels: 1.5,
+      parameters: { depthTest: false },
+    }),
+    new deck.ScatterplotLayer({
+      id: "wind-heads",
+      data,
+      visible: state.showWind,
+      getPosition: (item) => item.head,
+      getRadius: 2.4,
+      radiusUnits: "pixels",
+      getFillColor: [236, 254, 255, 235],
+      stroked: false,
+      parameters: { depthTest: false },
+    }),
+  ];
+}
+
+function waterLayer() {
+  return new deck.GeoJsonLayer({
+    id: "water",
+    data: window.VOXEL_WATER || { type: "FeatureCollection", features: [] },
+    stroked: false,
+    filled: true,
+    getFillColor: [14, 116, 144, 150],
+  });
+}
+
+function greenLayer() {
+  return new deck.GeoJsonLayer({
+    id: "green",
+    data: window.VOXEL_GREEN || { type: "FeatureCollection", features: [] },
+    stroked: false,
+    filled: true,
+    getFillColor: [34, 197, 94, 95],
+  });
+}
+
 function selectionLayer() {
   if (!state.selected) {
     return null;
@@ -455,13 +624,75 @@ function compass(deg) {
   return labels[Math.round((((deg % 360) + 360) % 360) / 22.5) % 16];
 }
 
+function renderLayers(timeMs = performance.now()) {
+  if (!overlay) return;
+  overlay.setProps({
+    layers: [
+      waterLayer(),
+      greenLayer(),
+      roadLayer(),
+      concentrationLayer(),
+      ...windLayers(timeMs),
+      buildingLayer(),
+      selectionLayer(),
+    ].filter(Boolean),
+  });
+}
+
+function startWindAnimation() {
+  if (windAnimationFrame !== null) cancelAnimationFrame(windAnimationFrame);
+  const frame = (time) => {
+    windAnimationFrame = requestAnimationFrame(frame);
+    if (document.hidden || reducedMotion.matches || !state.showWind || time - lastWindFrame < 33) return;
+    lastWindFrame = time;
+    renderLayers(time);
+  };
+  windAnimationFrame = requestAnimationFrame(frame);
+}
+
+function updateCameraControls() {
+  if (!map) return;
+  const is3d = map.getPitch() > 5;
+  $("toggle-3d").textContent = is3d ? "2D" : "3D";
+  $("toggle-3d").setAttribute("aria-label", is3d ? "Chuyển sang góc nhìn 2D" : "Chuyển sang góc nhìn 3D");
+  $("toggle-3d").setAttribute("aria-pressed", String(is3d));
+  $("toggle-3d").setAttribute("data-pitch", map.getPitch().toFixed(1));
+  $("reset-camera").setAttribute("data-bearing", map.getBearing().toFixed(1));
+}
+
+function updateWindHud() {
+  const entry = scenarioEntry(state.scenario);
+  const hud = $("wind-hud");
+  if (!entry || !state.showWind) {
+    hud.hidden = true;
+    return;
+  }
+  hud.hidden = false;
+  const toDeg = (entry.wind_from_deg + 180) % 360;
+  $("wind-summary").textContent = `${fmt(entry.wind_speed_m_s)} m/s · từ ${compass(entry.wind_from_deg)} (${entry.wind_from_deg.toFixed(0)}°)`;
+  $("wind-arrow").style.transform = `rotate(${toDeg}deg)`;
+}
+
 function scenarioLabel(entry) {
-  const season = Object.keys(SCENARIO_NAMES).find((key) => entry.id.startsWith(key));
-  const name = season ? SCENARIO_NAMES[season] : entry.id;
-  return `${name} · gió từ ${entry.wind_from_deg.toFixed(0)}° (${compass(entry.wind_from_deg)}), ${fmt(entry.wind_speed_m_s)} m/s · ${entry.model.toUpperCase()}`;
+  const scenarioId = entry.scenario_id || entry.id;
+  const season = Object.keys(SCENARIO_NAMES).find((key) => scenarioId.startsWith(key));
+  const name = entry.name || (season ? SCENARIO_NAMES[season] : scenarioId);
+  return `${name} · ${entry.model.toUpperCase()} · ${entry.id.slice(0, 8)} · gió ${entry.wind_from_deg.toFixed(0)}°`;
 }
 
 function buildControls() {
+  const scenarioSelect = $("new-run-scenario");
+  AVAILABLE_SCENARIOS.forEach((scenario) => {
+    const option = document.createElement("option");
+    option.value = scenario.id;
+    option.textContent = `${scenario.name} · ${fmt(scenario.wind_speed_m_s)} m/s`;
+    scenarioSelect.appendChild(option);
+  });
+  $("run-button").addEventListener("click", createRun);
+  $("run-note").textContent = M.scenarios.length
+    ? `${M.scenarios.length} run thành công có thể xem.`
+    : "Chưa có kết quả. Chạy mock để kiểm tra đầy đủ luồng tích hợp.";
+
   const list = $("scenario-list");
   M.scenarios.forEach((entry, n) => {
     const label = document.createElement("label");
@@ -522,6 +753,28 @@ function buildControls() {
     refresh();
   });
 
+  $("show-wind").addEventListener("change", (event) => {
+    state.showWind = event.target.checked;
+    refresh();
+  });
+
+  $("rotate-left").addEventListener("click", () => {
+    map?.easeTo({ bearing: map.getBearing() - 20, duration: reducedMotion.matches ? 0 : 300 });
+  });
+
+  $("rotate-right").addEventListener("click", () => {
+    map?.easeTo({ bearing: map.getBearing() + 20, duration: reducedMotion.matches ? 0 : 300 });
+  });
+
+  $("reset-camera").addEventListener("click", () => {
+    map?.easeTo({ bearing: 0, pitch: 55, duration: reducedMotion.matches ? 0 : 450 });
+  });
+
+  $("toggle-3d").addEventListener("click", () => {
+    const pitch = map && map.getPitch() > 5 ? 0 : 55;
+    map?.easeTo({ pitch, duration: reducedMotion.matches ? 0 : 350 });
+  });
+
   $("panel-toggle").addEventListener("click", () => {
     const panel = $("panel");
     const collapsed = panel.classList.toggle("collapsed");
@@ -530,15 +783,44 @@ function buildControls() {
   });
 }
 
+async function createRun() {
+  const button = $("run-button");
+  button.disabled = true;
+  try {
+    const accepted = await api("/runs", {
+      method: "POST",
+      body: JSON.stringify({ scenario_id: $("new-run-scenario").value, model: "fv" }),
+    });
+    $("run-note").textContent = `Run ${accepted.run_id.slice(0, 8)} đang xếp hàng…`;
+    for (;;) {
+      await new Promise((resolve) => setTimeout(resolve, 500));
+      const run = await api(`/runs/${accepted.run_id}`);
+      $("run-note").textContent = `${run.status} · ${Math.round(run.progress * 100)}%`;
+      setStatus(`Python solver: ${run.status} · ${Math.round(run.progress * 100)}%`);
+      if (run.status === "succeeded") {
+        window.location.reload();
+        return;
+      }
+      if (["failed", "stale"].includes(run.status)) {
+        throw new Error(run.error?.message || `run ${run.status}`);
+      }
+    }
+  } catch (error) {
+    $("run-note").textContent = error.message;
+    setStatus(error.message, "error");
+  } finally {
+    button.disabled = false;
+  }
+}
+
 function fillProvenance() {
   const list = $("provenance");
   const items = [
-    ...Object.values(M.provenance),
+    ...Object.entries(M.provenance).map(([key, value]) => `${key}: ${typeof value === "string" ? value : JSON.stringify(value)}`),
     `Đơn vị: ${M.units}. ${M.pollutant}.`,
     "Chưa có nồng độ nền: số hiển thị chỉ là phần do giao thông trong 500 × 500 m, không so thẳng được với trạm quan trắc.",
     "Đây là verification, chưa phải validation với số đo thực.",
-    `Dữ liệu gộp: uint8 thang log ${M.scenarios[0].scale.decades} thập phân, sai số giải mã ≤ 1,8 %.`,
-    `Xuất lúc ${M.generated_utc}.`,
+    "Kết quả hiển thị được lấy từ run đã vượt verification gate và được lưu trong PostGIS.",
   ];
   items.forEach((text) => {
     const li = document.createElement("li");
@@ -564,17 +846,15 @@ function refresh() {
 
   $("height-value").textContent = `${fmt(z)} m`;
   $("height-slider").setAttribute("aria-valuetext", `tầng ${state.layer + 1}: ${fmt(z - half)}–${fmt(z + half)} m`);
-  $("model-note").textContent = MODEL_NOTES[entry.model] || entry.model_description;
+  $("model-note").textContent = entry
+    ? `${MODEL_NOTES[entry.model] || entry.model} ${entry.warnings?.join("; ") || ""}`
+    : "Chưa có run thành công để hiển thị nồng độ.";
 
   updateLegend();
   updateStats();
   updateProfile();
-
-  if (overlay) {
-    overlay.setProps({
-      layers: [roadLayer(), concentrationLayer(), buildingLayer(), selectionLayer()].filter(Boolean),
-    });
-  }
+  updateWindHud();
+  renderLayers();
 }
 
 function updateLegend() {
@@ -607,6 +887,13 @@ function updateLegend() {
 }
 
 function updateStats() {
+  if (!current()) {
+    $("stat-mean").textContent = "–";
+    $("stat-max").textContent = "–";
+    $("stat-cells").textContent = "–";
+    $("exceed-body").innerHTML = "";
+    return;
+  }
   const s = layerStats();
   $("stat-mean").textContent = fmt(s.mean);
   $("stat-max").textContent = fmt(s.max);
@@ -618,7 +905,7 @@ function updateStats() {
 
   Object.entries(M.thresholds).forEach(([key, t]) => {
     const row = document.createElement("tr");
-    const cellsText = [`${t.label.split(" ·")[0]} ${fmt(t.value)}`, `${fmtVolume(s.area[key])} m²`, `${fmtVolume(volume[key])} m³`];
+    const cellsText = [`${t.label.split(" ·")[0]} ${fmt(t.value)}`, `${fmtVolume(s.area[key] || 0)} m²`, `${fmtVolume(volume[key] || 0)} m³`];
     cellsText.forEach((text) => {
       const td = document.createElement("td");
       td.textContent = text;
@@ -631,7 +918,7 @@ function updateStats() {
 function updateProfile() {
   const box = $("profile");
 
-  if (!state.selected) {
+  if (!state.selected || !current()) {
     box.innerHTML = "";
     $("profile-hint").hidden = false;
     return;

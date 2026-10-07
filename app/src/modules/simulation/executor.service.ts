@@ -39,6 +39,7 @@ import {
   parseProgressLine,
   TailBuffer,
 } from './solver-protocol.js';
+import { importConcentrationColumns } from './result-importer.js';
 
 interface ClaimedRun {
   id: string;
@@ -425,6 +426,16 @@ export class SimulationExecutor
         );
         await insertChecks(client, run.id, manifest);
         await insertArtifacts(client, run.id, artifacts);
+        const columns = artifacts.find(
+          (artifact) => artifact.kind === 'columns',
+        );
+        if (!columns)
+          throw new Error('verified manifest has no columns artifact');
+        await importConcentrationColumns(
+          client,
+          run.id,
+          join(runDir, columns.path),
+        );
         const done = await client.query(
           `UPDATE simulation_runs
            SET status = 'succeeded', progress = 1, model_version = $2, input_hash = $3,
@@ -475,7 +486,12 @@ export class SimulationExecutor
 }
 
 async function clearResults(client: pg.PoolClient, runId: string) {
-  for (const table of ['run_metrics', 'verification_checks', 'artifacts']) {
+  for (const table of [
+    'concentration_columns',
+    'run_metrics',
+    'verification_checks',
+    'artifacts',
+  ]) {
     await client.query(`DELETE FROM ${table} WHERE run_id = $1`, [runId]);
   }
 }

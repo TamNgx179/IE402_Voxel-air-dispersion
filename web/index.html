@@ -13,6 +13,20 @@
 <body>
   <div id="map" aria-label="Bản đồ 3D trường nồng độ"></div>
 
+  <nav class="camera-toolbar" aria-label="Điều khiển góc nhìn bản đồ">
+    <button id="rotate-left" type="button" aria-label="Xoay bản đồ sang trái" title="Xoay trái 20 độ">↶</button>
+    <button id="reset-camera" type="button" aria-label="Đặt lại góc nhìn hướng Bắc" title="Đặt lại góc nhìn">Bắc</button>
+    <button id="rotate-right" type="button" aria-label="Xoay bản đồ sang phải" title="Xoay phải 20 độ">↷</button>
+    <button id="toggle-3d" type="button" aria-pressed="true" aria-label="Chuyển giữa góc nhìn 2D và 3D">3D</button>
+  </nav>
+
+  <aside id="wind-hud" class="wind-hud" aria-live="polite">
+    <span id="wind-arrow" class="wind-arrow" aria-hidden="true">↑</span>
+    <span><strong id="wind-summary">Đang tải gió…</strong><small>Gió nền kịch bản · chuyển động minh hoạ tăng tốc</small></span>
+  </aside>
+
+  <p class="map-hint">Chuột phải hoặc Ctrl + kéo để xoay/nghiêng</p>
+
   <section class="panel" id="panel" aria-label="Điều khiển">
     <header class="panel-head">
       <div>
@@ -23,6 +37,16 @@
     </header>
 
     <div id="panel-body">
+      <section class="group" aria-labelledby="run-title">
+        <h2 id="run-title">Mô phỏng qua API <span class="tag">LIVE</span></h2>
+        <div class="row">
+          <label for="new-run-scenario">Kịch bản mới</label>
+          <select id="new-run-scenario"></select>
+        </div>
+        <button id="run-button" class="primary-button" type="button">Chạy mô phỏng FV</button>
+        <p id="run-note" class="note">Đang kết nối NestJS → Python → PostGIS…</p>
+      </section>
+
       <fieldset class="group">
         <legend>Kịch bản gió <span class="tag">W4</span></legend>
         <div id="scenario-list" class="choices"></div>
@@ -91,6 +115,8 @@
         <legend>Lớp hiển thị</legend>
         <label class="check"><input id="show-buildings" type="checkbox" checked /> Toà nhà 3D <span class="tag">W1</span></label>
         <label class="check"><input id="show-roads" type="checkbox" /> Đường (độ dày ∝ tỉ trọng phát thải)</label>
+        <label class="check"><input id="show-wind" type="checkbox" checked /> Dòng gió nền <span class="wind-key" aria-hidden="true"></span></label>
+        <p class="note wind-disclaimer">Hướng và tốc độ lấy từ kịch bản đầu vào. Đây chưa phải trường vector gió đã hiệu chỉnh quanh từng toà nhà.</p>
       </fieldset>
 
       <details class="group about">
@@ -104,9 +130,6 @@
 
   <script src="https://unpkg.com/maplibre-gl@5.24.0/dist/maplibre-gl.js"></script>
   <script src="https://unpkg.com/deck.gl@9.4.0/dist.min.js"></script>
-  <script src="./data/manifest.js"></script>
-  <script src="./data/buildings.js"></script>
-  <script src="./data/roads.js"></script>
   <script src="./app.js"></script>
 </body>
 </html>

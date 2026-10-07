@@ -13,6 +13,7 @@ import {
 import type { AppConfig } from '../../config/env.validation.js';
 import { DatabaseService } from '../../database/database.service.js';
 import type { CreateRunDto, RunModel } from './dto/create-run.dto.js';
+import type { ListRunsQueryDto } from './dto/list-runs-query.dto.js';
 
 export interface RunAccepted {
   run_id: string;
@@ -101,6 +102,40 @@ export class RunsService {
       status: rows[0].status,
       attempt: rows[0].attempt,
     };
+  }
+
+  async list(query: ListRunsQueryDto) {
+    const conditions: string[] = [];
+    const values: unknown[] = [];
+    const add = (sql: string, value: unknown) => {
+      values.push(value);
+      conditions.push(sql.replace('?', `$${values.length}`));
+    };
+    if (query.status) add('r.status = ?', query.status);
+    if (query.model) add('r.model = ?', query.model);
+    if (query.scenario_id) add('r.scenario_id = ?', query.scenario_id);
+    values.push(query.limit ?? 20);
+    const where = conditions.length ? `WHERE ${conditions.join(' AND ')}` : '';
+    const { rows } = await this.db.query(
+      `SELECT r.id AS run_id, r.status, r.progress, r.attempt, r.model,
+              r.scenario_id, s.name AS scenario_name, s.wind_from_deg, s.wind_speed_m_s,
+              r.model_version, r.warnings, r.created_at, r.finished_at
+       FROM simulation_runs r
+       JOIN scenarios s ON s.id = r.scenario_id
+       ${where}
+       ORDER BY r.created_at DESC
+       LIMIT $${values.length}`,
+      values,
+    );
+    return rows.map((row) => ({
+      ...row,
+      progress: Number(row.progress),
+      attempt: Number(row.attempt),
+      wind_from_deg: Number(row.wind_from_deg),
+      wind_speed_m_s: Number(row.wind_speed_m_s),
+      created_at: iso(row.created_at),
+      finished_at: iso(row.finished_at),
+    }));
   }
 
   async get(id: string): Promise<RunView> {

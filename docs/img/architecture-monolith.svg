@@ -43,23 +43,23 @@
 
   <rect x="600" y="195" width="240" height="125" class="module"/>
   <text x="622" y="226" class="subtitle">HTTP / Application</text>
-  <text x="622" y="254" class="text">Controllers · DTO</text>
-  <text x="622" y="278" class="text">StudyArea · Scenario</text>
-  <text x="622" y="302" class="small">Results · Health modules</text>
+  <text x="622" y="254" class="text">DTO → Controller → Service</text>
+  <text x="622" y="278" class="text">StudyArea · Scenario · Results</text>
+  <text x="622" y="302" class="small">slice · exceedance · profile · summary</text>
 
   <rect x="320" y="355" width="520" height="205" class="module"/>
   <text x="342" y="388" class="subtitle">SimulationModule</text>
   <text x="342" y="418" class="text">Internal executor, concurrency = 1</text>
   <text x="342" y="444" class="text">queued → running → succeeded / failed</text>
   <text x="342" y="470" class="text">Validate config · spawn Python · timeout/retry</text>
-  <text x="342" y="496" class="text">Kiểm exit code · manifest · verification gates</text>
-  <text x="342" y="526" class="small">Khởi động lại: phát hiện run gián đoạn và cho phép chạy lại có kiểm soát</text>
+  <text x="342" y="496" class="text">Kiểm manifest/gate · import columns theo batch</text>
+  <text x="342" y="526" class="small">Một transaction: metrics + checks + artifacts + concentration columns</text>
 
   <rect x="935" y="112" width="285" height="205" class="db"/>
   <text x="962" y="150" class="title">PostgreSQL + PostGIS</text>
   <text x="962" y="184" class="text">study areas · buildings · roads</text>
   <text x="962" y="210" class="text">scenarios · simulation_runs</text>
-  <text x="962" y="236" class="text">slices · summaries · metrics</text>
+  <text x="962" y="236" class="text">concentration_columns · metrics</text>
   <text x="962" y="270" class="small">GiST/B-tree · JSONB metadata</text>
   <text x="962" y="292" class="small">Nguồn sự thật về trạng thái run</text>
 
@@ -83,7 +83,7 @@
   <path d="M1078 520 L1078 558" class="arrow"/>
   <text x="1090" y="545" class="small">ghi output</text>
   <path d="M935 615 L840 515" class="dash"/>
-  <text x="824" y="584" class="small">manifest/status</text>
+  <text x="824" y="584" class="small">manifest + columns.csv.gz</text>
   <path d="M935 280 L840 470" class="dash"/>
   <text x="845" y="352" class="small">run state</text>
 </svg>

@@ -351,16 +351,56 @@ describe.skipIf(!db.ok)('API with PostGIS (e2e, executor disabled)', () => {
     });
   });
 
-  it('result endpoints are still 501 (batch 4)', async () => {
+  it('serves slice, exceedance, profile, summary and compact volume (A5)', async () => {
     const id = randomUUID();
-    for (const path of [
-      'slices?z_m=1.5',
-      'exceedance?threshold=45',
-      'profile?x=1&y=2',
-      'summary',
-      'artifacts',
-    ]) {
-      await http().get(`/api/runs/${id}/${path}`).expect(501);
-    }
+    await pool.query(
+      `INSERT INTO simulation_runs
+         (id, scenario_id, status, model_version, input_hash, finished_at)
+       VALUES ($1, 'dry_nov_apr', 'succeeded', 'test', $2, now())`,
+      [id, `sha256:${'a'.repeat(64)}`],
+    );
+    await pool.query(
+      `INSERT INTO concentration_columns (run_id, i, j, c_ug_m3) VALUES
+       ($1, 0, 0, '{NULL,NULL,5,2}'),
+       ($1, 1, 0, '{10,5,3,1}'),
+       ($1, 0, 1, '{20,10,5,2}'),
+       ($1, 1, 1, '{30,15,8,4}')`,
+      [id],
+    );
+
+    const slice = await http().get(`/api/runs/${id}/slices?z_m=1`).expect(200);
+    expect(slice.body).toMatchObject({ k: 0, z_m: 1, units: 'ug m-3' });
+    expect(slice.body.feature_collection.features).toHaveLength(3);
+    expect(slice.body.stats).toMatchObject({ air_cells: 3, max_ug_m3: 30 });
+
+    const exceedance = await http()
+      .get(`/api/runs/${id}/exceedance?z_m=1&threshold=15`)
+      .expect(200);
+    expect(exceedance.body).toMatchObject({
+      cell_count: 2,
+      area_m2: 50,
+      volume_m3: 100,
+    });
+
+    const profile = await http()
+      .get(`/api/runs/${id}/profile?i=1&j=0`)
+      .expect(200);
+    expect(
+      profile.body.levels.map((level: any) => level.concentration_ug_m3),
+    ).toEqual([10, 5, 3, 1]);
+
+    const summary = await http().get(`/api/runs/${id}/summary`).expect(200);
+    expect(summary.body.layers).toHaveLength(4);
+    expect(summary.body.thresholds).toHaveLength(2);
+
+    const volume = await http().get(`/api/runs/${id}/volume`).expect(200);
+    expect(volume.body).toMatchObject({
+      shape: [4, 2, 2],
+      axis_order: 'z,y,x',
+    });
+    expect(Buffer.from(volume.body.codes_base64, 'base64')).toHaveLength(16);
+
+    await http().get(`/api/runs/${id}/slices?z_m=999`).expect(400);
+    await http().get(`/api/runs/${id}/profile?i=9&j=0`).expect(400);
   });
 });

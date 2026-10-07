@@ -7,6 +7,7 @@ import {
   Param,
   ParseUUIDPipe,
   Post,
+  Query,
 } from '@nestjs/common';
 import {
   ApiAcceptedResponse,
@@ -18,6 +19,7 @@ import {
   ApiTags,
 } from '@nestjs/swagger';
 import { CreateRunDto } from './dto/create-run.dto.js';
+import { ListRunsQueryDto } from './dto/list-runs-query.dto.js';
 import { type RunAccepted, RunsService, type RunView } from './runs.service.js';
 
 /**
@@ -29,6 +31,13 @@ import { type RunAccepted, RunsService, type RunView } from './runs.service.js';
 @Controller('runs')
 export class SimulationController {
   constructor(private readonly runs: RunsService) {}
+
+  @Get()
+  @ApiOperation({ summary: 'List recent runs for the web viewer' })
+  @ApiOkResponse({ description: 'Recent runs, newest first' })
+  list(@Query() query: ListRunsQueryDto) {
+    return this.runs.list(query);
+  }
 
   @Post()
   @HttpCode(HttpStatus.ACCEPTED)

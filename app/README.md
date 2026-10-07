@@ -74,7 +74,9 @@ cập nhật `progress` (fraction theo từng stage `setup|wind|transport|export
 | app khởi động lại khi run đang `running` | `stale` (BR-21) |
 
 `POST /api/runs/:id/retry`: chỉ từ `failed`/`stale` → `queued`, `attempt + 1`; còn lại `409`.
-`columns.csv.gz` **chưa** được nạp vào `concentration_columns` (batch 4).
+`columns.csv.gz` được kiểm tra checksum rồi nạp theo batch vào `concentration_columns` trong
+cùng transaction với metrics, verification checks và artifacts. Run chỉ chuyển sang
+`succeeded` khi toàn bộ bước persist hoàn tất.
 
 ## Biến môi trường
 
@@ -111,7 +113,8 @@ src/
     ├── scenarios/           GET /api/scenarios
     ├── simulation/          POST /api/runs, GET /api/runs/:id, POST /api/runs/:id/retry,
     │                        executor, kiểm manifest/checksum
-    └── results/             GET /api/runs/:id/{slices,exceedance,profile,summary,artifacts} (501, batch 4)
+    └── results/             DTO → controller → service cho slices, exceedance, profile,
+                             summary, volume và artifact download
 test/
 ├── fixtures/scene/          scene package giả 2 × 2 ô (checksum thật; .gitattributes -text)
 ├── fixtures/fake-solver.mjs solver giả cùng CLI/contract (FAKE_SOLVER_BEHAVIOR, FAKE_SOLVER_DELAY_MS)

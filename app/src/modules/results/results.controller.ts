@@ -1,44 +1,99 @@
-import { Controller, Get, Param } from '@nestjs/common';
-import { ApiOperation, ApiQuery, ApiTags } from '@nestjs/swagger';
-import { notImplemented } from '../../common/not-implemented.js';
+import {
+  Controller,
+  Get,
+  Param,
+  ParseUUIDPipe,
+  Query,
+  Res,
+  StreamableFile,
+} from '@nestjs/common';
+import type { Response } from 'express';
+import {
+  ApiConflictResponse,
+  ApiNotFoundResponse,
+  ApiOkResponse,
+  ApiOperation,
+  ApiTags,
+} from '@nestjs/swagger';
+import { ExceedanceQueryDto } from './dto/exceedance-query.dto.js';
+import { ProfileQueryDto } from './dto/profile-query.dto.js';
+import { SliceQueryDto } from './dto/slice-query.dto.js';
+import { ResultsService } from './results.service.js';
 
-/** Read-only result queries for a run (BR-24..BR-26). */
 @ApiTags('results')
 @Controller('runs/:id')
 export class ResultsController {
+  constructor(private readonly results: ResultsService) {}
+
   @Get('slices')
-  @ApiOperation({ summary: 'Concentration layer at height z_m (501 for now)' })
-  @ApiQuery({ name: 'z_m', required: false, type: Number })
-  slices(@Param('id') id: string): never {
-    return notImplemented(`GET /runs/${id}/slices`);
+  @ApiOperation({ summary: 'Concentration GeoJSON at the nearest z layer' })
+  @ApiOkResponse({ description: 'GeoJSON cells, exact z layer and statistics' })
+  @ApiConflictResponse({ description: 'Run has not succeeded' })
+  slices(
+    @Param('id', new ParseUUIDPipe()) id: string,
+    @Query() query: SliceQueryDto,
+  ) {
+    return this.results.slice(id, query);
   }
 
   @Get('exceedance')
-  @ApiOperation({ summary: 'Cells/areas above threshold (501 for now)' })
-  @ApiQuery({ name: 'threshold', required: false, type: Number })
-  exceedance(@Param('id') id: string): never {
-    return notImplemented(`GET /runs/${id}/exceedance`);
+  @ApiOperation({ summary: 'Cells above a configured or custom threshold' })
+  exceedance(
+    @Param('id', new ParseUUIDPipe()) id: string,
+    @Query() query: ExceedanceQueryDto,
+  ) {
+    return this.results.exceedance(id, query);
   }
 
   @Get('profile')
-  @ApiOperation({ summary: 'Vertical profile at (x, y) (501 for now)' })
-  @ApiQuery({ name: 'x', required: false, type: Number })
-  @ApiQuery({ name: 'y', required: false, type: Number })
-  profile(@Param('id') id: string): never {
-    return notImplemented(`GET /runs/${id}/profile`);
+  @ApiOperation({
+    summary: 'Vertical concentration profile at grid column i,j',
+  })
+  profile(
+    @Param('id', new ParseUUIDPipe()) id: string,
+    @Query() query: ProfileQueryDto,
+  ) {
+    return this.results.profile(id, query);
   }
 
   @Get('summary')
   @ApiOperation({
-    summary: 'Mean/max, exceedance volume, mass balance (501 for now)',
+    summary: 'Layer statistics, thresholds, mass metrics and verification',
   })
-  summary(@Param('id') id: string): never {
-    return notImplemented(`GET /runs/${id}/summary`);
+  summary(@Param('id', new ParseUUIDPipe()) id: string) {
+    return this.results.summary(id);
+  }
+
+  @Get('volume')
+  @ApiOperation({
+    summary: 'Compact uint8 volume payload for the same-origin web viewer',
+  })
+  volume(@Param('id', new ParseUUIDPipe()) id: string) {
+    return this.results.volume(id);
   }
 
   @Get('artifacts')
-  @ApiOperation({ summary: 'Manifest and artifact references (501 for now)' })
-  artifacts(@Param('id') id: string): never {
-    return notImplemented(`GET /runs/${id}/artifacts`);
+  @ApiOperation({ summary: 'Verified artifact metadata and download URLs' })
+  artifacts(@Param('id', new ParseUUIDPipe()) id: string) {
+    return this.results.artifacts(id);
+  }
+
+  @Get('artifacts/:kind/download')
+  @ApiOperation({
+    summary: 'Download one verified artifact without exposing local paths',
+  })
+  @ApiNotFoundResponse({ description: 'Run or artifact not found' })
+  async download(
+    @Param('id', new ParseUUIDPipe()) id: string,
+    @Param('kind') kind: string,
+    @Res({ passthrough: true }) response: Response,
+  ): Promise<StreamableFile> {
+    const file = await this.results.download(id, kind);
+    response.setHeader(
+      'Content-Disposition',
+      `attachment; filename="${file.filename}"`,
+    );
+    response.setHeader('Content-Length', String(file.size));
+    return new StreamableFile(file.stream);
   }
 }

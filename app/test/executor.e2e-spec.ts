@@ -145,12 +145,18 @@ describe.skipIf(!db.ok)('SimulationExecutor (e2e, fake solver)', () => {
       [id],
     );
     expect(snap.rows[0].config_snapshot.run.run_id).toBe(id);
-    // columns.csv.gz is NOT loaded yet (batch 4).
     const cols = await pool.query(
       'SELECT count(*)::int AS n FROM concentration_columns WHERE run_id = $1',
       [id],
     );
-    expect(cols.rows[0].n).toBe(0);
+    expect(cols.rows[0].n).toBe(4);
+
+    const slice = await http().get(`/api/runs/${id}/slices?z_m=1`).expect(200);
+    expect(slice.body.feature_collection.features.length).toBeGreaterThan(0);
+    const profile = await http()
+      .get(`/api/runs/${id}/profile?i=1&j=0`)
+      .expect(200);
+    expect(profile.body.levels).toHaveLength(4);
 
     await http().post(`/api/runs/${id}/retry`).expect(409);
   });

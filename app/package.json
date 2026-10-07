@@ -22,7 +22,8 @@
     "test:e2e": "vitest run --config ./vitest.config.e2e.ts",
     "db:migrate": "tsx src/database/cli.ts migrate",
     "db:reset": "tsx src/database/cli.ts reset",
-    "db:seed": "tsx src/database/cli.ts seed"
+    "db:seed": "tsx src/database/cli.ts seed",
+    "db:benchmark": "tsx src/database/benchmark-results.ts"
   },
   "dependencies": {
     "@nestjs/common": "^12.0.1",

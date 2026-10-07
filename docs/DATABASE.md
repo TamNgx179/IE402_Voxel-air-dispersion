@@ -153,7 +153,8 @@ Ràng buộc: SRID của mọi `geom` bằng `study_areas.projected_srid` (CHECK
 
 ## 3 · Bốn query bắt buộc (BR-26) — phác thảo
 
-`k` được tính ở API: `k = floor(z_m / dz)` (spec D1). Mảng PostgreSQL đánh số từ 1 nên phần tử
+`k` được tính ở API bằng lớp có tâm gần `z_m` nhất, với tâm lớp `k` là
+`(k + 0.5) * dz`; chỉ số được chặn trong `[0, nz - 1]`. Mảng PostgreSQL đánh số từ 1 nên phần tử
 của tầng `k` là `c_ug_m3[k + 1]`. Geometry trả về web được `ST_Transform(…, 4326)`.
 
 ```sql
