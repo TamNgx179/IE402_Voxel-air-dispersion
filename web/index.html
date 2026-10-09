@@ -14,48 +14,57 @@
   <div id="map" aria-label="Bản đồ 3D trường nồng độ"></div>
 
   <nav class="camera-toolbar" aria-label="Điều khiển góc nhìn bản đồ">
-    <button id="rotate-left" type="button" aria-label="Xoay bản đồ sang trái" title="Xoay trái 20 độ">↶</button>
-    <button id="reset-camera" type="button" aria-label="Đặt lại góc nhìn hướng Bắc" title="Đặt lại góc nhìn">Bắc</button>
-    <button id="rotate-right" type="button" aria-label="Xoay bản đồ sang phải" title="Xoay phải 20 độ">↷</button>
+    <button id="rotate-left" type="button" aria-label="Xoay bản đồ sang trái" title="Xoay trái"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 10a9 9 0 1 1 2 9M3 4v6h6"/></svg></button>
+    <button id="reset-camera" type="button" aria-label="Về khu vực mô phỏng" title="Về khu vực mô phỏng"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="m15 9-2 4-4 2 2-4Z"/></svg></button>
+    <button id="rotate-right" type="button" aria-label="Xoay bản đồ sang phải" title="Xoay phải"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M21 10a9 9 0 1 0-2 9M21 4v6h-6"/></svg></button>
     <button id="toggle-3d" type="button" aria-pressed="true" aria-label="Chuyển giữa góc nhìn 2D và 3D">3D</button>
   </nav>
 
   <aside id="wind-hud" class="wind-hud" aria-live="polite">
-    <span id="wind-arrow" class="wind-arrow" aria-hidden="true">↑</span>
-    <span><strong id="wind-summary">Đang tải gió…</strong><small>Gió nền kịch bản · chuyển động minh hoạ tăng tốc</small></span>
+    <span id="wind-arrow" class="wind-arrow" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M12 20V4m-5 5 5-5 5 5"/></svg></span>
+    <span><strong id="wind-summary">Đang tải gió…</strong><small id="wind-caption">Gió đầu vào của kịch bản</small></span>
+    <button id="wind-motion" class="icon-button" type="button" aria-label="Dừng chuyển động gió" aria-pressed="false" title="Dừng chuyển động gió"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M8 5v14M16 5v14"/></svg></button>
   </aside>
+
+  <aside id="basemap-notice" class="basemap-notice" hidden role="status"><span id="basemap-message"></span><button id="basemap-retry" type="button">Tải lại nền</button></aside>
 
   <p class="map-hint">Chuột phải hoặc Ctrl + kéo để xoay/nghiêng</p>
 
   <section class="panel" id="panel" aria-label="Điều khiển">
     <header class="panel-head">
       <div>
-        <h1>PM2.5 trên lưới voxel 3D</h1>
-        <p class="subtitle">Nguyễn Huệ, TP.HCM · 500 × 500 × 100 m · Δ 5 m × 5 m × 2 m</p>
+        <p class="eyebrow">BẢN ĐỒ KHÔNG KHÍ</p>
+        <h1>Nguyễn Huệ <span class="pollutant">PM2.5</span></h1>
+        <p class="subtitle">TP. Hồ Chí Minh · mô hình đô thị 3D</p>
       </div>
-      <button id="panel-toggle" class="icon-button" type="button" aria-expanded="true" aria-controls="panel-body" title="Thu gọn">−</button>
+      <button id="panel-toggle" class="icon-button" type="button" aria-expanded="true" aria-controls="panel-body" aria-label="Thu gọn bảng điều khiển" title="Thu gọn"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m6 14 6-6 6 6"/></svg></button>
     </header>
 
     <div id="panel-body">
-      <section class="group" aria-labelledby="run-title">
-        <h2 id="run-title">Mô phỏng qua API <span class="tag">LIVE</span></h2>
-        <div class="row">
-          <label for="new-run-scenario">Kịch bản mới</label>
+      <section class="control-card" aria-labelledby="run-title">
+        <h2 id="run-title" class="card-title"><span class="step">01</span> Chạy mô phỏng</h2>
+        <div class="run-form">
+          <label for="new-run-scenario" class="sr-only">Kịch bản mô phỏng mới</label>
           <select id="new-run-scenario"></select>
+          <button id="run-button" class="primary-button" type="button" disabled><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m8 5 11 7-11 7Z"/></svg><span>Chạy</span></button>
         </div>
-        <button id="run-button" class="primary-button" type="button">Chạy mô phỏng FV</button>
-        <p id="run-note" class="note">Đang kết nối NestJS → Python → PostGIS…</p>
+        <p id="run-note" class="note" role="status">Đang kết nối…</p>
+        <progress id="run-progress" max="100" value="0" hidden aria-label="Tiến độ mô phỏng"></progress>
+        <details id="run-error" class="run-error" hidden><summary>Chi tiết lỗi</summary><p id="run-error-detail"></p></details>
       </section>
 
+      <section class="control-card" aria-labelledby="view-title">
+        <h2 id="view-title" class="card-title"><span class="step">02</span> Xem bản đồ</h2>
       <fieldset class="group">
-        <legend>Kịch bản gió <span class="tag">W4</span></legend>
-        <div id="scenario-list" class="choices"></div>
-        <p id="model-note" class="note"></p>
+        <legend>Kết quả</legend>
+        <label for="scenario-list" class="sr-only">Chọn kết quả mô phỏng</label>
+        <select id="scenario-list"></select>
+        <details class="result-details"><summary>Thông tin kết quả</summary><p id="model-note" class="note"></p></details>
       </fieldset>
 
       <div class="group">
         <div class="row">
-          <label for="height-slider">Độ cao <span class="tag">W3</span></label>
+          <label for="height-slider">Độ cao</label>
           <output id="height-value" for="height-slider">1 m</output>
         </div>
         <input id="height-slider" type="range" min="0" max="49" step="1" value="0" />
@@ -63,40 +72,38 @@
       </div>
 
       <fieldset class="group">
-        <legend>Ngưỡng PM2.5 <span class="tag">W5</span></legend>
+        <legend>Ngưỡng tham chiếu</legend>
         <div id="threshold-list" class="choices"></div>
-      </fieldset>
-
-      <fieldset class="group">
-        <legend>Độ nhạy phát thải</legend>
-        <div class="row">
-          <label for="multiplier">Hệ số nhân nguồn</label>
-          <select id="multiplier">
-            <option value="1" selected>× 1 (EDGAR)</option>
-            <option value="10">× 10</option>
-            <option value="30">× 30</option>
-            <option value="100">× 100</option>
-            <option value="300">× 300</option>
-          </select>
-        </div>
-        <div class="row">
-          <label for="background">Nồng độ nền (µg/m³)</label>
-          <input id="background" type="number" min="0" max="200" step="1" value="0" inputmode="decimal" />
-        </div>
-        <p class="note">Mô hình tuyến tính theo nguồn: C = k · C<sub>mô hình</sub> + nền. EDGAR ngụ ý chỉ ~99 xe/h trên đường primary — xem <a href="../docs/emission_assumptions.md" target="_blank" rel="noopener">giả định phát thải</a>.</p>
       </fieldset>
 
       <div class="group">
         <div class="legend-title" id="legend-title">Nồng độ (µg/m³, thang log)</div>
         <div class="legend" id="legend"></div>
         <div class="legend-labels" id="legend-labels"></div>
+        <p class="note">Nhạt → đậm: nồng độ tăng · không phải AQI</p>
       </div>
 
+      <details class="group layer-options">
+        <summary>Lớp hiển thị</summary>
+        <div class="row"><label for="basemap-style">Nền bản đồ</label><select id="basemap-style"><option value="vector">Nền sáng</option><option value="raster">Đường phố OSM</option></select></div>
+        <label class="check"><input id="show-buildings" type="checkbox" checked /> Toà nhà</label>
+        <label class="check"><input id="show-facades" type="checkbox" checked /> Chi tiết mặt đứng</label>
+        <p id="building-appearance-note" class="note">Mặt đứng minh họa; hình học theo dữ liệu GIS.</p>
+        <label class="check"><input id="show-roads" type="checkbox" /> Đường</label>
+        <label class="check"><input id="show-wind" type="checkbox" checked /> Gió chuyển động <span class="wind-key" aria-hidden="true"></span></label>
+        <p id="wind-source-note" class="note wind-disclaimer">Đang tải trường gió của kết quả.</p>
+      </details>
+      </section>
+
+      <section class="control-card" aria-labelledby="analysis-title">
+      <h2 id="analysis-title" class="card-title"><span class="step">03</span> Phân tích</h2>
+
       <section class="group" aria-labelledby="stats-title">
-        <h2 id="stats-title">Tầng đang xem <span class="tag">W7</span></h2>
+        <h2 id="stats-title">Tầng đang xem <span class="unit">µg/m³</span></h2>
+        <p id="query-note" class="note query-note" role="status"></p>
         <div class="stats">
-          <div class="stat"><span class="stat-label">TB tầng</span><span id="stat-mean" class="stat-value">–</span></div>
-          <div class="stat"><span class="stat-label">Max tầng</span><span id="stat-max" class="stat-value">–</span></div>
+          <div class="stat"><span class="stat-label">Trung bình</span><span id="stat-mean" class="stat-value">–</span></div>
+          <div class="stat"><span class="stat-label">Cao nhất</span><span id="stat-max" class="stat-value">–</span></div>
           <div class="stat"><span class="stat-label">Ô khí</span><span id="stat-cells" class="stat-value">–</span></div>
         </div>
         <table class="exceed" aria-label="Vượt ngưỡng">
@@ -106,23 +113,20 @@
       </section>
 
       <section class="group" aria-labelledby="profile-title">
-        <h2 id="profile-title">Profile đứng <span class="tag">W6</span></h2>
+        <h2 id="profile-title">Theo độ cao</h2>
         <p id="profile-hint" class="note">Bấm một ô trên bản đồ để xem nồng độ theo độ cao.</p>
         <div id="profile" class="profile"></div>
       </section>
-
-      <fieldset class="group">
-        <legend>Lớp hiển thị</legend>
-        <label class="check"><input id="show-buildings" type="checkbox" checked /> Toà nhà 3D <span class="tag">W1</span></label>
-        <label class="check"><input id="show-roads" type="checkbox" /> Đường (độ dày ∝ tỉ trọng phát thải)</label>
-        <label class="check"><input id="show-wind" type="checkbox" checked /> Dòng gió nền <span class="wind-key" aria-hidden="true"></span></label>
-        <p class="note wind-disclaimer">Hướng và tốc độ lấy từ kịch bản đầu vào. Đây chưa phải trường vector gió đã hiệu chỉnh quanh từng toà nhà.</p>
-      </fieldset>
-
-      <details class="group about">
-        <summary>Nguồn dữ liệu và giới hạn</summary>
-        <ul id="provenance"></ul>
+      <details class="group advanced">
+        <summary>Điều chỉnh minh hoạ</summary>
+        <div class="row"><label for="multiplier">Hệ số nguồn</label>
+          <select id="multiplier"><option value="1" selected>× 1 (EDGAR)</option><option value="10">× 10</option><option value="30">× 30</option><option value="100">× 100</option><option value="300">× 300</option></select>
+        </div>
+        <div class="row"><label for="background">Nền (µg/m³)</label><input id="background" type="number" min="0" max="200" step="1" value="0" inputmode="decimal" /></div>
+        <p class="note">Chỉ đổi lớp xem, không chạy lại solver. Số liệu điều chỉnh là ước tính.</p>
       </details>
+      </section>
+
     </div>
   </section>
 
@@ -130,6 +134,8 @@
 
   <script src="https://unpkg.com/maplibre-gl@5.24.0/dist/maplibre-gl.js"></script>
   <script src="https://unpkg.com/deck.gl@9.4.0/dist.min.js"></script>
+  <script src="./viewer-flow.js"></script>
+  <script src="./building-appearance.js"></script>
   <script src="./app.js"></script>
 </body>
 </html>

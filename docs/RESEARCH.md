@@ -1739,6 +1739,21 @@ Mật khẩu file nén đo đạc lấy từ `ewtl.mi@uni-hamburg.de`.
 
 ## 20. Ba câu tóm tắt
 
+### Bổ sung bằng chứng triển khai B5/B6 — 09/10/2026
+
+5 production cases 500.000 voxel đã hội tụ và pass mass/divergence/positivity/wall gates.
+Hai mùa được đối chiếu FV–Gaussian cùng input; có lát theo z, sensitivity K×0,5 và
+height±20%, audit footprint/voxel độc lập, nghiệm giải tích diffusion và vector solver.
+Số liệu/run_id/lệnh tái lập ở [B5_B6_EVIDENCE.md](./B5_B6_EVIDENCE.md).
+Verification giải tích không thay thế field validation; Gaussian không phải ground truth.
+
+CG giải cùng hệ Poisson với preconditioner Jacobi, theo
+[SciPy CG](https://docs.scipy.org/doc/scipy/reference/generated/scipy.sparse.linalg.cg.html);
+CSR tiền tính giữ nguyên FV explicit. Khuếch tán số ngang p95 có thể vượt K vật lý;
+ước lượng leading-order 1D được ghi cạnh K, bỏ qua mixed terms đa chiều, theo
+[LeVeque modified-equation analysis](https://faculty.washington.edu/rjl/classes/am574w2011/lectures/am574lecture7nup3.pdf).
+Không tuyên bố đã grid-converged hoặc đã mô hình đủ cavity/wake/traffic turbulence.
+
 1. **Về mô hình:** có sáu tầng, và **phương án T3 được chọn (gió chẩn đoán bảo toàn khối lượng Sasaki + vận chuyển trên voxel, không triển khai đủ bảy vùng Röckle)** là phương án đồng thời phân giải toà nhà, chạy trên laptop và native voxel — đúng trọng tâm "3D Array/voxel".
 2. **Về chi phí:** khoảng cách giữa T3 và T4/LES là **hai đến ba bậc độ lớn** ✅, và bảng CAIRDIO ✅ cho thấy **5–10 m là điểm ngọt về độ phân giải**. Đây là hai con số quyết định phạm vi đồ án.
 3. **Về tính trung thực:** tài liệu này gắn cờ 37 mục chưa kiểm chứng được ở §18. **Danh sách đó không phải điểm yếu của nghiên cứu — nó là danh sách việc phải làm tuần 1**, và việc nêu nó ra trong báo cáo là một điểm cộng học thuật chứ không phải điểm trừ.

@@ -174,6 +174,9 @@ def test_real_solver_is_not_faked(tmp_path: Path) -> None:
     config["paths"]["scene_package_dir"] = str(scene)
     config["paths"]["emission_source_transport_netcdf"] = str(source_path)
     config["transport"]["max_simulated_s"] = 20.0
+    config["transport"]["stopping_criterion"] = "fixed_time"
+    config["transport"]["implementation"] = "faces"
+    config["wind"]["poisson_method"] = "sor"
     config["run"] = {"run_id": run_id, "scenario_id": "dry_nov_apr", "model": "fv"}
     config_path = out / "config.yaml"
     config_path.write_text(yaml.safe_dump(config, sort_keys=False), encoding="utf-8")

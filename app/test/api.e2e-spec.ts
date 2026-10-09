@@ -373,6 +373,19 @@ describe.skipIf(!db.ok)('API with PostGIS (e2e, executor disabled)', () => {
     expect(slice.body.feature_collection.features).toHaveLength(3);
     expect(slice.body.stats).toMatchObject({ air_cells: 3, max_ug_m3: 30 });
 
+    for (const [height, layer] of [[0, 0], [1.99, 0], [2, 1], [7.99, 3]]) {
+      const response = await http().get(`/api/runs/${id}/slices?z_m=${height}`).expect(200);
+      expect(response.body).toMatchObject({
+        k: layer,
+        requested_z_m: height,
+        z_center_m: (layer + 0.5) * 2,
+      });
+    }
+    await http().get(`/api/runs/${id}/slices?z_m=8`).expect(400);
+    await http().get(`/api/runs/${id}/slices?bbox=200,10,201,11`).expect(400);
+    await http().get(`/api/runs/${id}/slices?bbox=106,11,105,12`).expect(400);
+    await http().get(`/api/runs/${id}/exceedance?threshold=15&threshold_key=who_24h`).expect(400);
+
     const exceedance = await http()
       .get(`/api/runs/${id}/exceedance?z_m=1&threshold=15`)
       .expect(200);

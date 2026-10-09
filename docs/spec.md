@@ -229,7 +229,9 @@ Geometry chỉ lưu **một lần** cho mỗi study area trong `grid_cells`.
 | Summary theo tầng dùng `unnest(...) WITH ORDINALITY` | `/summary` không cần bảng phụ |
 
 Quy tắc cao độ: `z_m` được quy về **ô chứa nó**, `k = floor(z_m / dz)`; response trả cả
-`z_m` yêu cầu lẫn tâm tầng thực (`z_center_m`). Ví dụ `z_m = 1,5` → `k = 0`, tâm 1 m.
+`requested_z_m` yêu cầu lẫn tâm tầng thực (`z_center_m`); `z_m` giữ giá trị tâm tầng để
+tương thích client cũ. Ví dụ `z_m = 1,5` → `k = 0`, tâm 1 m. Miền hợp lệ là
+`0 ≤ z_m < nz × dz`; điểm ngay biên 2 m thuộc tầng `k = 1` khi `dz = 2 m`.
 
 ### D2 · Lệnh gọi Python solver
 
@@ -263,7 +265,9 @@ Chế độ giả cho tích hợp trước khi có solver thật (A3.4):
 - `--mock-fail input|model|system` thoát với mã 2/3/4 tương ứng; với `model`, manifest vẫn được
   ghi nhưng `verification.status = "fail"`.
 - Không có `--mock` thì solver thật chạy wind SOR → corrected face flux → FV transport.
-  Smoke grid dùng để nghiệm thu B4; production-grid result được tạo ở B5.
+  Smoke grid dùng để nghiệm thu B4; B5 production dùng cùng toán tử Poisson với CG
+  và cùng explicit FV face flux được lắp thành ma trận thưa. SOR và bước flux trực tiếp
+  vẫn giữ để đối chiếu regression; đây không phải implicit transport hay mô hình mới.
 
 Thư mục kết quả:
 
@@ -284,6 +288,17 @@ Run M3 chạy: wind SOR, rồi FV trong **thời gian mô phỏng cố định**
 (`transport.max_simulated_s` = 600 s, khoảng hai lần thời gian gió 1,6–1,8 m/s đi hết 500 m), rồi verification gate trên production grid. Tiêu chí dừng
 steady-state (BR-8) được thêm ở B5.1 qua trường `stopping.criterion` của manifest, **không đổi
 contract**: `"fixed_time"` ở M3, `"steady_state"` từ M4.
+
+### D3.1 · Production B5/B6 (09/10/2026)
+
+Production mặc định `steady_state`: relative L1 change ≤1e-3 qua 3 kiểm tra liên tiếp
+cách 30 s sau ít nhất 600 s; max 1.800 s. Chưa hội tụ thì failed/exit 3, không xuất
+kết quả thành công. Wind dùng CG cho cùng hệ Poisson, SOR giữ làm reference; CSR là
+tiền tính cùng toán tử FV explicit, không đổi phương trình thành implicit.
+Manifest có convergence residual/history, method, checksum và gate; `wind-vectors.json`
+downsample corrected face averages với run_id, tầng và units m/s. UI không fallback
+gió nền thành solver wind. Kết quả 5 cases và kiểm hình học độc lập ở
+[B5_B6_EVIDENCE.md](./B5_B6_EVIDENCE.md).
 
 ### D4 · Đóng gói
 
@@ -381,15 +396,15 @@ Compose. Không có container riêng cho Python.
 | `AC-34` | Trên môi trường sạch, runbook dựng monolith + DB, seed, spawn Python solver, trả 4 query và mở web mà không sửa tay | `BR-42` |
 | `AC-35` | Evidence index liên kết mỗi figure/table quan trọng tới `run_id`, commit/model version, input hash và manifest | `BR-43` |
 
-## Ghi chú quan sát (cập nhật 07/10/2026)
+## Ghi chú quan sát (cập nhật 09/10/2026)
 
 | Đã quan sát trong repo | Chưa được chứng minh và cần triển khai/đo |
 |---|---|
 | NestJS modular monolith, migration/seed PostGIS và internal executor đã tồn tại | Clean-room Compose rehearsal tuần 7–8 chưa thực hiện |
-| Real E2E đã chạy HTTP → queued/running → Python wind/FV → manifest → PostGIS query | Production-grid FV chưa trở thành output mặc định của web |
-| Input `100×100×50` tái dựng từ scene khóa checksum; EDGAR normalization và hai Gaussian baseline đã chạy | B5 phải chạy FV production-grid tới stopping criterion và mass budget pass |
-| Contract `[z,y,x]`, corrected `uf,vf,wf`, NetCDF/manifest và exit code có test | External benchmark/cross-check và sensitivity chiều cao chưa hoàn thành |
-| B3.4 đã đo real solver fixture 9.216 voxel; DB có query benchmark riêng | B5.4 vẫn phải đo runtime/RSS production grid trên máy demo |
+| HTTP → Python production FV → PostGIS → web đã succeeded; viewer ưu tiên FV thật, vector theo tầng | Release rehearsal trên máy sạch còn ở tuần 7–8 |
+| 5 cases `100×100×50` hội tụ, tất cả mass/divergence/CFL/positivity/wall gates pass | Parameter freeze và release artifacts cần chốt ở B7/B8 |
+| Corrected faces có tests, K×0,5 và height±20%; cross-check nghiệm giải tích variance 40 m² pass | Chưa field/wind-tunnel validation; Gaussian không phải ground truth |
+| Production runtime 94,55–166,89 s/RSS 303–317 MB; benchmark DB trên FV thật có p50/p95 | Một lần đo runtime/case, không phải thống kê nhiều lượt |
 | Dữ liệu cảnh có provenance và hạn chế phát thải được ghi nhận | Chưa có validation hiện trường; không được tuyên bố “đã validation” |
 
 ## Nguồn

@@ -19,6 +19,7 @@ import type {
 
 export const ARTIFACT_KINDS = [
   'wind',
+  'wind_vectors',
   'concentration',
   'columns',
   'metrics',
@@ -51,6 +52,8 @@ export class SimulationResultsService {
       model: context.model,
       model_version: context.model_version,
       z_m: layer.z_m,
+      requested_z_m: query.z_m ?? 1.5,
+      z_center_m: layer.z_m,
       k: layer.k,
       units: 'ug m-3',
       feature_collection: {
@@ -89,6 +92,8 @@ export class SimulationResultsService {
     return {
       run_id: runId,
       z_m: layer.z_m,
+      requested_z_m: query.z_m ?? 1.5,
+      z_center_m: layer.z_m,
       k: layer.k,
       units: 'ug m-3',
       threshold,
@@ -287,10 +292,10 @@ export class SimulationResultsService {
 }
 
 function layerFor(grid: GridSchema, requested: number) {
-  const k = Math.round(requested / grid.dz_m - 0.5);
+  const k = Math.floor(requested / grid.dz_m);
   if (k < 0 || k >= grid.nz) {
     throw new BadRequestException(
-      `z_m must select a layer between ${grid.dz_m / 2} and ${(grid.nz - 0.5) * grid.dz_m}`,
+      `z_m must be in [0, ${grid.nz * grid.dz_m})`,
     );
   }
   return { k, z_m: (k + 0.5) * grid.dz_m };
@@ -300,7 +305,10 @@ function parseBbox(raw?: string): [number, number, number, number] | undefined {
   if (!raw) return undefined;
   const values = raw.split(',').map(Number) as [number, number, number, number];
   if (
+    values.length !== 4 ||
     values.some((value) => !Number.isFinite(value)) ||
+    values[0] < -180 || values[2] > 180 ||
+    values[1] < -90 || values[3] > 90 ||
     values[0] >= values[2] ||
     values[1] >= values[3]
   ) {
@@ -329,6 +337,7 @@ function extension(kind: string): string {
   return (
     {
       wind: '.nc',
+      wind_vectors: '.json',
       concentration: '.nc',
       columns: '.csv.gz',
       metrics: '.json',

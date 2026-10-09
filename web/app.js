@@ -15,8 +15,8 @@ let GRID = null;
 let AVAILABLE_SCENARIOS = [];
 
 const SCENARIO_NAMES = {
-  dry_nov_apr: "Mùa khô (tháng 11–4)",
-  wet_may_oct: "Mùa mưa (tháng 5–10)",
+  dry_nov_apr: "Mùa khô",
+  wet_may_oct: "Mùa mưa",
 };
 
 const MODEL_NOTES = {
@@ -26,20 +26,19 @@ const MODEL_NOTES = {
 };
 
 const THRESHOLD_COLOURS = {
-  qcvn_24h: [208, 59, 59],
-  who_24h: [250, 178, 25],
+  qcvn_24h: [165, 102, 92],
+  who_24h: [174, 146, 91],
 };
 
-// Single-hue sequential ramp, light (low) to dark (high) - the same blue
-// steps as the report figures (src/analysis/figures.py). Threshold colours
-// are reserved status colours, so they never read as "more of the ramp".
+// Sequential concentration ramp: light cream (low) to dark wine (high).
+// These are relative log concentration colours, NOT AQI health categories.
 const RAMP = [
-  [0.0, [205, 226, 251]],
-  [0.2, [134, 182, 239]],
-  [0.4, [57, 135, 229]],
-  [0.6, [37, 106, 191]],
-  [0.8, [24, 79, 149]],
-  [1.0, [13, 54, 107]],
+  [0.0, [248, 238, 211]],
+  [0.2, [237, 213, 163]],
+  [0.4, [216, 175, 122]],
+  [0.6, [194, 132, 95]],
+  [0.8, [159, 88, 77]],
+  [1.0, [112, 53, 65]],
 ];
 
 const state = {
@@ -50,18 +49,34 @@ const state = {
   background: 0,
   selected: null,
   showBuildings: true,
+  showFacades: true,
   showRoads: false,
   showWind: true,
+  windPaused: false,
 };
 
 const cache = {};
+const queryCache = new Map();
+let queryTimer;
+let pendingSelection = 0;
+let activeRunId = sessionStorage.getItem("voxel-active-run");
 let map = null;
 let overlay = null;
 let nodes = null;
 let cells = null;
-let windSeeds = [];
+let windFlow = null;
+let windParticles = [];
+let windFlowKey = null;
+let sceneLayers = [];
+let buildingAppearance = null;
+const facadeImages = new Map();
 let windAnimationFrame = null;
 let lastWindFrame = 0;
+let basemapFallback = false;
+let basemapTimer = null;
+let tileErrors = 0;
+let basemapError = false;
+const VECTOR_BASEMAP = 'https://tiles.openfreemap.org/styles/positron';
 const reducedMotion = window.matchMedia("(prefers-reduced-motion: reduce)");
 
 const $ = (id) => document.getElementById(id);
@@ -82,13 +97,13 @@ async function main() {
 
   nodes = buildNodes();
   cells = buildCells();
-  windSeeds = buildWindSeeds();
 
-  state.scenario = M.scenarios[0]?.id || null;
+  state.scenario = M.scenarios.find((run) => run.model === "fv" && !run.warnings.some((w) => /mock run/.test(w)))?.id
+    || M.scenarios.find((run) => run.model === "fv")?.id || M.scenarios[0]?.id || null;
   Object.keys(M.thresholds).forEach((key) => (state.thresholds[key] = false));
 
   buildControls();
-  fillProvenance();
+  if (activeRunId) trackRun(activeRunId);
 
   if (typeof maplibregl === "undefined" || typeof deck === "undefined") {
     setStatus("Không tải được MapLibre hoặc deck.gl từ CDN (cần mạng)", "error");
@@ -102,13 +117,14 @@ async function main() {
       refresh();
     }).catch((error) => setStatus(error.message, "error"));
   } else {
-    setStatus("Chưa có run thành công · bấm Chạy mô phỏng FV", "error");
+    setStatus("Chọn kịch bản và chạy để tạo kết quả.");
     refresh();
   }
 }
 
 async function api(path, options) {
   const response = await fetch(`/api${path}`, {
+    signal: AbortSignal.timeout(20000),
     headers: { "Content-Type": "application/json", ...(options?.headers || {}) },
     ...options,
   });
@@ -134,6 +150,25 @@ async function loadBootstrap() {
   window.VOXEL_ROADS = scene.roads;
   window.VOXEL_WATER = scene.water;
   window.VOXEL_GREEN = scene.green;
+  // Images are optional, local and must have provenance. Missing/invalid files
+  // fall back to explicitly illustrative windows, never a false "real" facade.
+  const registry=await fetch('./assets/facades/registry.json').then(r=>r.ok ? r.json() : null).catch(()=>null);
+  const accepted={};
+  if(registry?.schema_version==='1.0' && registry.buildings && typeof registry.buildings==='object') {
+    await Promise.all(scene.buildings.features.flatMap(feature=>BuildingAppearance.walls(feature).map(async wall=>{
+      const id=feature.properties.source_feature_id;
+      const records=registry.buildings[id]?.walls;
+      const record=(Array.isArray(records)?records:[]).find(r=>BuildingAppearance.validatePhoto(r,wall));
+      if(!record) return;
+      try {
+        const image=new Image(); image.src=record.image;
+        await Promise.race([image.decode(),new Promise((_,reject)=>setTimeout(()=>reject(new Error('image timeout')),4000))]);
+        facadeImages.set(record.image,image);
+        accepted[id] ||= {walls:[]}; accepted[id].walls.push(record);
+      } catch { /* Leave procedural facade active when photo cannot be loaded. */ }
+    })));
+  }
+  buildingAppearance=BuildingAppearance.build(scene.buildings,accepted);
   AVAILABLE_SCENARIOS = scenarios;
   const [west, south, east, north] = area.bounds;
   GRID = {
@@ -212,21 +247,6 @@ function geoAt(s, t) {
   ];
 }
 
-function buildWindSeeds() {
-  const seeds = [];
-  for (let row = 0; row < 9; row += 1) {
-    for (let column = 0; column < 12; column += 1) {
-      const n = row * 12 + column;
-      seeds.push({
-        s: (column + 0.22 + ((n * 37) % 53) / 90) / 12,
-        t: (row + 0.2 + ((n * 29) % 47) / 82) / 9,
-        phase: ((n * 67) % 101) / 101,
-      });
-    }
-  }
-  return seeds;
-}
-
 // --------------------------------------------------------------------------
 // data
 // --------------------------------------------------------------------------
@@ -246,7 +266,15 @@ function loadScenario(id) {
   return Promise.all([
     api(`/runs/${id}/volume`),
     api(`/runs/${id}/summary`),
-  ]).then(([payload, summary]) => {
+    api(`/runs/${id}/artifacts`).then(async (result) => {
+      const artifact = result.artifacts.find((item) => item.kind === 'wind_vectors');
+      if (!artifact) return null;
+      const field = await api(`/runs/${id}/artifacts/wind_vectors/download`);
+      if (field.run_id !== id || field.units !== 'm s-1') throw new Error('Trường gió không khớp kết quả');
+      return field;
+    }).catch(() => null),
+  ]).then(([payload, summary, windField]) => {
+    entry.windField = windField;
     entry.scale = payload.scale;
     payload.layer_mean_ug_m3 = summary.layers.map((layer) => layer.mean_ug_m3);
     payload.exceedance_volume_by_layer_m3 = Object.fromEntries(
@@ -342,7 +370,7 @@ function cellColour(cell, scale, thresholds) {
   if (thresholds.length) {
     const hit = thresholds.find((t) => v > t.value);
     if (hit) {
-      return [...(THRESHOLD_COLOURS[hit.key] || [255, 0, 255]), 235];
+      return [...(THRESHOLD_COLOURS[hit.key] || [103, 114, 106]), 235];
     }
     return [...ramp(position(v, scale)), 70];
   }
@@ -366,6 +394,12 @@ function layerStats() {
   const d = current();
   if (!d) return { air: 0, max: NaN, mean: NaN, area: {} };
   const k = state.layer;
+  if (exactMode()) {
+    const layer = d.entry.summary.layers.find((item) => item.k === k);
+    const areas = queryCache.get(`area:${state.scenario}:${k}`);
+    return { air: layer?.air_cells || 0, max: layer?.max_ug_m3 ?? NaN,
+      mean: layer?.mean_ug_m3 ?? NaN, area: areas || {} };
+  }
   const { dx_m: dx, dy_m: dy } = GRID;
   let air = 0;
   let max = -Infinity;
@@ -431,7 +465,7 @@ function createMap() {
 
   map = new maplibregl.Map({
     container: "map",
-    style: "https://tiles.openfreemap.org/styles/positron",
+    style: VECTOR_BASEMAP,
     center: centre,
     zoom: 16.2,
     pitch: 55,
@@ -445,28 +479,74 @@ function createMap() {
 
   map.addControl(new maplibregl.NavigationControl({ visualizePitch: true }), "top-right");
   map.addControl(new maplibregl.ScaleControl({ unit: "metric", maxWidth: 120 }), "bottom-left");
-  map.on("error", (event) => console.warn("MapLibre:", event.error || event));
+  map.on("error", (event) => {
+    console.warn("MapLibre:", event.error || event);
+    if (++tileErrors >= 2 && !basemapFallback) useFallbackBasemap();
+    else if (basemapFallback) {
+      basemapError = true;
+      $('basemap-notice').hidden = false;
+      $('basemap-message').textContent = 'Chưa tải được nền địa lý. Kiểm tra mạng rồi tải lại.';
+    }
+  });
+  watchBasemap();
+  map.on('idle', () => {
+    if (map.areTilesLoaded() && !basemapError) $('basemap-notice').hidden = true;
+  });
 
   // Attach deck.gl at once: the data must not wait for basemap tiles, which
   // can be slow or, offline, never arrive.
   const Overlay = deck.MapLibreOverlay || deck.MapboxOverlay;
   const kind = deck.MapLibreOverlay ? "MapLibreOverlay" : "MapboxOverlay";
-  overlay = new Overlay({ interleaved: false, layers: [] });
+  overlay = new Overlay({ interleaved: false, layers: [],getTooltip:info=>{
+    const id=info.object?.properties?.source_feature_id || info.object?.id;
+    const building=buildingAppearance?.features.get(id);
+    return building ? `${id}\n${fmt(building.height)} m · ${building.photoWalls ? `${building.photoWalls} mặt có ảnh nguồn; mặt còn lại minh họa` : 'Mặt đứng minh họa'}` : null;
+  }});
   map.addControl(overlay);
   refresh();
 
-  // On a phone the panel covers the lower half; keep the domain above it.
-  if (window.matchMedia("(max-width: 640px)").matches) {
-    map.jumpTo({ padding: { bottom: Math.round(window.innerHeight * 0.5) }, zoom: 15.6 });
-  }
+  resetView(0);
 
   map.once("load", () => {
-    setStatus(`Sẵn sàng · deck.gl ${deck.VERSION || ""} · ${kind}`, "pass");
+    setStatus("", "pass");
   });
   map.on("rotate", updateCameraControls);
   map.on("pitch", updateCameraControls);
   updateCameraControls();
   startWindAnimation();
+}
+
+function resetView(duration = 450) {
+  if (!map) return;
+  const c=M.corners_wgs84;
+  const mobile=window.matchMedia('(max-width: 640px)').matches;
+  map.fitBounds([c.sw,c.ne],{maxZoom:mobile ? 15.8 : 16.4,bearing:-25,pitch:mobile ? 45 : 55,
+    padding:mobile ? {top:130,bottom:Math.round(window.innerHeight*.56),left:50,right:50}
+      : {top:110,bottom:80,left:$('panel').offsetWidth+50,right:90},
+    duration:reducedMotion.matches ? 0 : duration});
+}
+
+function watchBasemap() {
+  clearTimeout(basemapTimer);
+  basemapTimer=setTimeout(() => {
+    if (basemapError || !map.isStyleLoaded() || !map.areTilesLoaded() || (!basemapFallback && map.queryRenderedFeatures().length===0)) {
+      if (!basemapFallback) useFallbackBasemap();
+      else {
+        $('basemap-notice').hidden=false;
+        $('basemap-message').textContent='Nền địa lý chưa tải xong. Kiểm tra mạng hoặc tải lại.';
+      }
+    }
+  },12000);
+}
+
+function useFallbackBasemap() {
+  basemapFallback=true;
+  basemapError=false;
+  $('basemap-style').value='raster';
+  $('basemap-notice').hidden=false;
+  $('basemap-message').textContent='Đang tải nền địa lý dự phòng…';
+  map.setStyle(ViewerFlow.rasterStyle());
+  watchBasemap();
 }
 
 function concentrationLayer() {
@@ -507,12 +587,35 @@ function buildingLayer() {
     extruded: true,
     filled: true,
     wireframe: true,
-    opacity: 0.55,
+    opacity: state.showFacades ? .95 : .55,
     getElevation: (f) => f.properties.height_m,
-    getFillColor: [203, 213, 225],
+    getFillColor: BuildingAppearance.material,
     getLineColor: [100, 116, 139],
     material: { ambient: 0.55, diffuse: 0.5, shininess: 8 },
+    pickable:true,
+    onClick:(info)=>{if(info.object) showBuildingAppearance(info.object.properties.source_feature_id);},
   });
+}
+
+function showBuildingAppearance(id) {
+  const info=buildingAppearance.features.get(id);
+  if(!info) return;
+  $('building-appearance-note').textContent=`${id} · ${fmt(info.height)} m · ${info.photoWalls ? `${info.photoWalls} mặt có ảnh nguồn, ${info.illustrativeWalls} mặt minh họa` : 'Mặt đứng minh họa (không phải ảnh thực tế)'}`;
+  $('building-appearance-note').closest('details').open=true;
+}
+
+function facadeLayers() {
+  if(!buildingAppearance) return [];
+  const visible=state.showBuildings && state.showFacades;
+  return [new deck.SolidPolygonLayer({id:'facade-windows',data:buildingAppearance.windows,
+    visible,_full3d:true,getPolygon:d=>d.polygon,getFillColor:d=>d.color,
+    material:false,pickable:true,onClick:info=>{if(info.object) showBuildingAppearance(info.object.id);}}),
+    ...buildingAppearance.photos.map((photo,index)=>new deck.BitmapLayer({id:`facade-photo-${index}`,
+      visible,image:facadeImages.get(photo.image),bounds:photo.bounds,pickable:true,
+      onClick:()=>{
+        showBuildingAppearance(photo.id);
+        $('building-appearance-note').textContent+=` · ${photo.credit} · ${photo.license}`;
+      }}))];
 }
 
 function roadLayer() {
@@ -524,31 +627,47 @@ function roadLayer() {
     filled: false,
     lineWidthUnits: "meters",
     getLineWidth: (f) => 1 + 250 * f.properties.emission_share,
-    getLineColor: [37, 99, 235, 220],
+    getLineColor: [107, 126, 116, 200],
   });
 }
 
-function windVectors(timeMs = 0) {
-  const entry = scenarioEntry(state.scenario);
-  if (!entry) return [];
-  const from = (entry.wind_from_deg * Math.PI) / 180;
-  const speed = Math.max(0, entry.wind_speed_m_s);
-  // Meteorological direction is where wind comes FROM. The particles move TO.
-  const u = -Math.sin(from);
-  const v = -Math.cos(from);
-  const seconds = reducedMotion.matches ? 0 : timeMs / 1000;
-  const travel = 0.026 * Math.max(0.45, speed);
-  const trail = 0.025 + Math.min(speed, 8) * 0.006;
-  const z = GRID.z_centres_m[state.layer] + 1.2;
+function ensureWindFlow() {
+  const key=`${state.scenario}:${state.layer}`;
+  const data=current();
+  if (key===windFlowKey && windFlow) return;
+  windFlowKey=key;
+  windFlow=ViewerFlow.createField(data?.entry.windField,GRID,(x,y,z)=>{
+    const i=Math.floor(x/GRID.dx_m),j=Math.floor(y/GRID.dy_m),k=Math.floor(z/GRID.dz_m);
+    return data.codes[(k*GRID.ny+j)*GRID.nx+i]!==0;
+  });
+  windParticles=ViewerFlow.createParticles(windFlow,state.layer);
+}
 
-  return windSeeds.map((seed) => {
-    const offset = seed.phase + seconds * travel;
-    const s = seed.s + u * offset;
-    const t = seed.t + v * offset;
-    return {
-      head: [...geoAt(s, t), z],
-      path: [[...geoAt(s - u * trail, t - v * trail), z], [...geoAt(s, t), z]],
-    };
+function windVectors() {
+  if (!windFlow) return [];
+  return windParticles.flatMap((particle) => {
+    const velocity=windFlow.sample(particle.x,particle.y,particle.z);
+    if (!velocity) return [];
+    const [u,v,w]=velocity;
+    const magnitude = Math.hypot(u,v,w);
+    if (magnitude < 1e-6) return [];
+    const [lon,lat]=geoAt(particle.x/(GRID.nx*GRID.dx_m),particle.y/(GRID.ny*GRID.dy_m));
+    const desiredLength=10+Math.min(10,magnitude*4);
+    let length=0;
+    for (let distance=.5;distance<=desiredLength;distance+=.5) {
+      if (!windFlow.air(particle.x+u/magnitude*distance,particle.y+v/magnitude*distance,particle.z+w/magnitude*distance)) break;
+      length=distance;
+    }
+    if (length<1) return [];
+    const scale = length / magnitude;
+    const dx = u * scale / (111320 * Math.cos(lat * Math.PI / 180));
+    const dy = v * scale / 111320;
+    const z = particle.z + .6;
+    const head = [lon + dx,lat + dy,z + w * scale];
+    const trail=particle.history.map(([x,y,z])=>[...geoAt(x/(GRID.nx*GRID.dx_m),y/(GRID.ny*GRID.dy_m)),z+.6]);
+    return [{head, trail, alpha:Math.round(255*particle.fade), path:[[lon,lat,z],head], arrow:[
+      [head[0] - .25*dx + .15*dy,head[1] - .25*dy - .15*dx,head[2]],head,
+      [head[0] - .25*dx - .15*dy,head[1] - .25*dy + .15*dx,head[2]]]}];
   });
 }
 
@@ -560,21 +679,25 @@ function windLayers(timeMs) {
       data,
       visible: state.showWind,
       getPath: (item) => item.path,
-      getColor: [34, 211, 238, 205],
-      getWidth: 2.3,
+      getColor: (item)=>[40,65,65,item.alpha],
+      getWidth: 4,
       widthUnits: "pixels",
       widthMinPixels: 1.5,
       parameters: { depthTest: false },
     }),
-    new deck.ScatterplotLayer({
-      id: "wind-heads",
+    new deck.PathLayer({
+      id: 'wind-vector-lines', data, visible: state.showWind,
+      getPath: (item) => item.path, getColor: (item)=>[249,248,230,item.alpha],
+      getWidth: 2, widthUnits: 'pixels', parameters: { depthTest: false },
+    }),
+    new deck.PathLayer({
+      id: "wind-arrowheads",
       data,
       visible: state.showWind,
-      getPosition: (item) => item.head,
-      getRadius: 2.4,
-      radiusUnits: "pixels",
-      getFillColor: [236, 254, 255, 235],
-      stroked: false,
+      getPath: (item) => item.arrow,
+      getWidth: 2.3,
+      widthUnits: 'pixels',
+      getColor: (item)=>[249,248,230,item.alpha],
       parameters: { depthTest: false },
     }),
   ];
@@ -596,7 +719,7 @@ function greenLayer() {
     data: window.VOXEL_GREEN || { type: "FeatureCollection", features: [] },
     stroked: false,
     filled: true,
-    getFillColor: [34, 197, 94, 95],
+    getFillColor: [127, 151, 115, 95],
   });
 }
 
@@ -626,28 +749,37 @@ function compass(deg) {
 
 function renderLayers(timeMs = performance.now()) {
   if (!overlay) return;
-  overlay.setProps({
-    layers: [
+  ensureWindFlow();
+  sceneLayers = [
       waterLayer(),
       greenLayer(),
       roadLayer(),
       concentrationLayer(),
-      ...windLayers(timeMs),
       buildingLayer(),
+      ...facadeLayers(),
       selectionLayer(),
-    ].filter(Boolean),
-  });
+    ].filter(Boolean);
+  renderWindFrame(timeMs);
+}
+
+function renderWindFrame(timeMs) {
+  overlay?.setProps({layers:[...sceneLayers,...windLayers(timeMs)]});
+  $('wind-hud').dataset.frame=String(Math.round(timeMs));
 }
 
 function startWindAnimation() {
   if (windAnimationFrame !== null) cancelAnimationFrame(windAnimationFrame);
-  const frame = (time) => {
-    windAnimationFrame = requestAnimationFrame(frame);
-    if (document.hidden || reducedMotion.matches || !state.showWind || time - lastWindFrame < 33) return;
-    lastWindFrame = time;
-    renderLayers(time);
-  };
-  windAnimationFrame = requestAnimationFrame(frame);
+  windAnimationFrame = null;
+  lastWindFrame=0;
+  if (!state.showWind || state.windPaused || reducedMotion.matches || document.hidden || !windFlow) return;
+  function frame(now) {
+    const dt=lastWindFrame ? Math.min((now-lastWindFrame)/1000,.1) : 0;
+    ViewerFlow.advance(windFlow,windParticles,dt*6);
+    lastWindFrame=now;
+    renderWindFrame(now);
+    windAnimationFrame=requestAnimationFrame(frame);
+  }
+  windAnimationFrame=requestAnimationFrame(frame);
 }
 
 function updateCameraControls() {
@@ -663,21 +795,36 @@ function updateCameraControls() {
 function updateWindHud() {
   const entry = scenarioEntry(state.scenario);
   const hud = $("wind-hud");
-  if (!entry || !state.showWind) {
+  if (!entry || !state.showWind || !entry.windField) {
     hud.hidden = true;
+    $('wind-source-note').textContent = 'Kết quả này chưa có trường gió solver; không vẽ gió minh hoạ thay thế.';
     return;
   }
   hud.hidden = false;
-  const toDeg = (entry.wind_from_deg + 180) % 360;
-  $("wind-summary").textContent = `${fmt(entry.wind_speed_m_s)} m/s · từ ${compass(entry.wind_from_deg)} (${entry.wind_from_deg.toFixed(0)}°)`;
+  const paused=state.windPaused || reducedMotion.matches;
+  $('wind-source-note').textContent = 'Hạt chỉ hướng gió solver, không phải hạt ô nhiễm. Chuyển động hiển thị ×6.';
+  $('wind-caption').textContent = `Gió solver · ${paused ? 'đã dừng' : 'chuyển động ×6'}`;
+  $('wind-motion').setAttribute('aria-pressed',String(paused));
+  $('wind-motion').setAttribute('aria-label',paused ? 'Tiếp tục chuyển động gió' : 'Dừng chuyển động gió');
+  $('wind-motion').title=paused ? 'Tiếp tục chuyển động gió' : 'Dừng chuyển động gió';
+  $('wind-motion').innerHTML=paused ? '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="m8 5 11 7-11 7Z"/></svg>'
+    : '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M8 5v14M16 5v14"/></svg>';
+  const vectors = entry.windField.layers.find((layer) => layer.k === state.layer)?.vectors || [];
+  if (!vectors.length) { hud.hidden = true; return; }
+  const u = vectors.reduce((sum,row) => sum + row[4],0) / vectors.length;
+  const v = vectors.reduce((sum,row) => sum + row[5],0) / vectors.length;
+  const fromDeg = (Math.atan2(-u,-v) * 180 / Math.PI + 360) % 360;
+  const toDeg = (fromDeg + 180) % 360;
+  $("wind-summary").textContent = `${fmt(Math.hypot(u,v))} m/s · từ ${compass(fromDeg)} (${fromDeg.toFixed(0)}°)`;
   $("wind-arrow").style.transform = `rotate(${toDeg}deg)`;
 }
 
 function scenarioLabel(entry) {
   const scenarioId = entry.scenario_id || entry.id;
   const season = Object.keys(SCENARIO_NAMES).find((key) => scenarioId.startsWith(key));
-  const name = entry.name || (season ? SCENARIO_NAMES[season] : scenarioId);
-  return `${name} · ${entry.model.toUpperCase()} · ${entry.id.slice(0, 8)} · gió ${entry.wind_from_deg.toFixed(0)}°`;
+  const name = season ? SCENARIO_NAMES[season] : entry.name || scenarioId;
+  const mock = entry.warnings.some((warning) => /mock run/.test(warning));
+  return `${name} · ${mock ? "Dữ liệu thử" : entry.model === "fv" ? "Voxel" : "Gaussian"} · ${entry.id.slice(0, 4)}`;
 }
 
 function buildControls() {
@@ -685,37 +832,48 @@ function buildControls() {
   AVAILABLE_SCENARIOS.forEach((scenario) => {
     const option = document.createElement("option");
     option.value = scenario.id;
-    option.textContent = `${scenario.name} · ${fmt(scenario.wind_speed_m_s)} m/s`;
+    option.textContent = `${SCENARIO_NAMES[scenario.id] || scenario.name} · ${fmt(scenario.wind_speed_m_s)} m/s`;
     scenarioSelect.appendChild(option);
   });
   $("run-button").addEventListener("click", createRun);
+  $("run-button").disabled = !AVAILABLE_SCENARIOS.length || Boolean(activeRunId);
   $("run-note").textContent = M.scenarios.length
-    ? `${M.scenarios.length} run thành công có thể xem.`
-    : "Chưa có kết quả. Chạy mock để kiểm tra đầy đủ luồng tích hợp.";
+    ? "Chọn kịch bản để tạo kết quả mới."
+    : "Chưa có kết quả. Chọn kịch bản để bắt đầu.";
 
   const list = $("scenario-list");
-  M.scenarios.forEach((entry, n) => {
-    const label = document.createElement("label");
-    label.innerHTML = `<input type="radio" name="scenario" value="${entry.id}" ${n === 0 ? "checked" : ""}/> <span></span>`;
-    label.querySelector("span").textContent = scenarioLabel(entry);
-    label.querySelector("input").setAttribute("aria-label", scenarioLabel(entry));
-    label.querySelector("input").addEventListener("change", (event) => {
-      const id = event.target.value;
-      loadScenario(id).then(() => {
-        state.scenario = id;
-        refresh();
-        setStatus(`Kịch bản: ${id}`, "pass");
-      });
-    });
-    list.appendChild(label);
+  M.scenarios.forEach((entry) => {
+    const option = document.createElement("option");
+    option.value = entry.id;
+    option.textContent = scenarioLabel(entry);
+    list.appendChild(option);
+  });
+  list.value = state.scenario || "";
+  list.disabled = !M.scenarios.length;
+  if (!M.scenarios.length) list.add(new Option("Chưa có kết quả", ""));
+  list.addEventListener("change", async (event) => {
+    const token = ++pendingSelection;
+    const id = event.target.value;
+    try {
+      await loadScenario(id);
+      if (token !== pendingSelection) return;
+      state.scenario = id;
+      refresh();
+      setStatus("Đã tải kết quả", "pass");
+    } catch (error) {
+      if (token !== pendingSelection) return;
+      list.value = state.scenario || "";
+      setStatus("Chưa tải được kết quả. Vui lòng thử lại.", "error");
+    }
   });
 
   const thresholds = $("threshold-list");
   Object.entries(M.thresholds).forEach(([key, t]) => {
     const label = document.createElement("label");
-    const colour = THRESHOLD_COLOURS[key] || [255, 0, 255];
+    const colour = THRESHOLD_COLOURS[key] || [103, 114, 106];
     label.innerHTML = `<input type="checkbox" value="${key}"/> <span class="swatch" style="background: rgb(${colour.join(",")})"></span> <span></span>`;
-    label.querySelector("span:last-child").textContent = `${t.label}: ${fmt(t.value)} µg/m³`;
+    label.querySelector("span:last-child").textContent = `${key.startsWith("qcvn") ? "QCVN" : key.startsWith("who") ? "WHO" : t.label} · ${fmt(t.value)} µg/m³`;
+    label.title = t.label;
     label.querySelector("input").setAttribute("aria-label", `${t.label}: ${fmt(t.value)} µg/m³`);
     label.querySelector("input").addEventListener("change", (event) => {
       state.thresholds[key] = event.target.checked;
@@ -726,6 +884,8 @@ function buildControls() {
 
   const slider = $("height-slider");
   slider.max = String(GRID.nz - 1);
+  document.querySelector(".ticks").innerHTML = [0, .25, .5, .75, 1].map((t) =>
+    `<span>${fmt(GRID.z_centres_m[Math.round(t * (GRID.nz - 1))])} m</span>`).join("");
   slider.addEventListener("input", (event) => {
     state.layer = Number(event.target.value);
     refresh();
@@ -752,10 +912,39 @@ function buildControls() {
     state.showRoads = event.target.checked;
     refresh();
   });
+  $('show-facades').addEventListener('change',event=>{
+    state.showFacades=event.target.checked;
+    refresh();
+  });
 
   $("show-wind").addEventListener("change", (event) => {
     state.showWind = event.target.checked;
     refresh();
+  });
+
+  $('wind-motion').addEventListener('click',()=>{
+    state.windPaused=!state.windPaused;
+    refresh();
+  });
+  reducedMotion.addEventListener('change',()=>refresh());
+  document.addEventListener('visibilitychange',()=>startWindAnimation());
+  $('basemap-retry').addEventListener('click',()=>{
+    tileErrors=0;
+    basemapError=false;
+    $('basemap-message').textContent='Đang tải lại nền địa lý…';
+    map?.setStyle(basemapFallback ? ViewerFlow.rasterStyle() : VECTOR_BASEMAP);
+    watchBasemap();
+  });
+  $('basemap-style').addEventListener('change',(event)=>{
+    tileErrors=0;
+    basemapError=false;
+    if (event.target.value==='raster') useFallbackBasemap();
+    else {
+      basemapFallback=false;
+      $('basemap-notice').hidden=true;
+      map?.setStyle(VECTOR_BASEMAP);
+      watchBasemap();
+    }
   });
 
   $("rotate-left").addEventListener("click", () => {
@@ -767,7 +956,7 @@ function buildControls() {
   });
 
   $("reset-camera").addEventListener("click", () => {
-    map?.easeTo({ bearing: 0, pitch: 55, duration: reducedMotion.matches ? 0 : 450 });
+    resetView();
   });
 
   $("toggle-3d").addEventListener("click", () => {
@@ -779,54 +968,85 @@ function buildControls() {
     const panel = $("panel");
     const collapsed = panel.classList.toggle("collapsed");
     $("panel-toggle").setAttribute("aria-expanded", String(!collapsed));
-    $("panel-toggle").textContent = collapsed ? "+" : "−";
+    $("panel-toggle").setAttribute("aria-label", collapsed ? "Mở bảng điều khiển" : "Thu gọn bảng điều khiển");
   });
 }
 
 async function createRun() {
   const button = $("run-button");
   button.disabled = true;
+  $("run-error").hidden = true;
   try {
     const accepted = await api("/runs", {
       method: "POST",
       body: JSON.stringify({ scenario_id: $("new-run-scenario").value, model: "fv" }),
     });
-    $("run-note").textContent = `Run ${accepted.run_id.slice(0, 8)} đang xếp hàng…`;
-    for (;;) {
-      await new Promise((resolve) => setTimeout(resolve, 500));
-      const run = await api(`/runs/${accepted.run_id}`);
-      $("run-note").textContent = `${run.status} · ${Math.round(run.progress * 100)}%`;
-      setStatus(`Python solver: ${run.status} · ${Math.round(run.progress * 100)}%`);
-      if (run.status === "succeeded") {
-        window.location.reload();
-        return;
-      }
-      if (["failed", "stale"].includes(run.status)) {
-        throw new Error(run.error?.message || `run ${run.status}`);
-      }
-    }
+    activeRunId = accepted.run_id;
+    sessionStorage.setItem("voxel-active-run", activeRunId);
+    await trackRun(activeRunId);
   } catch (error) {
-    $("run-note").textContent = error.message;
-    setStatus(error.message, "error");
+    showRunError(error, "Chưa tạo được mô phỏng. Vui lòng thử lại.");
   } finally {
-    button.disabled = false;
+    button.disabled = Boolean(activeRunId);
   }
 }
 
-function fillProvenance() {
-  const list = $("provenance");
-  const items = [
-    ...Object.entries(M.provenance).map(([key, value]) => `${key}: ${typeof value === "string" ? value : JSON.stringify(value)}`),
-    `Đơn vị: ${M.units}. ${M.pollutant}.`,
-    "Chưa có nồng độ nền: số hiển thị chỉ là phần do giao thông trong 500 × 500 m, không so thẳng được với trạm quan trắc.",
-    "Đây là verification, chưa phải validation với số đo thực.",
-    "Kết quả hiển thị được lấy từ run đã vượt verification gate và được lưu trong PostGIS.",
-  ];
-  items.forEach((text) => {
-    const li = document.createElement("li");
-    li.textContent = text;
-    list.appendChild(li);
-  });
+function showRunError(error, message) {
+  $("run-note").textContent = message;
+  $("run-error").hidden = false;
+  $("run-error-detail").textContent = error.message;
+  setStatus(message, "error");
+}
+
+async function trackRun(id) {
+  $("run-button").disabled = true;
+  $("run-progress").hidden = false;
+  let failures = 0;
+  for (;;) {
+    try {
+      const run = await api(`/runs/${id}`);
+      failures = 0;
+      const label = { queued: "Đang chờ", running: "Đang tính toán", succeeded: "Hoàn tất", failed: "Không hoàn tất", stale: "Đã gián đoạn" }[run.status] || run.status;
+      $("run-note").textContent = `${label}${run.status === "running" ? ` · ${Math.round(run.progress * 100)}%` : ""}`;
+      $("run-progress").value = Math.round(run.progress * 100);
+      if (["succeeded", "failed", "stale"].includes(run.status)) {
+        activeRunId = null;
+        sessionStorage.removeItem("voxel-active-run");
+        $("run-button").disabled = false;
+        $("run-progress").hidden = true;
+        if (run.status !== "succeeded") {
+          showRunError(new Error(run.error?.message || label), `${label}. Bạn có thể chạy lại.`);
+          return;
+        }
+        const entry = { id, scenario_id: run.scenario.id, name: run.scenario.name,
+          wind_from_deg: run.scenario.wind_from_deg, wind_speed_m_s: run.scenario.wind_speed_m_s,
+          model: run.model, model_version: run.model_version, warnings: run.warnings || [] };
+        if (!scenarioEntry(id)) M.scenarios.unshift(entry);
+        const select = $("scenario-list");
+        Array.from(select.options).filter((option) => !option.value).forEach((option) => option.remove());
+        if (!Array.from(select.options).some((option) => option.value === id)) select.add(new Option(scenarioLabel(entry), id), 0);
+        select.disabled = false;
+        select.value = id;
+        await loadScenario(id);
+        state.scenario = id;
+        refresh();
+        setStatus("Mô phỏng hoàn tất", "pass");
+        return;
+      }
+    } catch (error) {
+      if (!activeRunId) {
+        showRunError(error, "Mô phỏng đã xong, chưa tải được kết quả. Chọn lại trong danh sách.");
+        return;
+      }
+      failures += 1;
+      $("run-note").textContent = "Mất kết nối · đang kết nối lại…";
+      if (failures >= 5) {
+        showRunError(error, "Chưa đọc được trạng thái. Tải lại trang để tiếp tục theo dõi.");
+        return;
+      }
+    }
+    await new Promise((resolve) => setTimeout(resolve, 1500));
+  }
 }
 
 function fmt(v) {
@@ -853,8 +1073,10 @@ function refresh() {
   updateLegend();
   updateStats();
   updateProfile();
+  scheduleExactQueries();
   updateWindHud();
   renderLayers();
+  startWindAnimation();
 }
 
 function updateLegend() {
@@ -905,7 +1127,7 @@ function updateStats() {
 
   Object.entries(M.thresholds).forEach(([key, t]) => {
     const row = document.createElement("tr");
-    const cellsText = [`${t.label.split(" ·")[0]} ${fmt(t.value)}`, `${fmtVolume(s.area[key] || 0)} m²`, `${fmtVolume(volume[key] || 0)} m³`];
+    const cellsText = [`${key === "qcvn_24h" ? "QCVN" : key === "who_24h" ? "WHO" : t.label} ${fmt(t.value)}`, s.area[key] === undefined ? "–" : `${fmtVolume(s.area[key])} m²`, `${fmtVolume(volume[key] || 0)} m³`];
     cellsText.forEach((text) => {
       const td = document.createElement("td");
       td.textContent = text;
@@ -927,7 +1149,13 @@ function updateProfile() {
   $("profile-hint").hidden = true;
   const { i, j } = state.selected;
   const z = GRID.z_centres_m;
-  const values = z.map((_, k) => value(k, j, i));
+  const exactProfile = queryCache.get(`profile:${state.scenario}:${i}:${j}`);
+  if (exactMode() && !exactProfile) {
+    box.textContent = "Đang tải dữ liệu theo độ cao…";
+    return;
+  }
+  const values = exactMode() ? exactProfile.levels.map((level) => level.concentration_ug_m3 === null ? NaN : level.concentration_ug_m3)
+    : z.map((_, k) => value(k, j, i));
   const finite = values.filter((v) => Number.isFinite(v) && v > 0);
 
   const W = 340;
@@ -938,7 +1166,8 @@ function updateProfile() {
   const hi = Math.max(scale.hi, ...finite, ...thresholds.map((t) => t.value)) * 1.2;
   const lo = Math.min(scale.lo, ...(finite.length ? finite : [scale.lo]));
   const X = (v) => pad.l + ((Math.log10(v) - Math.log10(lo)) / (Math.log10(hi) - Math.log10(lo))) * (W - pad.l - pad.r);
-  const Y = (h) => H - pad.b - (h / 100) * (H - pad.t - pad.b);
+  const height = GRID.nz * GRID.dz_m;
+  const Y = (h) => H - pad.b - (h / height) * (H - pad.t - pad.b);
 
   let path = "";
   let solid = "";
@@ -955,35 +1184,78 @@ function updateProfile() {
   const currentY = Y(z[state.layer]);
   const lines = thresholds
     .map((t) => {
-      const colour = THRESHOLD_COLOURS[t.key] || [255, 0, 255];
+      const colour = THRESHOLD_COLOURS[t.key] || [103, 114, 106];
       return `<line x1="${X(t.value)}" x2="${X(t.value)}" y1="${pad.t}" y2="${H - pad.b}" stroke="rgb(${colour.join(",")})" stroke-dasharray="4 3"/>`;
     })
     .join("");
 
   const ticks = [];
-  for (let e = Math.ceil(Math.log10(lo)); e <= Math.floor(Math.log10(hi)); e += 1) {
-    ticks.push(`<text x="${X(10 ** e)}" y="${H - pad.b + 14}" text-anchor="middle">${fmt(10 ** e)}</text>`);
+  const firstExponent = Math.ceil(Math.log10(lo));
+  const lastExponent = Math.floor(Math.log10(hi));
+  const tickStep = Math.max(1, Math.ceil((lastExponent - firstExponent) / 4));
+  for (let e = firstExponent; e <= lastExponent; e += tickStep) {
+    const label = Math.abs(e) > 3 ? `10^${e}` : fmt(10 ** e);
+    ticks.push(`<text x="${X(10 ** e)}" y="${H - pad.b + 14}" text-anchor="middle">${label}</text>`);
   }
 
   box.innerHTML = `
     <svg viewBox="0 0 ${W} ${H}" role="img" aria-label="Profile nồng độ theo độ cao tại ô ${i}, ${j}">
-      <g fill="#9ca3af" font-size="10">
+      <g fill="#67726a" font-size="10">
         ${ticks.join("")}
         <text x="${pad.l - 6}" y="${Y(0) + 3}" text-anchor="end">0</text>
-        <text x="${pad.l - 6}" y="${Y(50) + 3}" text-anchor="end">50</text>
-        <text x="${pad.l - 6}" y="${Y(100) + 3}" text-anchor="end">100 m</text>
+        <text x="${pad.l - 6}" y="${Y(height / 2) + 3}" text-anchor="end">${fmt(height / 2)}</text>
+        <text x="${pad.l - 6}" y="${Y(height) + 3}" text-anchor="end">${fmt(height)} m</text>
         <text x="${(W + pad.l) / 2}" y="${H - 4}" text-anchor="middle">µg/m³ (log)</text>
       </g>
-      <rect x="${pad.l}" y="${pad.t}" width="${W - pad.l - pad.r}" height="${H - pad.t - pad.b}" fill="none" stroke="rgba(255,255,255,0.15)"/>
+      <rect x="${pad.l}" y="${pad.t}" width="${W - pad.l - pad.r}" height="${H - pad.t - pad.b}" fill="none" stroke="#dde2db"/>
       ${solid}
       ${lines}
-      <line x1="${pad.l}" x2="${W - pad.r}" y1="${currentY}" y2="${currentY}" stroke="rgba(96,165,250,0.5)"/>
-      <path d="${path}" fill="none" stroke="#22d3ee" stroke-width="2"/>
+      <line x1="${pad.l}" x2="${W - pad.r}" y1="${currentY}" y2="${currentY}" stroke="rgba(79,107,93,0.5)"/>
+      <path d="${path}" fill="none" stroke="#4f6b5d" stroke-width="2"/>
     </svg>
-    <p class="note">Ô (i=${i}, j=${j}) · vùng xám = trong nhà · đường ngang = tầng đang xem · max cột ${fmt(Math.max(...finite, 0))} µg/m³</p>`;
+    <p class="note">Ô ${i}, ${j} · cao nhất ${fmt(Math.max(...finite, 0))} µg/m³</p>`;
+}
+
+function scheduleExactQueries() {
+  clearTimeout(queryTimer);
+  if (!current() || !exactMode()) {
+    $("query-note").textContent = current() ? "Ước tính theo điều chỉnh nâng cao" : "";
+    return;
+  }
+  const id = state.scenario;
+  const k = state.layer;
+  const selected = state.selected && { ...state.selected };
+  const areaKey = `area:${id}:${k}`;
+  const profileKey = selected && `profile:${id}:${selected.i}:${selected.j}`;
+  if (queryCache.has(areaKey) && (!profileKey || queryCache.has(profileKey))) {
+    $("query-note").textContent = "";
+    return;
+  }
+  $("query-note").textContent = "Đang tải truy vấn…";
+  queryTimer = setTimeout(async () => {
+    try {
+      const requests = [];
+      if (!queryCache.has(areaKey)) requests.push(Promise.all(Object.keys(M.thresholds).map(async (key) => {
+        const result = await api(`/runs/${id}/exceedance?z_m=${GRID.z_centres_m[k]}&threshold_key=${encodeURIComponent(key)}`);
+        return [key, result.area_m2];
+      })).then((entries) => queryCache.set(areaKey, Object.fromEntries(entries))));
+      if (profileKey && !queryCache.has(profileKey)) requests.push(api(`/runs/${id}/profile?i=${selected.i}&j=${selected.j}`)
+        .then((result) => queryCache.set(profileKey, result)));
+      await Promise.all(requests);
+      if (state.scenario !== id || state.layer !== k || !exactMode()) return;
+      updateStats();
+      updateProfile();
+      $("query-note").textContent = "";
+    } catch (error) {
+      if (state.scenario !== id || state.layer !== k || !exactMode()) return;
+      $("query-note").textContent = "Chưa tải đủ truy vấn. Đổi tầng để thử lại.";
+      if (profileKey && !queryCache.has(profileKey)) $("profile").textContent = "Chưa tải được dữ liệu theo độ cao.";
+    }
+  }, 180);
 }
 
 function setStatus(text, kind) {
+  $("status-box").hidden = !text || (kind === 'pass' && /Đã tải/.test(text));
   const el = $("status");
   el.textContent = text;
   el.className = kind || "";

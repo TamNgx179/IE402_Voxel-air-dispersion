@@ -39,6 +39,8 @@ Pipeline Python hiện tại là lõi tính toán; backend là lớp sản phẩ
 
 ## Tài liệu chính
 
+Hướng dẫn thao tác viewer, test tự động và demo production: [TEST_DEMO.md](docs/TEST_DEMO.md).
+
 | Tài liệu | Mục đích |
 |---|---|
 | [`docs/RESEARCH.md`](docs/RESEARCH.md) | Research rút gọn, nguồn và lý do chọn mô hình |

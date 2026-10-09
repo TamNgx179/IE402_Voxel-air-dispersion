@@ -26,15 +26,15 @@ Web GIS 3D → NestJS modular monolith → PostgreSQL/PostGIS
 
 | Mã | Tính năng | Người sở hữu | Bắt buộc | Trạng thái hiện tại |
 |---|---|---|---|---|
-| `P1` | Dựng cảnh đô thị 3D từ footprint, chiều cao, đường, sông/công viên thực | B chuẩn bị dữ liệu, A render web | Có | ✅ scene DB/API và render 3D đã kiểm tra; còn QA khoa học với voxel mask |
+| `P1` | Dựng cảnh đô thị 3D từ footprint, chiều cao, đường, sông/công viên thực | B chuẩn bị dữ liệu, A render web | Có | ✅ scene DB/API/render và audit độc lập footprint/height/voxel: 0 mismatch |
 | `P2` | PostgreSQL/PostGIS, migration và seed | A | Có | ✅ Docker DB healthy; migrate/seed thật đã kiểm tra |
 | `P3` | NestJS modular monolith cho web, API, persistence và simulation orchestration | A | Có | ✅ module/controller/service/DTO và test đã có |
 | `P4` | Internal executor và trạng thái `queued/running/succeeded/failed` | A | Có | ✅ real solver smoke qua API → executor → Python → PostGIS đã `succeeded` |
-| `P5` | Python CLI chạy pipeline theo `run_id`, được monolith spawn nội bộ | B, A tích hợp | Có | ✅ real CLI smoke 3D + contract/exit code pass; production grid thuộc B5 |
-| `P6` | Trường gió mass-consistent + FV transport | B | Có | ✅ B4 real smoke dùng trực tiếp corrected `uf,vf,wf` đã pass; production-grid là B5 |
+| `P5` | Python CLI chạy pipeline theo `run_id`, được monolith spawn nội bộ | B, A tích hợp | Có | ✅ production 500.000 voxel hội tụ; nút Chạy web → real solver → DB đã thành công |
+| `P6` | Trường gió mass-consistent + FV transport | B | Có | ✅ corrected faces + explicit FV, 5 production cases qua verification |
 | `P7` | Lát cắt theo z, exceedance, profile và summary query | A | Có | ✅ API, E2E, EXPLAIN và benchmark 500.000 voxel đã có |
-| `P8` | Web 3D có camera 2D/3D, height slider, scenario, threshold, profile và lớp gió | A | Có | 🟡 UI/API live, camera và gió nền đã visual-QA; còn endpoint vector `u,v,w` + production FV thật |
-| `P9` | Verification và provenance theo từng run | B | Có | 🟡 smoke run đã gắn gate, checksum và input hash; production evidence thuộc B5–B7 |
+| `P8` | Web 3D có camera 2D/3D, height slider, scenario, threshold, profile và lớp gió | A | Có | ✅ UI/API production FV, vector solver theo run/tầng; còn release rehearsal tuần 7–8 |
+| `P9` | Verification và provenance theo từng run | B | Có | ✅ B5/B6 có convergence, gates, checksum, input/source hash và sensitivity; release freeze ở B7 |
 | `P10` | Docker/demo, runbook, báo cáo và số liệu cuối | A + B | Có | ⬜ |
 
 ### Công nghệ
@@ -61,7 +61,7 @@ GIS mà voxeliser sử dụng, để hình học mô phỏng và hình học ng�
 | Sông/mặt nước | OSM polygon/line | Polygon đúng vị trí | B chuẩn hoá, A render |
 | Công viên/cây xanh | OSM landuse/leisure/natural | Polygon lớp phủ | B chuẩn hoá, A render |
 | Nền địa lý | MapLibre basemap | Kiểm tra CRS và alignment | A |
-| Nồng độ/gió | Output đúng `run_id` | Voxel/slab; gió nền có nhãn nguồn, trường `u,v,w` dùng vector/particle overlay riêng | B xuất vector, A render |
+| Nồng độ/gió | Output đúng `run_id` | Voxel/slab và hạt/mũi tên chuyển động từ solver theo tầng, có pause; thiếu artifact không vẽ giả | B xuất vector, A render |
 
 MVP dùng toà nhà **LoD1**: footprint thực và mái phẳng theo chiều cao dữ liệu. Không tự tạo
 mặt đứng/cửa sổ khi không có nguồn. Địa hình vẫn phẳng `z=0` và phải được ghi là hạn chế.
@@ -344,6 +344,19 @@ steady-state vẫn thuộc B5.
 **Kết quả tuần 5:** output chính là FV voxel 3D, không còn chỉ Gaussian; bốn loại query DB
 trả kết quả đúng và có bằng chứng index/query plan.
 
+**Trạng thái 09/10/2026 — A5.1–A5.6:** triển khai và kiểm thử phần A đã hoàn tất:
+retry không nhân đôi cột/metrics; slice dùng ô chứa cao độ, kiểm bbox và threshold;
+profile/summary/exceedance đối chiếu DB trong real Python E2E. Web lấy thống kê và profile
+chính xác từ API, không tính lại từ uint8 dùng để render. Benchmark 500.000 voxel có
+20 mẫu/query, provenance và EXPLAIN; xem `QUERY_EVIDENCE.md`. UI đã rút gọn thao tác chính,
+dùng icon SVG và bảng màu nhẹ. Benchmark ban đầu dùng synthetic;
+đã bổ sung benchmark trên production FV thật và nhập hai baseline khô/mưa vào PostGIS.
+
+**Trạng thái 09/10/2026 — B5.1–B5.6:** hoàn tất trên 5 production cases 500.000 voxel.
+Hội tụ 660–663 s mô phỏng, wall-clock 94,55–166,89 s, RSS 303–317 MB; mọi gate pass.
+Audit scene/voxel độc lập 0 mismatch; có ước lượng K số cạnh K vật lý và mass ledger.
+Chi tiết run_id, phương pháp, số liệu và lệnh tái lập: [B5_B6_EVIDENCE.md](./B5_B6_EVIDENCE.md).
+
 ### Tuần 6 — Web 3D đọc API và so sánh scenario → M5
 
 **Người A**
@@ -373,6 +386,14 @@ trả kết quả đúng và có bằng chứng index/query plan.
 **Kết quả tuần 6:** web dựng lại study area bằng footprint và chiều cao thực, có đường, mặt
 nước/cây xanh nếu nguồn tồn tại; cảnh khớp basemap và voxel mask. Người dùng tạo/chọn run,
 kéo height slider, đổi scenario, xem threshold, profile và summary hoàn toàn qua API.
+
+**Trạng thái 09/10/2026 — B6.1–B6.7:** hoàn tất hai mùa, FV–Gaussian, lát 1,5/15 m,
+K×0,5, height±20%, provenance/geometry QA và vector corrected `u,v,w` qua artifact API.
+Cross-check độc lập bằng nghiệm giải tích phương trình nhiệt (variance 40 m², sai số 0
+trong tolerance 1%); đây là verification, không phải validation quan trắc/wind tunnel.
+Hình 300 dpi và bảng số liệu được sinh từ manifests; xem [B5_B6_EVIDENCE.md](./B5_B6_EVIDENCE.md).
+Web ưu tiên FV thật; nút Chạy đã hoàn tất production run tự động. Không dùng fake wind.
+Clean-room Compose, final report, release freeze/evidence index vẫn thuộc tuần 7–8.
 
 ### Tuần 7 — Kiểm thử tích hợp, dashboard và báo cáo kết quả → M6
 

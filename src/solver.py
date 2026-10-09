@@ -36,6 +36,9 @@ import xarray as xr
 import yaml
 
 from src.wind import power_law_profile, project_mass_consistent
+from src.convergence import SteadyStateMonitor
+from src.wind.web_vectors import export_vectors
+from src.fv_operator import SparseFVStepper
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
 SCHEMA_PATH = REPO_ROOT / "config" / "manifest.schema.json"
@@ -393,6 +396,8 @@ def artifact_entries(args: argparse.Namespace, out: Path) -> list[dict]:
         "config": Path(args.config), "wind": out / "wind.nc", "concentration": out / "concentration.nc",
         "columns": out / "columns.csv.gz", "metrics": out / "metrics.json", "log": out / "solver.log",
     }
+    if (out / 'wind-vectors.json').exists():
+        kinds['wind_vectors'] = out / 'wind-vectors.json'
     return [
         {"kind": kind, "path": path.name, "sha256": sha256(path), "size_bytes": path.stat().st_size}
         for kind, path in kinds.items() if path.resolve().parent == out.resolve()
@@ -465,6 +470,7 @@ def run_real(args: argparse.Namespace, out: Path, started: str, clock: float) ->
             omega=float(wind_cfg.get("omega", 1.78)),
             tolerance=float(wind_cfg.get("sor_tolerance", 1e-4)),
             max_iter=int(wind_cfg.get("max_iter", 10000)),
+            method=str(wind_cfg.get('poisson_method', 'sor')),
         )
     except RuntimeError as exc:
         text = f"wind projection failed: {exc}"
@@ -493,19 +499,37 @@ def run_real(args: argparse.Namespace, out: Path, started: str, clock: float) ->
         faces, diffusivity, dz_m=grid["dz_m"], dy_m=grid["dy_m"], dx_m=grid["dx_m"], courant=target
     )
     max_time = float(transport_cfg.get("max_simulated_s", 600.0))
+    criterion = transport_cfg.get('stopping_criterion', 'fixed_time')
+    if criterion not in ('fixed_time', 'steady_state') or not np.isfinite(max_time) or max_time <= 0:
+        raise SolverError(EXIT_INPUT, 'invalid transport stopping criterion or max_simulated_s')
+    settings = transport_cfg.get('steady_state') or {}
+    try:
+        monitor = SteadyStateMonitor(**settings)
+    except (TypeError, ValueError) as exc:
+        raise SolverError(EXIT_INPUT, str(exc)) from exc
+    converged = False
     steps = int(math.ceil(max_time / dt))
     concentration = np.zeros(solid.shape, dtype=np.float64)
+    implementation=transport_cfg.get('implementation','faces')
+    if implementation not in ('faces','sparse'):
+        raise SolverError(EXIT_INPUT,'transport implementation must be faces or sparse')
+    sparse = SparseFVStepper(faces,source,diffusivity,solid,
+        (grid['dz_m'],grid['dy_m'],grid['dx_m']),TRANSPORT) if implementation=='sparse' else None
     ledger: dict[str, float] = {}
     progress("transport", 0.0)
     try:
         elapsed = 0.0
         for step in range(steps):
             step_dt = min(dt, max_time - elapsed)
-            concentration = TRANSPORT.transport_step_faces(
+            concentration = sparse.step(concentration,step_dt,ledger) if sparse else TRANSPORT.transport_step_faces(
                 concentration, faces, source, diffusivity, step_dt,
                 dz_m=grid["dz_m"], dy_m=grid["dy_m"], dx_m=grid["dx_m"], solid=solid, ledger=ledger,
             )
             elapsed += step_dt
+            if criterion == 'steady_state' and monitor.observe(concentration, elapsed):
+                converged = True
+                steps = step + 1
+                break
             if step == steps - 1 or step % max(1, steps // 20) == 0:
                 progress("transport", (step + 1) / steps)
     except TRANSPORT.NegativeConcentrationError as exc:
@@ -536,14 +560,21 @@ def run_real(args: argparse.Namespace, out: Path, started: str, clock: float) ->
         "positivity": check(positivity_ratio, positivity_tol, positivity_ratio <= positivity_tol),
         "wall_flux": check(wall, 0.0, wall == 0.0),
         "mass_balance": check(mass_error, mass_tol, mass_error <= mass_tol),
-        "sor_convergence": check(wind.sor_residual, float(wind_cfg.get("sor_tolerance", 1e-4)), True),
+        "sor_convergence": check(wind.sor_residual, float(wind_cfg.get("sor_tolerance", 1e-4)), True,
+            'Legacy gate name: ' + str(wind_cfg.get('poisson_method','sor')) + ' Poisson convergence'),
     }
+    if criterion == 'steady_state':
+        checks['steady_state'] = check(monitor.residual, monitor.tolerance, converged,
+            f'relative L1 change over {monitor.interval_s} s, {monitor.required_checks} consecutive checks after {monitor.minimum_s} s')
 
     progress("export", 0.0)
-    warnings = ["fixed-time M3 run; steady-state convergence is a B5 deliverable"]
+    warnings = ['Diagnostic wind/FV simulation with GIS/EDGAR inputs; not validated against field observations']
+    if criterion == 'fixed_time':
+        warnings.append('fixed-time run; steady state not established')
     display = concentration * 1e9
     display[solid] = np.nan
     write_wind_result(out / "wind.nc", wind, grid, inputs["crs"])
+    export_vectors(out / 'wind-vectors.json', wind, solid, grid, inputs['crs'], args.run_id)
     write_concentration(out / "concentration.nc", display.astype(np.float32), grid, inputs["crs"], warnings)
     write_columns(out / "columns.csv.gz", display)
     speed = max(float(np.max(np.abs(wind.u))), float(np.max(np.abs(wind.v))), float(np.max(np.abs(wind.w))))
@@ -551,8 +582,11 @@ def run_real(args: argparse.Namespace, out: Path, started: str, clock: float) ->
         "dt_s": dt, "courant": realised_courant, "steps": steps, "simulated_s": elapsed,
         "wall_clock_s": round(time.perf_counter() - clock, 3), "emitted_kg": emitted,
         "remaining_kg": remaining, "escaped_kg": escaped, "correction_kg": correction,
-        "solid_removed_kg": ledger.get("solid_removed_kg", 0.0), "stopping_criterion": "fixed_time",
+        "solid_removed_kg": ledger.get("solid_removed_kg", 0.0), "stopping_criterion": criterion,
+        "steady_state_converged": converged, "convergence_history": monitor.history,
         "sor_iterations": wind.iterations, "sor_residual": wind.sor_residual,
+        "poisson_method": wind_cfg.get('poisson_method','sor'),
+        "transport_implementation": implementation,
         "face_divergence_max_s_1": divergence, "wall_flux_max_m_s": wall,
         "physical_diffusivity_m2_s": {"vertical": diffusivity[0], "horizontal": diffusivity[1]},
         "numerical_diffusion_m2_s": TRANSPORT.numerical_diffusion(speed, min(grid["dx_m"], grid["dy_m"]), realised_courant),
@@ -568,7 +602,8 @@ def run_real(args: argparse.Namespace, out: Path, started: str, clock: float) ->
         "grid": {"crs": inputs["crs"], "axis_order": "z,y,x", **grid},
         "units": {"concentration": "ug m-3", "velocity": "m s-1"},
         "thresholds": {key: {"value_ug_m3": float(item["value"]), "label": str(item["label"])} for key, item in inputs["thresholds"].items()},
-        "stopping": {"criterion": "fixed_time", "simulated_s": elapsed, "steps": steps, "residual": None},
+        "stopping": {"criterion": criterion, "simulated_s": elapsed, "steps": steps,
+                     "residual": monitor.residual if criterion == 'steady_state' else None},
         "artifacts": artifact_entries(args, out),
         "verification": {"status": "fail" if failed else "pass", "checks": checks},
         "warnings": warnings, "started_at": started, "finished_at": datetime.now(timezone.utc).isoformat(timespec="seconds"),

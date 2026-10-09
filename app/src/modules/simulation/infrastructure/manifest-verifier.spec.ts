@@ -100,6 +100,14 @@ describe('verifyRunOutput', () => {
     });
   });
 
+  it('rejects steady-state claims without a passing convergence check', async () => {
+    const m=makeRun(dir);
+    m.stopping.criterion='steady_state';
+    delete m.verification.checks.steady_state;
+    write(dir,m);
+    expect(await verify(dir)).toMatchObject({ok:false,kind:'model',message:expect.stringMatching(/steady_state/)});
+  });
+
   it('rejects invalid JSON (system)', async () => {
     writeFileSync(join(dir, 'manifest.json'), '{oops');
     expect(await verify(dir)).toMatchObject({

@@ -109,7 +109,7 @@
         "additionalProperties": false,
         "required": ["kind", "path", "sha256", "size_bytes"],
         "properties": {
-          "kind": { "enum": ["wind", "concentration", "columns", "metrics", "log", "config"] },
+          "kind": { "enum": ["wind", "wind_vectors", "concentration", "columns", "metrics", "log", "config"] },
           "path": {
             "type": "string",
             "pattern": "^[A-Za-z0-9_.-]+$",
@@ -136,7 +136,8 @@
             "positivity": { "$ref": "#/$defs/check" },
             "wall_flux": { "$ref": "#/$defs/check" },
             "mass_balance": { "$ref": "#/$defs/check" },
-            "sor_convergence": { "$ref": "#/$defs/check" }
+            "sor_convergence": { "$ref": "#/$defs/check" },
+            "steady_state": { "$ref": "#/$defs/check" }
           }
         }
       }

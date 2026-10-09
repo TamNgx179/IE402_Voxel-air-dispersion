@@ -1,4 +1,5 @@
 import { performance } from 'node:perf_hooks';
+import { writeFile } from 'node:fs/promises';
 import pg from 'pg';
 
 const url =
@@ -14,10 +15,19 @@ const latest = await pool.query<{
   id: string;
   scenario_id: string;
   study_area_id: string;
+  model: string;
+  model_version: string;
+  input_hash: string;
+  warnings: string[];
+  grid: Record<string, unknown>;
 }>(
-  `SELECT r.id, r.scenario_id, s.study_area_id
+  `SELECT r.id, r.scenario_id, s.study_area_id, r.model, r.model_version,
+          r.input_hash, r.warnings, sa.grid
    FROM simulation_runs r JOIN scenarios s ON s.id = r.scenario_id
-   WHERE r.status = 'succeeded' ORDER BY r.finished_at DESC LIMIT 1`,
+   JOIN study_areas sa ON sa.id = s.study_area_id
+   WHERE r.status = 'succeeded' AND ($1::uuid IS NULL OR r.id = $1)
+   ORDER BY r.finished_at DESC LIMIT 1`,
+  [process.env.BENCHMARK_RUN_ID ?? null],
 );
 if (latest.rowCount === 0)
   throw new Error('no succeeded run; create one before benchmarking');
@@ -58,6 +68,12 @@ const cases = [
 const report: Record<string, unknown> = {
   generated_at: new Date().toISOString(),
   run_id: run.id,
+  model: run.model,
+  model_version: run.model_version,
+  input_hash: run.input_hash,
+  warnings: run.warnings,
+  grid: run.grid,
+  scope: 'DB query performance, not scientific model validation',
   samples: 20,
   storage: {},
   queries: {},
@@ -105,5 +121,9 @@ for (const item of cases) {
   };
 }
 
-process.stdout.write(`${JSON.stringify(report, null, 2)}\n`);
+const serialized = `${JSON.stringify(report, null, 2)}\n`;
+if (process.env.BENCHMARK_OUTPUT) {
+  await writeFile(process.env.BENCHMARK_OUTPUT, serialized, 'utf8');
+}
+process.stdout.write(serialized);
 await pool.end();

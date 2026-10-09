@@ -27,7 +27,7 @@ flowchart TB
 
     subgraph PY["Python solver subprocess — không phải service"]
         VOX["GIS preparation + voxelisation"]
-        WIND["corrected face wind · SOR Poisson"]
+        WIND["corrected face wind · Poisson CG / SOR"]
         TR["FV advection–diffusion"]
         GAU["Gaussian baseline"]
         AN["verification · analysis · export"]
@@ -280,6 +280,36 @@ In order of value per unit of effort:
 8. **Object storage** chỉ khi artifact vượt khả năng lưu local; không đổi application boundary.
 
 ### Definition of done cho release mục tiêu 9+
+
+### Trạng thái tích hợp production — 09/10/2026
+
+Không thêm service/container: `SimulationModule` vẫn spawn Python CLI nội bộ.
+Production dùng CG cho cùng hệ Poisson và CSR cho cùng FV explicit; reference SOR/direct
+faces giữ để regression. Convergence gate mới từ chối run chưa steady dù subprocess có
+artifact; verifier/persistence dùng chung cho executor và CLI `db:import-run`.
+Importer kiểm scene checksum trùng seed, từ chối scene sensitivity và run đã tồn tại.
+Migration `0003_production_results.sql` bổ sung gate `steady_state` và kind `wind_vectors`.
+
+```mermaid
+flowchart LR
+    W[Web: chọn run và tầng] --> API[NestJS modular monolith]
+    API --> EX[Internal executor: concurrency 1]
+    EX --> PY[Python subprocess: corrected faces → FV → convergence]
+    PY --> FILE[NetCDF / manifest / wind_vectors JSON]
+    FILE --> CHECK[Checksum + verification gate]
+    CHECK --> DB[(PostGIS: kết quả và spatial queries)]
+    CHECK --> API
+    DB --> API
+    API --> W
+```
+
+Web nhận vector từ artifact endpoint đã kiểm checksum, đúng run_id/units/tầng và solid
+mask, không biến metadata gió nền thành kết quả solver. Hạt gió lấy mẫu field downsample,
+hiển thị tăng tốc ×6 và chặn solid/domain; không phải transport particle của PM2.5.
+Pause/reduced-motion giữ hình tĩnh. Hai baseline thật và một run tạo bằng nút Chạy đã thành công;
+[B5_B6_EVIDENCE.md](./B5_B6_EVIDENCE.md) ghi bằng chứng. Clean-room release vẫn cần A7/A8.
+
+### Cổng đóng gói cuối
 
 Kiến trúc chỉ được coi là hoàn thành khi một môi trường sạch thực hiện được chuỗi:
 

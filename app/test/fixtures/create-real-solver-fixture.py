@@ -23,6 +23,7 @@ config = yaml.safe_load(base_config.read_text(encoding="utf-8"))
 config["paths"]["scene_package_dir"] = str(scene)
 config["paths"]["emission_source_transport_netcdf"] = str(source_path)
 config["transport"]["max_simulated_s"] = 5.0
+config["transport"]["stopping_criterion"] = "fixed_time"
 destination = root / "project.yaml"
 destination.write_text(yaml.safe_dump(config, sort_keys=False), encoding="utf-8")
 print(destination)

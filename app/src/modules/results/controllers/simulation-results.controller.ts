@@ -26,7 +26,7 @@ export class SimulationResultsController {
   constructor(private readonly results: SimulationResultsService) {}
 
   @Get('slices')
-  @ApiOperation({ summary: 'Concentration GeoJSON at the nearest z layer' })
+  @ApiOperation({ summary: 'Concentration GeoJSON at the layer containing z_m' })
   @ApiOkResponse({ description: 'GeoJSON cells, exact z layer and statistics' })
   @ApiConflictResponse({ description: 'Run has not succeeded' })
   slices(

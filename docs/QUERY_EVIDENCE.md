@@ -20,7 +20,9 @@ cd app
 npm run db:migrate
 npm run db:seed
 # tạo ít nhất một run thành công qua POST /api/runs
-npm run db:benchmark > ../artifacts/query-benchmark.json
+$env:BENCHMARK_RUN_ID = '3f5ca60f-2129-4769-8b21-146f6703e2e1'
+$env:BENCHMARK_OUTPUT = '../artifacts/query-benchmark-a5.json'
+npm run db:benchmark
 ```
 
 `db:benchmark` chạy warm-up 3 lần, đo 20 lần cho từng query, xuất p50/p95 và
@@ -56,3 +58,46 @@ Môi trường: Intel Core i5-12500H, RAM 15,7 GB, Node 22.16.0, PostgreSQL 16.4
 Docker Desktop. Run dùng `SOLVER_MODE=mock` để đo đường dữ liệu/API/DB; các con số này **không**
 được dùng làm kết quả khoa học của mô hình. Script `db:benchmark` là nguồn tái lập số đo và full
 `EXPLAIN (ANALYZE, BUFFERS, FORMAT JSON)`.
+
+## Bổ sung A5 — 09/10/2026
+
+Build/lint đạt; unit: **87 pass, 1 skip**; DB/API/executor E2E: **42 pass**.
+Real executor E2E chạy Python wind/FV trên fixture nhỏ rồi đối chiếu profile và slice
+với mảng nồng độ trong PostgreSQL; area = count × 25 m², volume tầng = count × 50 m³.
+Retry được kiểm tra không nhân đôi 4 concentration columns hoặc 1 metrics record.
+Kiểm thử cao độ gồm 0, 1,99, 2, 7,99 m; 8 m bị từ chối trên fixture cao 8 m.
+`requested_z_m` là yêu cầu, `z_center_m`/legacy `z_m` là tâm ô. Bbox sai geographic range,
+đảo biên và threshold xung đột bị từ chối.
+
+Đo lại run synthetic trên lúc **10:00 ICT**, cùng grid 100 × 100 × 50:
+
+| Query | p50 (ms) | p95 (ms) |
+|---|---:|---:|
+| Slice | 33,77 | 39,47 |
+| Exceedance toàn miền | 37,90 | 57,02 |
+| Profile | 0,96 | 1,83 |
+| Summary | 60,30 | 69,78 |
+
+Profile dùng PK index; slice dùng nested loop/index join; exceedance/summary chủ ý
+aggregate cả volume đã lọc run. Dung lượng **toàn relation** concentration là 12.582.912
+bytes và grid là 5.136.384 bytes; DB hiện chứa nhiều run, không phải dung lượng riêng
+một run. Full report local: `artifacts/query-benchmark-a5.json` (generated artifact,
+không commit); script ghi model/version/input_hash/warnings/grid để không nhầm synthetic
+với kết quả khoa học. Benchmark production bổ sung bên dưới thay thế khoảng trống này.
+
+## Production FV B5 — 09/10/2026
+
+Run khô `6c58daaf-7698-4cb9-8816-fd52568d56e7`, 500.000 voxel, steady-state,
+verification pass và warnings không chứa mock. 20 mẫu/query sau 3 warm-up,
+`EXPLAIN ANALYZE` và provenance: `artifacts/query-benchmark-production.json`.
+
+| Query | p50 (ms) | p95 (ms) |
+|---|---:|---:|
+| Slice | 31,60 | 34,68 |
+| Exceedance | 42,11 | 53,20 |
+| Profile | 0,96 | 1,66 |
+| Summary | 59,07 | 65,19 |
+
+Toàn relation concentration 21.954.560 bytes, grid 5.136.384 bytes: DB có nhiều run,
+không gán con số này cho dung lượng một run. Đo trên DB development, không phải SLA.
+Bằng chứng solver/science và nguồn dữ liệu: [B5_B6_EVIDENCE.md](./B5_B6_EVIDENCE.md).

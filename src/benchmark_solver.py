@@ -62,6 +62,7 @@ def _fixture(root: Path, base_config: Path) -> tuple[Path, Path]:
     config["paths"]["scene_package_dir"] = str(scene)
     config["paths"]["emission_source_transport_netcdf"] = str(source_path)
     config["transport"]["max_simulated_s"] = 60.0
+    config["transport"]["stopping_criterion"] = "fixed_time"
     config_path = root / "template.yaml"
     config_path.write_text(yaml.safe_dump(config, sort_keys=False), encoding="utf-8")
     return config_path, out

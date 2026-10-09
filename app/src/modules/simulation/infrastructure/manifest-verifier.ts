@@ -174,6 +174,20 @@ export async function verifyRunOutput(
   if (!read.ok) return systemError(read.message);
   const { manifest } = read;
 
+  if (
+    manifest.stopping.criterion === 'steady_state' &&
+    (!manifest.verification.checks.steady_state ||
+      manifest.verification.checks.steady_state.status !== 'pass')
+  ) {
+    return {
+      ok: false,
+      kind: 'model',
+      manifest,
+      message:
+        'steady-state run requires a passing steady_state verification check',
+    };
+  }
+
   const runDir = resolve(options.runDir);
   const seen = new Set<string>();
   const artifacts: ManifestArtifact[] = [];

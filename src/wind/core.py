@@ -505,6 +505,7 @@ def sor_poisson(
     omega: float = DEFAULT_OMEGA,
     tolerance: float = DEFAULT_TOLERANCE,
     max_iter: int = DEFAULT_MAX_ITER,
+    method: str = 'sor',
 ) -> SorResult:
     """Solve the mass-consistency Poisson equation with red-black SOR."""
 
@@ -676,6 +677,35 @@ def sor_poisson(
     ) & 1
 
     residual = np.inf
+
+    if method == 'cg':
+        # Same symmetric face-connected operator/boundaries as SOR, faster on
+        # the 500k-cell production grid. Solid rows are identity, rhs=0.
+        from scipy.sparse import diags
+        from scipy.sparse.linalg import cg, LinearOperator
+        diagonal = np.where(active, denominator, 1.0).ravel()
+        n = rhs.size
+        offsets, entries = [0], [diagonal]
+        for offset, connection, coefficient in ((1,xp,cx),(nx,yp,cy),(nx*ny,zp,cz)):
+            if offset >= n or coefficient == 0:
+                continue
+            edge = -coefficient * connection.ravel()[:-offset]
+            offsets.extend([offset,-offset])
+            entries.extend([edge,edge])
+        matrix = diags(entries,offsets,shape=(n,n),format='csr')
+        preconditioner = LinearOperator((n,n),matvec=lambda vector: vector/diagonal)
+        iterations = 0
+        def count(_):
+            nonlocal iterations
+            iterations += 1
+        solution, info = cg(matrix,-rhs.ravel(),rtol=0.0,atol=tolerance,
+                            maxiter=max_iter,M=preconditioner,callback=count)
+        residual = float(np.linalg.norm(matrix @ solution + rhs.ravel()))
+        if info != 0 or not np.isfinite(residual) or residual > tolerance:
+            raise RuntimeError(f'CG did not converge; residual={residual}, info={info}')
+        return SorResult(solution.reshape(rhs.shape),iterations,residual)
+    if method != 'sor':
+        raise ValueError('Poisson method must be sor or cg')
 
     for iteration in range(
         1,
@@ -988,6 +1018,7 @@ def project_mass_consistent(
     omega: float = DEFAULT_OMEGA,
     tolerance: float = DEFAULT_TOLERANCE,
     max_iter: int = DEFAULT_MAX_ITER,
+    method: str = 'sor',
 ) -> WindResult:
     """Project an initial wind field onto a mass-consistent field."""
 
@@ -1048,6 +1079,7 @@ def project_mass_consistent(
         omega=omega,
         tolerance=tolerance,
         max_iter=max_iter,
+        method=method,
     )
 
     ufc, vfc, wfc = _correct_faces(

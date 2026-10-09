@@ -229,6 +229,11 @@ describe.skipIf(!db.ok)('SimulationExecutor (e2e, fake solver)', () => {
       attempt: 2,
       error: null,
     });
+    const imported = await pool.query(
+      'SELECT count(*)::int AS n FROM concentration_columns WHERE run_id = $1', [id],
+    );
+    expect(imported.rows[0].n).toBe(4);
+    expect((await pool.query('SELECT count(*)::int AS n FROM run_metrics WHERE run_id = $1', [id])).rows[0].n).toBe(1);
     await http().post(`/api/runs/${id}/retry`).expect(409);
   });
 

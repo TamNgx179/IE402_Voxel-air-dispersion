@@ -138,6 +138,7 @@ meteorology:
 # ============================================================
 
 wind:
+  poisson_method: "cg"
   profile_exponent: 0.25
   reference_height_m: 10.0
   alpha1: 1.0
@@ -306,12 +307,16 @@ emissions:
 
 transport:
 
-  # M3 stops after a fixed simulated time: about twice the time the
-  # 1.6-1.8 m/s scenario winds take to cross the 500 m domain. The
-  # steady-state criterion (spec BR-8) replaces it in B5.1.
-  stopping_criterion: "fixed_time"
+  # B5: same explicit face-flux FV operator, preassembled as a sparse matrix.
+  implementation: "sparse"
+  stopping_criterion: "steady_state"
+  steady_state:
+    interval_s: 30.0
+    minimum_s: 600.0
+    tolerance: 0.001
+    required_checks: 3
 
-  max_simulated_s: 600.0
+  max_simulated_s: 1800.0
 
   # Upwind is stable at Courant <= 1; 0.5 keeps a margin (spec BR-7).
   courant_target: 0.5

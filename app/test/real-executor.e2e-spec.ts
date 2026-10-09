@@ -72,7 +72,7 @@ describe.skipIf(!db.ok)('SimulationExecutor (e2e, real Python solver)', () => {
     );
     expect(run.status, run.error?.message).toBe('succeeded');
     expect(run.model_version).toMatch(/^0\.1\.0/);
-    expect(run.warnings.join(' ')).toMatch(/fixed-time M3 run/);
+    expect(run.warnings.join(' ')).toMatch(/fixed-time run/);
     expect(run.verification.status).toBe('pass');
     expect(run.verification.checks.map((item: any) => item.name)).toContain(
       'sor_convergence',
@@ -87,14 +87,31 @@ describe.skipIf(!db.ok)('SimulationExecutor (e2e, real Python solver)', () => {
       .expect(200);
     expect(artifacts.body.artifacts.map((item: any) => item.kind)).toEqual(
       expect.arrayContaining([
-        'wind', 'concentration', 'columns', 'metrics', 'log', 'config',
+        'wind', 'wind_vectors', 'concentration', 'columns', 'metrics', 'log', 'config',
       ]),
     );
+    const vectors = await http().get(`/api/runs/${id}/artifacts/wind_vectors/download`).expect(200);
+    const vectorField = JSON.parse(vectors.text ?? Buffer.from(vectors.body).toString('utf8'));
+    expect(vectorField.run_id).toBe(id);
+    expect(vectorField.source).toBe('corrected FV face velocities');
     const summary = await http()
       .get(`/api/runs/${id}/summary`)
       .expect(200);
     expect(summary.body.verification.status).toBe('pass');
-    await http().get(`/api/runs/${id}/slices?z_m=1`).expect(200);
-    await http().get(`/api/runs/${id}/profile?i=1&j=0`).expect(200);
+    const persisted = await pool.query(
+      'SELECT c_ug_m3 FROM concentration_columns WHERE run_id = $1 AND i = 1 AND j = 0',
+      [id],
+    );
+    const profile = await http().get(`/api/runs/${id}/profile?i=1&j=0`).expect(200);
+    expect(profile.body.levels.map((level: any) => level.concentration_ug_m3))
+      .toEqual(persisted.rows[0].c_ug_m3);
+    const slice = await http().get(`/api/runs/${id}/slices?z_m=1`).expect(200);
+    const cell = slice.body.feature_collection.features.find((feature: any) =>
+      feature.properties.i === 1 && feature.properties.j === 0);
+    expect(cell.properties.concentration_ug_m3).toBe(persisted.rows[0].c_ug_m3[0]);
+    const zeroThreshold = await http().get(`/api/runs/${id}/exceedance?z_m=1&threshold=0`).expect(200);
+    expect(zeroThreshold.body.cell_count).toBeGreaterThan(0);
+    expect(zeroThreshold.body.area_m2).toBe(zeroThreshold.body.cell_count * 25);
+    expect(zeroThreshold.body.volume_m3).toBe(zeroThreshold.body.cell_count * 50);
   }, 170_000);
 });
