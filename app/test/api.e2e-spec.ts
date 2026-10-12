@@ -373,8 +373,15 @@ describe.skipIf(!db.ok)('API with PostGIS (e2e, executor disabled)', () => {
     expect(slice.body.feature_collection.features).toHaveLength(3);
     expect(slice.body.stats).toMatchObject({ air_cells: 3, max_ug_m3: 30 });
 
-    for (const [height, layer] of [[0, 0], [1.99, 0], [2, 1], [7.99, 3]]) {
-      const response = await http().get(`/api/runs/${id}/slices?z_m=${height}`).expect(200);
+    for (const [height, layer] of [
+      [0, 0],
+      [1.99, 0],
+      [2, 1],
+      [7.99, 3],
+    ]) {
+      const response = await http()
+        .get(`/api/runs/${id}/slices?z_m=${height}`)
+        .expect(200);
       expect(response.body).toMatchObject({
         k: layer,
         requested_z_m: height,
@@ -384,7 +391,9 @@ describe.skipIf(!db.ok)('API with PostGIS (e2e, executor disabled)', () => {
     await http().get(`/api/runs/${id}/slices?z_m=8`).expect(400);
     await http().get(`/api/runs/${id}/slices?bbox=200,10,201,11`).expect(400);
     await http().get(`/api/runs/${id}/slices?bbox=106,11,105,12`).expect(400);
-    await http().get(`/api/runs/${id}/exceedance?threshold=15&threshold_key=who_24h`).expect(400);
+    await http()
+      .get(`/api/runs/${id}/exceedance?threshold=15&threshold_key=who_24h`)
+      .expect(400);
 
     const exceedance = await http()
       .get(`/api/runs/${id}/exceedance?z_m=1&threshold=15`)
@@ -416,4 +425,31 @@ describe.skipIf(!db.ok)('API with PostGIS (e2e, executor disabled)', () => {
     await http().get(`/api/runs/${id}/slices?z_m=999`).expect(400);
     await http().get(`/api/runs/${id}/profile?i=9&j=0`).expect(400);
   });
+  it.each(['queued', 'running', 'failed', 'stale'])(
+    'never exposes result endpoints of a %s run',
+    async (status) => {
+      const id = randomUUID();
+      await pool.query(
+        `INSERT INTO simulation_runs (id, scenario_id, status, error_kind) VALUES ($1, 'dry_nov_apr', $2, $3)`,
+        [id, status, status === 'failed' ? 'input' : null],
+      );
+      try {
+        for (const endpoint of [
+          'slices?z_m=1',
+          'exceedance?z_m=1',
+          'profile?i=1&j=0',
+          'summary',
+          'volume',
+          'artifacts',
+        ]) {
+          const response = await http()
+            .get(`/api/runs/${id}/${endpoint}`)
+            .expect(409);
+          expect(response.body.message).toContain(status);
+        }
+      } finally {
+        await pool.query('DELETE FROM simulation_runs WHERE id = $1', [id]);
+      }
+    },
+  );
 });

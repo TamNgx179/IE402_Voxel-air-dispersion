@@ -159,7 +159,7 @@ cao. Hệ thống phải trung thực về sai số, provenance và các hiện 
 | `BR-31` | Numerical diffusion và các physics bị thiếu phải xuất hiện trong report/UI | `SCOPE-2` |
 | `BR-32` | Toà nhà trên web dùng đúng footprint và `height_m` của dữ liệu đã voxel hoá; không đặt khối nhà thủ công | 3D scene contract |
 | `BR-33` | Đường, mặt nước và cây xanh lấy từ lớp GIS có provenance và cùng CRS; không bịa feature để làm đẹp | data integrity |
-| `BR-34` | Cảnh MVP là LoD1; không tuyên bố có facade/roof detail nếu nguồn không chứa các chi tiết đó | honesty |
+| `BR-34` | Cảnh MVP là LoD1; cửa sổ/vật liệu minh họa phải được ghi nhãn, không tuyên bố là facade/roof khảo sát nếu nguồn không có. Dùng màu thân nhà trung tính và daylight minh họa có kiểm soát; chi tiết rõ dần khi zoom gần, không sửa dữ liệu GIS/solver | honesty; RESEARCH §20 |
 | `BR-35` | Geometry web, PostGIS và voxel mask phải dùng cùng study-area transform và được kiểm bằng overlay/anchor points | spatial consistency |
 
 ### 5.7 Cổng chất lượng release
@@ -298,7 +298,7 @@ tiền tính cùng toán tử FV explicit, không đổi phương trình thành 
 Manifest có convergence residual/history, method, checksum và gate; `wind-vectors.json`
 downsample corrected face averages với run_id, tầng và units m/s. UI không fallback
 gió nền thành solver wind. Kết quả 5 cases và kiểm hình học độc lập ở
-[B5_B6_EVIDENCE.md](./B5_B6_EVIDENCE.md).
+[TEST_DEMO.md](./TEST_DEMO.md).
 
 ### D4 · Đóng gói
 

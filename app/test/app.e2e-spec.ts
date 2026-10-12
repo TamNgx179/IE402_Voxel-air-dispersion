@@ -67,9 +67,31 @@ describe('API (e2e)', () => {
   });
 
   it('GET / serves the static web viewer', async () => {
-    await request(app.getHttpServer())
+    const page = await request(app.getHttpServer())
       .get('/')
       .expect(200)
       .expect('Content-Type', /html/);
+    for (const id of [
+      'scenario-list',
+      'height-slider',
+      'run-button',
+      'query-retry',
+      'cell-picker-form',
+    ]) {
+      expect(page.text).toContain(`id="${id}"`);
+    }
+  });
+
+  it.each([
+    'app.js',
+    'viewer-api.js',
+    'viewer-grid.js',
+    'viewer-flow.js',
+    'building-appearance.js',
+    'styles.css',
+  ])('serves viewer dependency %s rather than HTML fallback', async (asset) => {
+    const res = await request(app.getHttpServer()).get(`/${asset}`).expect(200);
+    expect(res.headers['content-type']).not.toMatch(/html/);
+    expect(res.text.length).toBeGreaterThan(50);
   });
 });

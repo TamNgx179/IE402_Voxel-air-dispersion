@@ -1744,7 +1744,7 @@ Mật khẩu file nén đo đạc lấy từ `ewtl.mi@uni-hamburg.de`.
 5 production cases 500.000 voxel đã hội tụ và pass mass/divergence/positivity/wall gates.
 Hai mùa được đối chiếu FV–Gaussian cùng input; có lát theo z, sensitivity K×0,5 và
 height±20%, audit footprint/voxel độc lập, nghiệm giải tích diffusion và vector solver.
-Số liệu/run_id/lệnh tái lập ở [B5_B6_EVIDENCE.md](./B5_B6_EVIDENCE.md).
+Lệnh tái lập ở [TEST_DEMO.md](./TEST_DEMO.md); benchmark truy vấn ở [DATABASE.md](./DATABASE.md).
 Verification giải tích không thay thế field validation; Gaussian không phải ground truth.
 
 CG giải cùng hệ Poisson với preconditioner Jacobi, theo
@@ -1757,6 +1757,40 @@ Không tuyên bố đã grid-converged hoặc đã mô hình đủ cavity/wake/t
 1. **Về mô hình:** có sáu tầng, và **phương án T3 được chọn (gió chẩn đoán bảo toàn khối lượng Sasaki + vận chuyển trên voxel, không triển khai đủ bảy vùng Röckle)** là phương án đồng thời phân giải toà nhà, chạy trên laptop và native voxel — đúng trọng tâm "3D Array/voxel".
 2. **Về chi phí:** khoảng cách giữa T3 và T4/LES là **hai đến ba bậc độ lớn** ✅, và bảng CAIRDIO ✅ cho thấy **5–10 m là điểm ngọt về độ phân giải**. Đây là hai con số quyết định phạm vi đồ án.
 3. **Về tính trung thực:** tài liệu này gắn cờ 37 mục chưa kiểm chứng được ở §18. **Danh sách đó không phải điểm yếu của nghiên cứu — nó là danh sách việc phải làm tuần 1**, và việc nêu nó ra trong báo cáo là một điểm cộng học thuật chứ không phải điểm trừ.
+
+### Tham khảo cách dựng và hiển thị công trình GIS 3D — 12/10/2026
+
+Phạm vi: ngoại hình công trình làm nền cho bản đồ phân tích ô nhiễm, không đổi solver.
+Không có một bảng màu nhà bắt buộc dùng cho mọi ứng dụng GIS 3D. Các nguồn dưới
+đây có mục tiêu khác nhau; không sao chép màu biểu diễn biến phân tích thành màu vật liệu.
+
+| Nguồn gốc đã đọc | Cách làm / điều đáng tham khảo | Áp dụng cho đồ án |
+|---|---|---|
+| [Esri — Building a 3D Thematic Cityscape, tr. 15–16](https://www.esri.com/content/dam/esrisites/en-us/media/pdf/learn-arcgis/building-a-3d-thematic-cityscape.pdf) | Khi nhiều lớp thematic gây xung đột màu, ví dụ chuyển khối nhà sang một màu xám để giữ rõ lớp phân tích | Nhà trung tính; không dùng ramp nồng độ để nhuộm nhà hoặc màu theo chiều cao nếu không có legend riêng |
+| [Cesium — OSM feature styling](https://sandcastle.cesium.com/?src=3D+Tiles+Feature+Styling.html), [mã nguồn createOsmBuildingsAsync](https://github.com/CesiumGS/cesium/blob/main/packages/engine/Source/Scene/createOsmBuildingsAsync.js) | Tô màu từ metadata; ví dụ glass xanh trời, concrete xám, fallback trắng khi không có thuộc tính | Kính xanh nhẹ và thân nhà sáng. API scene hiện không có material/color survey; bảng màu của nhóm chỉ là minh họa, không suy ra vật liệu thực |
+| [MapLibre — Display buildings in 3D](https://maplibre.org/maplibre-gl-js/docs/examples/display-buildings-in-3d/) | Extrude footprint theo height. Demo tô lightgray → royalblue → lightblue theo height, không phủ ảnh facade; đã quan sát demo trên browser | Giữ silhouette và shading rõ. Không copy màu royalblue theo height vì mục tiêu chính ở đây là trường nồng độ |
+| [Teles, Mariano & Santana (2020) — CityOnStats, DOI 10.3390/mti4030054, §3.1](https://mdpi-res.com/d_attachment/mti/mti-04-00054/article_deploy/mti-04-00054.pdf?version=1597643815) | Môi trường đô thị cho trực quan chất lượng không khí sinh từ OSM qua OSM2World; mesh tự động, độ trung thực phụ thuộc dữ liệu nguồn | Dựng nhà theo dữ liệu GIS, không cần tự model/photo từng nhà mới có một môi trường 3D phục vụ phân tích |
+| [Fujiwara et al. — VoxCity, bản arXiv 2504.13934v1, §4–5.2](https://arxiv.org/html/2504.13934v1) | Sinh semantic voxel city và trực quan mô phỏng môi trường. Bản này nêu thiếu dữ liệu facade/material/WWR; trial từ street-view được tách riêng | Không gọi cửa sổ/vật liệu sinh bằng code là dữ liệu vật lý, không đưa chi tiết minh họa vào solid mask hoặc tham số solver |
+
+**Hướng thiết kế của nhóm (suy luận từ các ví dụ, không phải tiêu chuẩn màu khoa học):**
+phong cách cartographic daylight / semi-realistic. Thân nhà ngà–pearl và xám xanh rất
+nhạt, kính xanh ít bão hòa; ít biến thiên màu cửa sổ để tránh ô bàn cờ. Giảm mật độ cửa
+sổ và làm chi tiết mờ ở zoom xa, rõ dần khi zoom gần. Không sử dụng ảnh thật, không
+mượn texture/mô hình có bản quyền từ các demo. Không thay đổi footprint/height/roof LoD1.
+
+**Ánh sáng quan trọng hơn chỉ đổi RGB.** Viewer pin deck.gl **9.4.0**; đã đối chiếu
+[LightingEffect](https://deck.gl/docs/api-reference/core/lighting-effect) và
+[source v9.4.0](https://github.com/visgl/deck.gl/blob/v9.4.0/modules/core/src/effects/lighting/lighting-effect.ts).
+Thay ánh sáng mặc định bằng ambient + key/fill cố định, thân nhà matte không specular.
+Preset này là ánh sáng minh họa, không phải vị trí mặt trời/irradiance thật. Lý do: hai
+đợt trước RGB gần trắng bị dư sáng, RGB trung bình với ambient thấp lại tối xám.
+Thông số mới nằm tập trung tại `web/building-appearance.js`; không bật shadow experimental.
+Tránh phụ thuộc khác biệt quy ước specular giữa tài liệu deck và luma bằng `[0,0,0]`.
+
+**Nghiệm thu:** overview không lấn át màu nồng độ, zoom gần thấy chi tiết không chói,
+xoay nhà vẫn phân biệt các mặt; bật/tắt chi tiết không đổi thống kê. Loading/lỗi/retry,
+pause/reduced-motion và phong cách riêng của gió vẫn giữ. Số liệu khoa học không được
+đánh giá bằng mức chân thực của texture. Xem QA ở [TEST_DEMO.md](./TEST_DEMO.md).
 
 ➡️ **Phương án chốt, kiến trúc và kế hoạch triển khai: xem [`spec.md`](./spec.md), [`ARCHITECTURE.md`](./ARCHITECTURE.md) và [`ROADMAP.md`](./ROADMAP.md).**
 

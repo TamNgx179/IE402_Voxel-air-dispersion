@@ -260,3 +260,34 @@ Hai lớp trên do `src/00_prepare_landcover.py` tải (tag ở `src/scene/landc
 study area và giữ OSM id. Scene package (`src/07_export_scene.py`) ghi 62 nhà, 67 đường, 1 mặt
 nước, 17 vùng xanh và 10.000 ô lưới. Kiểm tra chéo BR-35: diện tích các cột voxel rắn
 (2.317 ô × 25 m² = 57.925 m²) bằng **99,5 %** diện tích footprint (58.235 m²).
+
+## 7 · Benchmark truy vấn production FV
+
+Đo ngày 09/10/2026 trên DB development, run mùa khô
+`6c58daaf-7698-4cb9-8816-fd52568d56e7`, grid 100 × 100 × 50, verification pass.
+Mỗi query có 3 warm-up và 20 mẫu; report local
+`artifacts/query-benchmark-production.json` giữ provenance và `EXPLAIN (ANALYZE, BUFFERS)`.
+
+| Query | p50 (ms) | p95 (ms) |
+|---|---:|---:|
+| Slice | 31,60 | 34,68 |
+| Exceedance | 42,11 | 53,20 |
+| Profile | 0,96 | 1,66 |
+| Summary | 59,07 | 65,19 |
+
+Profile dùng PK `(run_id,i,j)`; slice join theo run và grid. Exceedance/summary
+chủ ý aggregate toàn volume **đã lọc run**, không yêu cầu mọi truy vấn phải dùng index.
+Toàn relation concentration là 21.954.560 bytes, grid 5.136.384 bytes: DB chứa nhiều
+run, không phải dung lượng một run. Đây là số đo máy demo, không phải SLA.
+
+Tái lập: bật DB, migrate và seed nếu cần (không reset development DB), tạo/import
+một baseline FV thành công. Trong `app/`, dùng run_id hiện có:
+
+```powershell
+$env:BENCHMARK_RUN_ID = '<run_id-FV-thanh-cong-tren-may>'
+$env:BENCHMARK_OUTPUT = '../artifacts/query-benchmark-production.json'
+npm run db:benchmark
+```
+
+Đọc provenance để phân biệt FV thật với mock; không lấy benchmark mock làm
+kết quả khoa học. Lệnh solver và kiểm định xem [TEST_DEMO.md](TEST_DEMO.md).

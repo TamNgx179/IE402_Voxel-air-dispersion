@@ -61,10 +61,11 @@ GIS mà voxeliser sử dụng, để hình học mô phỏng và hình học ng�
 | Sông/mặt nước | OSM polygon/line | Polygon đúng vị trí | B chuẩn hoá, A render |
 | Công viên/cây xanh | OSM landuse/leisure/natural | Polygon lớp phủ | B chuẩn hoá, A render |
 | Nền địa lý | MapLibre basemap | Kiểm tra CRS và alignment | A |
-| Nồng độ/gió | Output đúng `run_id` | Voxel/slab và hạt/mũi tên chuyển động từ solver theo tầng, có pause; thiếu artifact không vẽ giả | B xuất vector, A render |
+| Nồng độ/gió | Output đúng `run_id` | Voxel/slab và luồng gió dạng vệt mềm chuyển động từ solver theo tầng, có pause; thiếu artifact không vẽ giả | B xuất vector, A render |
 
-MVP dùng toà nhà **LoD1**: footprint thực và mái phẳng theo chiều cao dữ liệu. Không tự tạo
-mặt đứng/cửa sổ khi không có nguồn. Địa hình vẫn phẳng `z=0` và phải được ghi là hạn chế.
+MVP dùng toà nhà **LoD1**: footprint thực và mái phẳng theo chiều cao dữ liệu.
+Vật liệu sáng và cửa sổ được ghi rõ là minh họa; không dùng texture ảnh thật,
+không sửa geometry solver. Địa hình vẫn phẳng `z=0` và phải được ghi là hạn chế.
 
 ### Luồng dữ liệu ra web
 
@@ -251,7 +252,7 @@ input artifacts và Gaussian baseline.
 
 **Trạng thái 07/10/2026:** B2.1 và B2.2 PASS. Input `100×100×50` được tái dựng từ scene đã
 khóa checksum, chuẩn hóa bằng EDGAR v8.1 chính thức và hai Gaussian baseline đã được chạy lại.
-Bằng chứng và giới hạn tuyên bố ở `docs/B2_A4_B34_EVIDENCE.md`.
+Cách kiểm tra và giới hạn tuyên bố ở `docs/TEST_DEMO.md`.
 
 ### Tuần 3 — Run API và verification 2D → M2
 
@@ -309,7 +310,7 @@ sau đó xem lại bằng `GET /runs/:id`. Đây là cổng quyết định quan
 **Trạng thái 07/10/2026:** A4 PASS ở mức real E2E smoke: `POST /runs` đi qua NestJS,
 PostGIS, Python wind/FV, manifest verification rồi query lại artifact/summary/slice/profile.
 B1–B4 đã có real CLI smoke 3D, corrected face velocities, verification manifest và exit-code
-regression test; bằng chứng ở `docs/B1_B4_EVIDENCE.md` và `docs/B2_A4_B34_EVIDENCE.md`.
+regression test; cách tái lập ở `docs/TEST_DEMO.md`.
 Không suy diễn smoke run thành production result: dữ liệu EDGAR local, production grid và
 steady-state vẫn thuộc B5.
 
@@ -348,14 +349,14 @@ trả kết quả đúng và có bằng chứng index/query plan.
 retry không nhân đôi cột/metrics; slice dùng ô chứa cao độ, kiểm bbox và threshold;
 profile/summary/exceedance đối chiếu DB trong real Python E2E. Web lấy thống kê và profile
 chính xác từ API, không tính lại từ uint8 dùng để render. Benchmark 500.000 voxel có
-20 mẫu/query, provenance và EXPLAIN; xem `QUERY_EVIDENCE.md`. UI đã rút gọn thao tác chính,
+20 mẫu/query, provenance và EXPLAIN; xem `DATABASE.md`. UI đã rút gọn thao tác chính,
 dùng icon SVG và bảng màu nhẹ. Benchmark ban đầu dùng synthetic;
 đã bổ sung benchmark trên production FV thật và nhập hai baseline khô/mưa vào PostGIS.
 
 **Trạng thái 09/10/2026 — B5.1–B5.6:** hoàn tất trên 5 production cases 500.000 voxel.
 Hội tụ 660–663 s mô phỏng, wall-clock 94,55–166,89 s, RSS 303–317 MB; mọi gate pass.
 Audit scene/voxel độc lập 0 mismatch; có ước lượng K số cạnh K vật lý và mass ledger.
-Chi tiết run_id, phương pháp, số liệu và lệnh tái lập: [B5_B6_EVIDENCE.md](./B5_B6_EVIDENCE.md).
+Chi tiết kiểm thử và lệnh tái lập: [TEST_DEMO.md](./TEST_DEMO.md); phương pháp: [RESEARCH.md](./RESEARCH.md).
 
 ### Tuần 6 — Web 3D đọc API và so sánh scenario → M5
 
@@ -391,18 +392,29 @@ kéo height slider, đổi scenario, xem threshold, profile và summary hoàn to
 K×0,5, height±20%, provenance/geometry QA và vector corrected `u,v,w` qua artifact API.
 Cross-check độc lập bằng nghiệm giải tích phương trình nhiệt (variance 40 m², sai số 0
 trong tolerance 1%); đây là verification, không phải validation quan trắc/wind tunnel.
-Hình 300 dpi và bảng số liệu được sinh từ manifests; xem [B5_B6_EVIDENCE.md](./B5_B6_EVIDENCE.md).
+Hình 300 dpi và bảng số liệu được sinh từ manifests; xem [TEST_DEMO.md](./TEST_DEMO.md).
 Web ưu tiên FV thật; nút Chạy đã hoàn tất production run tự động. Không dùng fake wind.
 Clean-room Compose, final report, release freeze/evidence index vẫn thuộc tuần 7–8.
 
 ### Tuần 7 — Kiểm thử tích hợp, dashboard và báo cáo kết quả → M6
+
+**Cập nhật 12/10/2026:** A7.1 đã bổ sung retry bootstrap/result/query, tiếp tục polling
+sau mất kết nối, mở khóa session khi saved run 404, không tự retry POST tạo run.
+Test request/state và thao tác browser được ghi ở `TEST_DEMO.md`.
+Theo lựa chọn mới, bỏ pilot ảnh Sunwah; dùng vật liệu/cửa sổ sáng minh họa,
+giữ footprint/height GIS. Gió đổi từ mũi tên sang vệt mềm theo trường solver,
+không thêm xoáy/turbulence giả. Ảnh pilot cũ lưu local ngoài web để có thể khôi phục.
+A7.2 đã hoàn tất regression ngày 12/10/2026: required E2E 53/53 không skip,
+unit 96 PASS + 1 Windows symlink skip, web 35/35; browser tạo production run thật
+và query/profile thành công. Cách tái lập: [TEST_DEMO.md](./TEST_DEMO.md).
+A7.3–A7.6 và A8 chưa được chốt hoàn thành; không đồng nhất A7.2 với clean-room A7.6.
 
 **Người A**
 
 | ID | Công việc | Đầu ra | Tiêu chí đạt |
 |---|---|---|---|
 | `A7.1` | Loading/error/empty states | UI states | Python process lỗi không làm UI treo |
-| `A7.2` | API e2e + DB integration tests | Test suite | Bao phủ create/status/query/failure |
+| `A7.2` | ✅ API e2e + DB integration tests | Required E2E + web regression | 53 E2E PASS, create/status/query/failure; xem TEST_DEMO |
 | `A7.3` | Docker Compose đầy đủ | Compose file | Một lệnh dựng monolith + PostGIS |
 | `A7.4` | Dashboard metrics/provenance | UI | Hiện version, input hash, warnings |
 | `A7.5` | Viết phần kiến trúc/DB/web | Draft report | Có ERD, sequence, query evidence |

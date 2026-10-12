@@ -7,6 +7,7 @@ const {
   createParticles,
   advance,
   rasterStyle,
+  streamlet,
 } = require("../viewer-flow.js");
 const grid = { nx: 10, ny: 10, nz: 2, dx_m: 5, dy_m: 5, dz_m: 2 };
 function field(u = 1, v = 0, air = () => true) {
@@ -66,4 +67,65 @@ test("raster fallback covers whole map, includes attribution, not study-area bou
 test("pause button receives clicks even though wind HUD passes map gestures through", () => {
   const css = readFileSync(join(__dirname, "../styles.css"), "utf8");
   assert.match(css, /\.wind-hud \.icon-button\s*\{[^}]*pointer-events:\s*auto/);
+});
+test("wind streamlet aligns with solver, remains bounded and has no zero-speed fallback", () => {
+  const points = streamlet(field(1, 0), { x: 25, y: 25, z: 1 });
+  assert.ok(points.length > 3 && points.length <= 48);
+  assert.ok(
+    points.every((p) => p[1] === 25 && p[2] === 1 && p[0] >= 0 && p[0] < 50),
+  );
+  assert.ok(points.slice(1).every((p, i) => p[0] > points[i][0]));
+  assert.deepEqual(streamlet(field(0, 0), { x: 25, y: 25, z: 1 }), []);
+});
+test("upstream wind trace stops at solid cells instead of drawing through buildings", () => {
+  const points = streamlet(
+    field(1, 0, (x) => x >= 20),
+    { x: 25, y: 25, z: 1 },
+  );
+  assert.ok(points.length > 1);
+  assert.ok(points.every((p) => p[0] >= 20));
+});
+test("curved streamlets follow the field without invented decorative waves", () => {
+  const f = {
+    grid,
+    maxSpeed: 2,
+    air: (x, y, z) => x >= 0 && y >= 0 && z >= 0,
+    sample: (x, y, z) => (x >= 0 && y >= 0 && z >= 0 ? [1, x / 25, 0] : null),
+  };
+  const points = streamlet(f, { x: 25, y: 25, z: 1 });
+  const slopes = points
+    .slice(1)
+    .map((p, i) => (p[1] - points[i][1]) / (p[0] - points[i][0]));
+  assert.ok(slopes.at(-1) > slopes[0]);
+  assert.ok(points.every((p) => p.every(Number.isFinite)));
+});
+test("viewer does not load photo textures or render wind arrowheads", () => {
+  const source = readFileSync(join(__dirname, "../app.js"), "utf8");
+  assert.doesNotMatch(source, /wind-arrowheads|facade-photo-|image\.decode\(/);
+  assert.match(source, /ViewerFlow\.streamlet/);
+});
+test("compact sidebar keeps primary controls ahead of collapsed advanced settings", () => {
+  const html = readFileSync(join(__dirname, "../index.html"), "utf8");
+  const ids = Array.from(html.matchAll(/\bid="([^"]+)"/g), (m) => m[1]);
+  assert.equal(ids.length, new Set(ids).size, "control IDs must remain unique");
+  for (const id of ["scenario-list", "height-slider", "legend", "show-grid", "profile", "cell-picker-form", "run-button", "query-retry", "threshold-list", "show-wind", "multiplier"]) {
+    assert.ok(ids.includes(id), `preserve ${id}`);
+  }
+  assert.ok(html.indexOf('id="height-slider"') < html.indexOf('id="run-button"'));
+  assert.ok(html.indexOf('id="profile"') < html.indexOf('id="threshold-list"'));
+  const sections = Array.from(html.matchAll(/<details\b[^>]*class="sidebar-section[^\"]*"[^>]*>/g), (m) => m[0]);
+  assert.equal(sections.length, 4);
+  assert.ok(sections.every((tag) => !/\bopen\b/.test(tag)));
+  const feedback = html.slice(html.indexOf('<div class="query-feedback">'), html.indexOf('<section class="simulation-section"'));
+  assert.match(feedback, /id="query-retry"/);
+});
+test("all sidebar disclosures share one readable chevron style without grid swatches", () => {
+  const html = readFileSync(join(__dirname, "../index.html"), "utf8");
+  const css = readFileSync(join(__dirname, "../styles.css"), "utf8");
+  assert.doesNotMatch(html, /grid-legend|grid-swatch|selected-swatch/);
+  assert.match(html, /id="show-grid"/);
+  assert.match(css, /\.panel details > summary\s*\{[^}]*color:var\(--text\)[^}]*font-size:12px; font-weight:500/);
+  assert.match(css, /\.panel details > summary::before\s*\{[^}]*currentColor/);
+  assert.match(css, /\.panel details\[open\] > summary::before\s*\{[^}]*rotate\(45deg\)/);
+  assert.match(css, /summary::-webkit-details-marker\s*\{\s*display:none/);
 });

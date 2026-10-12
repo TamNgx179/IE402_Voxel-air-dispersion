@@ -1,89 +1,86 @@
-<svg xmlns="http://www.w3.org/2000/svg" width="1280" height="720" viewBox="0 0 1280 720">
+<svg xmlns="http://www.w3.org/2000/svg" width="1440" height="860" viewBox="0 0 1440 860" role="img" aria-labelledby="title desc">
+  <title id="title">Kiến trúc hệ thống GIS 3D — NestJS modular monolith</title>
+  <desc id="desc">Web gọi API cùng origin. NestJS có DTO, controller, service, repository và executor nội bộ gọi Python CLI. PostGIS và artifacts là hai kho dữ liệu. GIS được chuẩn bị offline; basemap được trình duyệt tải qua HTTPS.</desc>
+  <defs><marker id="arrow" markerWidth="8" markerHeight="8" refX="7" refY="4" orient="auto-start-reverse"><path d="M0 0 8 4 0 8Z" fill="#255a7d"/></marker></defs>
   <style>
-    .boundary{fill:#f8fbff;stroke:#245b86;stroke-width:3;rx:18}
-    .module{fill:#eef6ff;stroke:#4a82ad;stroke-width:2;rx:12}
-    .db{fill:#fff4df;stroke:#9a6413;stroke-width:2;rx:14}
-    .solver{fill:#e9f7ee;stroke:#2d7546;stroke-width:2;rx:14}
-    .artifact{fill:#f4efff;stroke:#6e42a1;stroke-width:2;rx:14}
-    .user{fill:#ffffff;stroke:#61798b;stroke-width:2;rx:14}
-    .title{font:700 22px Arial;fill:#15324b}
-    .subtitle{font:700 17px Arial;fill:#234e70}
-    .text{font:15px Arial;fill:#243746}
-    .small{font:13px Arial;fill:#3d5363}
-    .note{font:700 14px Arial;fill:#8c342f}
-    .arrow{stroke:#405d73;stroke-width:2.4;fill:none;marker-end:url(#a)}
-    .dash{stroke:#607b8e;stroke-width:2;stroke-dasharray:7 6;fill:none;marker-end:url(#a)}
+    text{font-family:Arial,"Segoe UI",sans-serif;fill:#38556c}
+    .heading{font-size:40px;font-weight:700;fill:#205b80;letter-spacing:1px}
+    .subtitle{font-size:14px;fill:#687b88}
+    .group{font-size:12px;font-weight:700;letter-spacing:.5px;fill:#255a7d}
+    .label{font-size:17px;font-weight:700;fill:#225b7e}
+    .body{font-size:13px}
+    .small{font-size:12px}
+    .frame{fill:none;stroke:#255a7d;stroke-width:1.6}
+    .boundary{fill:none;stroke:#bdcad3;stroke-width:1.5;stroke-dasharray:5 4}
+    .card{fill:#e5eef4;stroke:#afcbdc;stroke-width:1}
+    .white{fill:#fff;stroke:#255a7d;stroke-width:1.6}
+    .compute{fill:#fff4df;stroke:#e0c281;stroke-width:1}
+    .data{fill:#edf0f3;stroke:#a7b8c7;stroke-width:1}
+    .external{fill:#fbefe5;stroke:#e6bb9b;stroke-width:1}
+    .line{fill:none;stroke:#255a7d;stroke-width:1.5;marker-end:url(#arrow)}
+    .return{fill:none;stroke:#738d9f;stroke-width:1.3;stroke-dasharray:4 3;marker-end:url(#arrow)}
+    .flow{font-size:11px;fill:#466882}
   </style>
-  <defs>
-    <marker id="a" markerWidth="10" markerHeight="10" refX="9" refY="3" orient="auto">
-      <path d="M0,0 L10,3 L0,6 z" fill="#405d73"/>
-    </marker>
-  </defs>
+  <rect width="1440" height="860" fill="#faf8f4"/>
+  <text x="28" y="62" class="heading">KIẾN TRÚC HỆ THỐNG</text>
+  <text x="30" y="87" class="subtitle">Mô phỏng lan truyền PM2.5 đô thị bằng GIS 3D · một ứng dụng NestJS, không microservice</text>
 
-  <rect x="18" y="18" width="1244" height="684" fill="#fff" stroke="#7b3fe4" stroke-width="3" rx="18"/>
-  <text x="50" y="57" class="title">Voxel Air Dispersion — Modular Monolith</text>
-  <text x="50" y="82" class="note">1 application deployable · không broker · không Redis · không worker service</text>
+  <rect x="24" y="145" width="230" height="665" rx="12" class="boundary"/>
+  <rect x="38" y="136" width="140" height="18" fill="#faf8f4"/><text x="43" y="149" class="group">NGƯỜI DÙNG</text>
+  <rect x="40" y="169" width="198" height="218" rx="8" class="white"/>
+  <text x="54" y="196" class="label">Web GIS 3D</text>
+  <text x="54" y="220" class="body"><tspan x="54">MapLibre + deck.gl</tspan><tspan x="54" dy="24">Cảnh nhà theo footprint/height</tspan><tspan x="54" dy="24">Nồng độ theo tầng voxel</tspan><tspan x="54" dy="24">Luồng gió từ solver</tspan><tspan x="54" dy="24">Chọn ô · profile đứng</tspan><tspan x="54" dy="24">Camera 2D/3D</tspan></text>
+  <rect x="40" y="425" width="198" height="182" rx="8" class="white"/>
+  <text x="54" y="452" class="label">Thao tác mô phỏng</text>
+  <text x="54" y="478" class="body"><tspan x="54">Chọn mùa · tạo run</tspan><tspan x="54" dy="25">Theo dõi progress / lỗi</tspan><tspan x="54" dy="25">Chọn kết quả · đổi độ cao</tspan><tspan x="54" dy="25">Thống kê · vượt ngưỡng</tspan><tspan x="54" dy="25">Retry truy vấn / polling</tspan></text>
+  <text x="42" y="756" class="small"><tspan x="42">Web và API cùng origin.</tspan><tspan x="42" dy="19">Không có auth nhiều vai trò.</tspan></text>
 
-  <rect x="55" y="178" width="180" height="170" class="user"/>
-  <text x="80" y="216" class="subtitle">Người dùng</text>
-  <text x="80" y="250" class="text">Tạo/chọn run</text>
-  <text x="80" y="276" class="text">Xem đô thị 3D</text>
-  <text x="80" y="302" class="text">Slice · profile</text>
-  <text x="80" y="328" class="text">Spatial query</text>
+  <rect x="330" y="145" width="735" height="432" rx="12" class="frame"/>
+  <rect x="342" y="136" width="278" height="18" fill="#faf8f4"/><text x="348" y="149" class="group">NESTJS · MODULAR MONOLITH</text>
+  <rect x="350" y="169" width="325" height="125" rx="8" class="card"/>
+  <text x="365" y="196" class="label">HTTP &amp; web assets</text>
+  <text x="365" y="221" class="body"><tspan x="365">DTO validation → Controller → Service</tspan><tspan x="365" dy="23">Schemas: hợp đồng domain / response</tspan><tspan x="365" dy="23">Static viewer · Swagger · /api/health</tspan></text>
+  <rect x="700" y="169" width="345" height="125" rx="8" class="card"/>
+  <text x="715" y="196" class="label">Modules nghiệp vụ</text>
+  <text x="715" y="221" class="body"><tspan x="715">StudyAreas · Scenarios · Simulation · Results</tspan><tspan x="715" dy="23">Service → Repository → DatabaseService</tspan><tspan x="715" dy="23">Slice · exceedance · profile · summary</tspan></text>
+  <rect x="350" y="329" width="325" height="218" rx="8" class="card"/>
+  <text x="365" y="356" class="label">Simulation executor</text>
+  <text x="365" y="382" class="body"><tspan x="365">Queue trong DB · concurrency = 1</tspan><tspan x="365" dy="25">queued → running → succeeded / failed</tspan><tspan x="365" dy="25">Config snapshot theo run_id</tspan><tspan x="365" dy="25">spawn CLI · progress · timeout / recovery</tspan><tspan x="365" dy="25">Kiểm checksum + verification gate</tspan><tspan x="365" dy="25">Import kết quả bằng transaction</tspan></text>
+  <rect x="700" y="329" width="345" height="218" rx="8" class="compute"/>
+  <text x="715" y="356" class="label">Python CLI · tiến trình con</text>
+  <text x="715" y="382" class="body"><tspan x="715">Scene / voxel / emission inputs</tspan><tspan x="715" dy="25">Mass-consistent wind · corrected faces</tspan><tspan x="715" dy="25">FV advection–diffusion 3D</tspan><tspan x="715" dy="25">Gaussian baseline · verification</tspan><tspan x="715" dy="25">Xuất NetCDF / manifest / metrics / vectors</tspan><tspan x="715" dy="25">Không HTTP server · không broker</tspan></text>
 
-  <rect x="285" y="110" width="590" height="500" class="boundary"/>
-  <text x="315" y="145" class="title">NestJS Modular Monolith</text>
-  <text x="315" y="169" class="small">Một process ứng dụng, chia module rõ ràng và phục vụ cùng origin</text>
+  <rect x="330" y="612" width="735" height="198" rx="12" class="boundary"/>
+  <rect x="342" y="603" width="172" height="18" fill="#faf8f4"/><text x="348" y="616" class="group">PERSISTENCE LOCAL</text>
+  <rect x="350" y="636" width="325" height="144" rx="8" class="data"/>
+  <text x="365" y="663" class="label">PostgreSQL + PostGIS</text>
+  <text x="365" y="689" class="body"><tspan x="365">Geometry / grid / scenarios / thresholds</tspan><tspan x="365" dy="23">Run states · metrics · verification · refs</tspan><tspan x="365" dy="23">Concentration columns · GiST / B-tree</tspan><tspan x="365" dy="23">DB riêng · Docker Compose</tspan></text>
+  <rect x="700" y="636" width="345" height="144" rx="8" class="data"/>
+  <text x="715" y="663" class="label">Artifacts theo run_id</text>
+  <text x="715" y="689" class="body"><tspan x="715">concentration.nc · wind.nc</tspan><tspan x="715" dy="23">columns.csv.gz · wind-vectors.json</tspan><tspan x="715" dy="23">manifest / metrics / config / solver.log</tspan><tspan x="715" dy="23">Local files · API trả metadata / download</tspan></text>
 
-  <rect x="320" y="195" width="240" height="125" class="module"/>
-  <text x="342" y="226" class="subtitle">Web GIS 3D</text>
-  <text x="342" y="254" class="text">MapLibre/deck.gl</text>
-  <text x="342" y="278" class="text">Building LoD1 thực tế</text>
-  <text x="342" y="302" class="small">road · water · green · voxel</text>
+  <rect x="1140" y="145" width="274" height="665" rx="12" class="boundary"/>
+  <rect x="1152" y="136" width="172" height="18" fill="#faf8f4"/><text x="1158" y="149" class="group">DỮ LIỆU / BẢN ĐỒ NỀN</text>
+  <rect x="1155" y="169" width="244" height="183" rx="8" class="external"/>
+  <text x="1170" y="196" class="label">Dữ liệu chuẩn bị offline</text>
+  <text x="1170" y="221" class="body"><tspan x="1170">OSM · Google Open Buildings</tspan><tspan x="1170" dy="24">EDGAR · khí tượng theo mùa</tspan><tspan x="1170" dy="24">Scene package / config / cache</tspan><tspan x="1170" dy="24">CRS · units · provenance</tspan><tspan x="1170" dy="24">Không tải lại nguồn mỗi run</tspan></text>
+  <rect x="1155" y="405" width="244" height="154" rx="8" class="external"/>
+  <text x="1170" y="432" class="label">Basemap / tiles</text>
+  <text x="1170" y="458" class="body"><tspan x="1170">OpenFreeMap · OSM fallback</tspan><tspan x="1170" dy="24">Browser tải qua HTTPS</tspan><tspan x="1170" dy="24">Attribution · fallback / retry</tspan><tspan x="1170" dy="24">Không dùng làm geometry solver</tspan></text>
+  <text x="1158" y="718" class="small"><tspan x="1158">Triển khai hiện tại: app chạy trên host,</tspan><tspan x="1158" dy="19">PostGIS chạy bằng Docker.</tspan><tspan x="1158" dy="25">App image / clean-room Compose</tspan><tspan x="1158" dy="19">vẫn thuộc A7.3 / A7.6.</tspan></text>
 
-  <rect x="600" y="195" width="240" height="125" class="module"/>
-  <text x="622" y="226" class="subtitle">HTTP / Application</text>
-  <text x="622" y="254" class="text">DTO → Controller → Service</text>
-  <text x="622" y="278" class="text">StudyArea · Scenario · Results</text>
-  <text x="622" y="302" class="small">slice · exceedance · profile · summary</text>
-
-  <rect x="320" y="355" width="520" height="205" class="module"/>
-  <text x="342" y="388" class="subtitle">SimulationModule</text>
-  <text x="342" y="418" class="text">Internal executor, concurrency = 1</text>
-  <text x="342" y="444" class="text">queued → running → succeeded / failed</text>
-  <text x="342" y="470" class="text">Validate config · spawn Python · timeout/retry</text>
-  <text x="342" y="496" class="text">Kiểm manifest/gate · import columns theo batch</text>
-  <text x="342" y="526" class="small">Một transaction: metrics + checks + artifacts + concentration columns</text>
-
-  <rect x="935" y="112" width="285" height="205" class="db"/>
-  <text x="962" y="150" class="title">PostgreSQL + PostGIS</text>
-  <text x="962" y="184" class="text">study areas · buildings · roads</text>
-  <text x="962" y="210" class="text">scenarios · simulation_runs</text>
-  <text x="962" y="236" class="text">concentration_columns · metrics</text>
-  <text x="962" y="270" class="small">GiST/B-tree · JSONB metadata</text>
-  <text x="962" y="292" class="small">Nguồn sự thật về trạng thái run</text>
-
-  <rect x="935" y="365" width="285" height="155" class="solver"/>
-  <text x="962" y="402" class="title">Python Solver CLI</text>
-  <text x="962" y="436" class="text">Voxel · emission · wind 3D</text>
-  <text x="962" y="462" class="text">FV transport · Gaussian baseline</text>
-  <text x="962" y="488" class="small">Tiến trình con, không mở API/port</text>
-
-  <rect x="935" y="558" width="285" height="105" class="artifact"/>
-  <text x="962" y="593" class="subtitle">Local artifact directory</text>
-  <text x="962" y="620" class="text">NetCDF · JSON/Parquet · logs</text>
-  <text x="962" y="645" class="small">manifest · checksum · provenance</text>
-
-  <path d="M235 260 L320 260" class="arrow"/>
-  <text x="246" y="245" class="small">HTTPS / same origin</text>
-  <path d="M840 245 L935 205" class="arrow"/>
-  <text x="858" y="205" class="small">SQL/PostGIS</text>
-  <path d="M840 410 L935 430" class="arrow"/>
-  <text x="852" y="397" class="small">spawn CLI</text>
-  <path d="M1078 520 L1078 558" class="arrow"/>
-  <text x="1090" y="545" class="small">ghi output</text>
-  <path d="M935 615 L840 515" class="dash"/>
-  <text x="824" y="584" class="small">manifest + columns.csv.gz</text>
-  <path d="M935 280 L840 470" class="dash"/>
-  <text x="845" y="352" class="small">run state</text>
+  <path d="M238 269H330" class="line"/><text x="261" y="259" class="flow">HTTP / JSON</text>
+  <path d="M350 280H308V521H238" class="return"/><text x="259" y="512" class="flow">status / JSON</text>
+  <path d="M675 229H700" class="line"/>
+  <path d="M875 294V312H512V329" class="line"/><text x="562" y="308" class="flow">queued run</text>
+  <path d="M675 421H700" class="line"/>
+  <path d="M700 461H675" class="return"/>
+  <text x="714" y="569" class="flow">spawn bằng args whitelist · exit code / progress JSON</text>
+  <path d="M512 547V636" class="line"/><text x="365" y="589" class="flow">status / verified import</text>
+  <path d="M875 547V636" class="line"/><text x="888" y="592" class="flow">ghi files</text>
+  <path d="M700 747H688V598H556V547" class="return"/><text x="568" y="609" class="flow">đọc / kiểm tra</text>
+  <path d="M1045 270H1090V798H512V780" class="line"/><text x="685" y="793" class="flow">SQL / spatial queries · artifact references</text>
+  <path d="M1155 280H1128V370H1045" class="line"/><text x="1069" y="364" class="flow">files</text>
+  <path d="M238 186H278V116H1115V480H1155" class="line"/><text x="555" y="110" class="flow">Tiles HTTPS — trình duyệt</text>
+  <text x="30" y="842" class="subtitle">Khung liền: ứng dụng monolith · Python là child process nội bộ · khung nét đứt: nhóm sử dụng / lưu trữ / nguồn ngoài</text>
 </svg>

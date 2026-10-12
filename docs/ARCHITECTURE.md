@@ -9,6 +9,13 @@
 
 ## 1 · Thành phần
 
+![Kiến trúc modular monolith GIS 3D](img/architecture-monolith.svg)
+
+Sơ đồ tổng quan nhóm theo người dùng, ứng dụng NestJS, lưu trữ và nguồn ngoài.
+Python nằm trong ranh giới ứng dụng dưới dạng tiến trình con; PostgreSQL/PostGIS
+chạy riêng trong Docker, không phải một microservice nghiệp vụ. Bản Mermaid dưới
+đây bổ sung luồng tính toán bên trong solver.
+
 ```mermaid
 flowchart TB
     subgraph USERS["Người dùng"]
@@ -22,31 +29,31 @@ flowchart TB
         STATIC["Serve web/static assets"]
         API --> DOMAIN
         DOMAIN --> EXEC
-        STATIC --> API
-    end
-
-    subgraph PY["Python solver subprocess — không phải service"]
-        VOX["GIS preparation + voxelisation"]
-        WIND["corrected face wind · Poisson CG / SOR"]
-        TR["FV advection–diffusion"]
-        GAU["Gaussian baseline"]
-        AN["verification · analysis · export"]
-        VOX --> WIND
-        VOX --> GAU
-        WIND --> TR
-        VOX --> TR
-        TR --> AN
-        GAU --> AN
+        STATIC --> WEB
+        subgraph PY["Python solver subprocess — không phải service"]
+            VOX["GIS preparation + voxelisation"]
+            WIND["corrected face wind · Poisson CG / SOR"]
+            TR["FV advection–diffusion"]
+            GAU["Gaussian baseline"]
+            AN["verification · analysis · export"]
+            VOX --> WIND
+            VOX --> GAU
+            WIND --> TR
+            VOX --> TR
+            TR --> AN
+            GAU --> AN
+        end
     end
 
     PG["PostgreSQL + PostGIS<br/>geometry · runs · metrics · slices"]
-    ART["Local artifact directory<br/>NetCDF · JSON/Parquet · logs · manifest"]
+    ART["Local artifact directory<br/>NetCDF · CSV.gz · JSON · logs · manifest"]
 
     WEB -->|"same-origin HTTP/JSON"| API
     DOMAIN -->|"SQL/PostGIS"| PG
     EXEC -->|"child process + run_id/config path"| PY
     PY -->|"exit code · metrics · manifest"| EXEC
     PY --> ART
+    ART -->|"verified files"| EXEC
     EXEC -->|"status + metrics + concentration columns"| PG
     API --> ART
 ```
@@ -154,6 +161,11 @@ API của monolith và không đọc trực tiếp file nội bộ.
 | Full 3D tensor | NetCDF artifact + checksum | NetCDF là bản khoa học gốc; DB giữ bản dẫn xuất `concentration_columns` (`real[]` theo z) để query/profile/web, được import lại idempotent từ artifact đã kiểm checksum |
 | Internal Python contract | CLI arguments + versioned manifest schema | không có network contract; NestJS kiểm exit code, checksum và schema |
 | 3D city scene | versioned scene package derived from GIS sources | building IDs, footprints, `height_m`, roads, water/green and CRS match the voxel input; no hand-placed buildings |
+
+Ngoại hình viewer nằm tại `web/building-appearance.js`: palette ngà/pearl, kính minh họa,
+material và preset ambient + key/fill cho deck.gl 9.4.0. Chi tiết mặt đứng rõ dần theo
+zoom; không tải ảnh texture, không đưa cửa sổ/vật liệu/ánh sáng vào DB hay solver.
+Đây là cấu hình trực quan, không phải mô phỏng mặt trời. Nguồn tham khảo ở RESEARCH §20.
 | Scientific release gate | verification record attached to `run_id` | API chỉ công bố run khi face-divergence, CFL, positivity, wall flux, mass balance và artifact checksum đều pass |
 | Thresholds and units | versioned project configuration + DB seed version | API/web/report đọc cùng nguồn; không hard-code các bản sao độc lập |
 
@@ -307,7 +319,7 @@ Web nhận vector từ artifact endpoint đã kiểm checksum, đúng run_id/uni
 mask, không biến metadata gió nền thành kết quả solver. Hạt gió lấy mẫu field downsample,
 hiển thị tăng tốc ×6 và chặn solid/domain; không phải transport particle của PM2.5.
 Pause/reduced-motion giữ hình tĩnh. Hai baseline thật và một run tạo bằng nút Chạy đã thành công;
-[B5_B6_EVIDENCE.md](./B5_B6_EVIDENCE.md) ghi bằng chứng. Clean-room release vẫn cần A7/A8.
+[TEST_DEMO.md](./TEST_DEMO.md) ghi cách kiểm tra và tái lập. Clean-room release vẫn cần A7/A8.
 
 ### Cổng đóng gói cuối
 

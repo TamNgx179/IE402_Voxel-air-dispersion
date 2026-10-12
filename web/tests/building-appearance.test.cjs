@@ -1,6 +1,13 @@
 const { test } = require("node:test");
 const assert = require("node:assert/strict");
-const { build, walls, validatePhoto } = require("../building-appearance.js");
+const {
+  build,
+  material,
+  detailOpacity,
+  lighting,
+  WALL_MATERIAL,
+  LIGHTS,
+} = require("../building-appearance.js");
 const feature = {
   type: "Feature",
   properties: { source_feature_id: "way/test", height_m: 16 },
@@ -17,53 +24,68 @@ const feature = {
     ],
   },
 };
-test("illustrative facades preserve original footprint/height and stay below roof", () => {
+test("procedural glass and sills preserve GIS geometry and remain below roof", () => {
   const before = JSON.stringify(feature),
-    a = build({ features: [feature] });
-  assert.ok(a.windows.length > 0);
+    appearance = build({ features: [feature] });
   assert.equal(JSON.stringify(feature), before);
+  assert.ok(appearance.windows.length > 0);
+  assert.equal(appearance.frames.length, appearance.windows.length);
   assert.ok(
-    a.windows.every((w) => w.polygon.every((p) => p[2] > 0 && p[2] < 16)),
-  );
-  assert.equal(a.features.get("way/test").photoWalls, 0);
-});
-test("licensed local photo replaces only mapped wall; other walls remain illustrative", () => {
-  const record = {
-    part: 0,
-    edge: 1,
-    image: "./assets/facades/images/test.jpg",
-    source_url: "https://example.org/photo",
-    credit: "Author",
-    license: "CC BY 4.0",
-  };
-  const a = build({ features: [feature] }, { "way/test": { walls: [record] } });
-  assert.equal(a.photos.length, 1);
-  assert.equal(a.photos[0].bounds[1][2], 16);
-  assert.equal(a.features.get("way/test").illustrativeWalls, 3);
-});
-test("unlicensed, remote and traversal paths cannot be labelled as true facade photos", () => {
-  const wall = walls(feature)[0],
-    record = {
-      part: 0,
-      edge: 0,
-      image: "https://example.org/a.jpg",
-      source_url: "https://example.org/photo",
-      credit: "Author",
-      license: "CC BY",
-    };
-  assert.equal(validatePhoto(record, wall), false);
-  assert.equal(
-    validatePhoto(
-      { ...record, image: "./assets/facades/images/../a.jpg" },
-      wall,
+    [...appearance.windows, ...appearance.frames].every((w) =>
+      w.polygon.every((p) => p[2] > 0 && p[2] < 16),
     ),
-    false,
   );
-  assert.equal(
-    validatePhoto(
-      { ...record, image: "./assets/facades/images/a.jpg", license: "" },
-      wall,
-    ),
-    false,
+  assert.equal(appearance.features.get("way/test").illustrativeWalls, 4);
+});
+test("pearl materials stay between dull gray and pure white and stable across render/reload", () => {
+  const color = material(feature);
+  assert.deepEqual(material(structuredClone(feature)), color);
+  for (let id = 0; id < 16; id++) {
+    const sample = material({ properties: { source_feature_id: `way/${id}` } });
+    assert.ok(sample.every((channel) => channel >= 218 && channel <= 234));
+  }
+  const scene = { features: [feature] };
+  assert.deepEqual(build(scene).windows, build(scene).windows);
+  assert.ok(build(scene).windows.every((w) => w.color.every((c) => c <= 200)));
+  assert.ok(build(scene).frames.every((w) => w.color.every((c) => c <= 221)));
+});
+test("explicit soft lights bound exposure and do not enable experimental shadows", () => {
+  class Light {
+    constructor(props) {
+      this.props = props;
+    }
+  }
+  class Effect {
+    constructor(props) {
+      this.props = props;
+    }
+  }
+  const effect = lighting({
+    AmbientLight: Light,
+    DirectionalLight: Light,
+    LightingEffect: Effect,
+  });
+  assert.deepEqual(effect.props.key.props, LIGHTS.key);
+  const upperBound =
+    WALL_MATERIAL.ambient * LIGHTS.ambient.intensity +
+    WALL_MATERIAL.diffuse * (LIGHTS.key.intensity + LIGHTS.fill.intensity);
+  assert.ok(upperBound > 1 && upperBound < 1.1);
+  assert.deepEqual(WALL_MATERIAL.specularColor, [0, 0, 0]);
+  assert.equal(effect.props.key.props._shadow, undefined);
+});
+test("facades reveal bounded detail progressively with zoom, without altering geometry", () => {
+  assert.equal(detailOpacity(NaN), 0);
+  assert.equal(detailOpacity(14), 0.2);
+  assert.ok(detailOpacity(16.5) < detailOpacity(17));
+  assert.ok(Math.abs(detailOpacity(19) - 0.9) < 1e-10);
+});
+test("photo registry cannot replace procedural faces anymore", () => {
+  const scene = { features: [feature] };
+  assert.deepEqual(
+    build(scene, {
+      "way/test": { walls: [{ image: "unwanted.jpg", part: 0, edge: 0 }] },
+    }),
+    build(scene),
   );
+  assert.equal(build(scene).photos, undefined);
 });

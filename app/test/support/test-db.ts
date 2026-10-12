@@ -28,15 +28,24 @@ export const FAKE_SOLVER = join(
 
 const DEFAULT_URL = 'postgres://ie402:ie402@localhost:5433/ie402';
 
-function testUrls(): { admin: string; test: string; name: string } {
-  if (process.env.TEST_DATABASE_URL) {
-    const u = new URL(process.env.TEST_DATABASE_URL);
+export function testUrls(env: NodeJS.ProcessEnv = process.env): {
+  admin: string;
+  test: string;
+  name: string;
+} {
+  if (env.TEST_DATABASE_URL) {
+    const u = new URL(env.TEST_DATABASE_URL);
     const name = decodeURIComponent(u.pathname.slice(1));
+    if (!name.endsWith('_test')) {
+      throw new Error(
+        'Refusing schema reset: TEST_DATABASE_URL must name a database ending in _test',
+      );
+    }
     const admin = new URL(u);
     admin.pathname = '/postgres';
     return { admin: admin.toString(), test: u.toString(), name };
   }
-  const base = new URL(process.env.DATABASE_URL ?? DEFAULT_URL);
+  const base = new URL(env.DATABASE_URL ?? DEFAULT_URL);
   const baseName = decodeURIComponent(base.pathname.slice(1)) || 'ie402';
   const name = baseName.endsWith('_test') ? baseName : `${baseName}_test`;
   const test = new URL(base);
@@ -69,6 +78,11 @@ export async function prepareTestDatabase(): Promise<TestDb> {
     const reason =
       [e.code, e.message || e.errors?.[0]?.message].filter(Boolean).join(' ') ||
       String(err);
+    if (process.env.E2E_REQUIRE_DB === '1') {
+      throw new Error(`Required PostGIS E2E cannot run: ${reason}`, {
+        cause: err,
+      });
+    }
     process.stderr.write(
       `\n[e2e] PostGIS unreachable (${reason}); skipping DB integration tests.\n` +
         '      Start it with `docker compose up -d db` (repo root) or set TEST_DATABASE_URL.\n',

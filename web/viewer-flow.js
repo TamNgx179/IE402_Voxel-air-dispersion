@@ -136,7 +136,42 @@
       }
     }
   }
-  const api = { createField, createParticles, advance, rasterStyle };
+  // Short upstream streamlet, integrated through the same sampled velocity.
+  // Geometry is display-only; no random curls or invented turbulent eddies.
+  function streamlet(field, particle) {
+    if (!field) return [];
+    let point = [particle.x, particle.y, particle.z];
+    const velocity = field.sample(...point);
+    if (!velocity || Math.hypot(...velocity) < 1e-6) return [];
+    const length = Math.min(24, 10 + Math.hypot(...velocity) * 8);
+    const step = Math.min(
+      1,
+      field.grid.dx_m * 0.25,
+      field.grid.dy_m * 0.25,
+      field.grid.dz_m * 0.25,
+    );
+    const points = [point];
+    // Bound rendering work even for very fine grids.
+    for (
+      let distance = step;
+      distance <= length && points.length < 48;
+      distance += step
+    ) {
+      const v = field.sample(...point),
+        speed = v && Math.hypot(...v);
+      if (!speed || speed < 1e-6) break;
+      const midpoint = point.map((n, i) => n - (v[i] / speed) * step * 0.5);
+      const midV = field.sample(...midpoint),
+        midSpeed = midV && Math.hypot(...midV);
+      if (!midSpeed || midSpeed < 1e-6) break;
+      const next = point.map((n, i) => n - (midV[i] / midSpeed) * step);
+      if (!field.air(...next)) break;
+      points.push(next);
+      point = next;
+    }
+    return points.reverse();
+  }
+  const api = { createField, createParticles, advance, rasterStyle, streamlet };
   if (typeof module !== "undefined" && module.exports) module.exports = api;
   else root.ViewerFlow = api;
 })(typeof window !== "undefined" ? window : globalThis);
