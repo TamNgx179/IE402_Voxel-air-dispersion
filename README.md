@@ -49,6 +49,27 @@ Hướng dẫn thao tác viewer, test tự động và demo production: [TEST_DE
 | [`docs/DATABASE.md`](docs/DATABASE.md) | ERD, index và bốn query PostGIS bắt buộc |
 | [`docs/ROADMAP.md`](docs/ROADMAP.md) | Kế hoạch 8 tuần, phân công A/B, không seminar |
 
+## Demo candidate tuần 7
+
+```powershell
+$env:SOURCE_REVISION = (git rev-parse --short HEAD).Trim()
+docker compose up -d --build --wait
+```
+
+Mở `http://localhost:3000`. Image gồm monolith + Python, input demo có checksum;
+startup tự migrate/seed và dùng solver thật. Không cần cache dữ liệu trên host.
+Xem [runbook tuần 7](docs/WEEK7_RUNBOOK.md), [bản nháp báo cáo](docs/REPORT_DRAFT.md)
+và [snapshot nghiệm thu](docs/evidence/week7-candidate.json).
+
+```powershell
+node scripts/week7-checks.mjs
+node scripts/rehearse.mjs
+node scripts/verify-week7-snapshot.mjs
+```
+
+Hai lệnh đầu chạy regression/clean-room; lệnh cuối chỉ kiểm snapshot đã commit
+với code/freeze hiện tại. Release và báo cáo cuối vẫn thuộc tuần 8.
+
 ## Nguyên tắc học thuật
 
 - Không gọi mô hình hiện tại là “Röckle” hay CFD; phải nêu rõ đây là mass-consistent

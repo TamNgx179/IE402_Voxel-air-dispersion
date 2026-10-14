@@ -21,6 +21,8 @@ import importlib.util
 import json
 import logging
 import math
+import os
+import re
 import subprocess
 import sys
 import time
@@ -99,6 +101,11 @@ def model_version() -> str:
     """Package version plus commit; '-dirty' when the working tree has changes."""
 
     version = tomllib.loads((REPO_ROOT / "pyproject.toml").read_text(encoding="utf-8"))["project"]["version"]
+    revision = os.environ.get("MODEL_REVISION")
+    if revision:
+        if not re.fullmatch(r"(?:[0-9a-f]{7,64}(?:-dirty)?|unknown)", revision):
+            raise ValueError("MODEL_REVISION must be a Git revision, source hash, or unknown")
+        return f"{version}+{revision}"
     try:
         commit = subprocess.run(
             ["git", "rev-parse", "--short", "HEAD"], cwd=REPO_ROOT, capture_output=True, text=True, timeout=10, check=True

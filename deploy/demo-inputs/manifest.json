@@ -1,0 +1,43 @@
+{
+  "schema_version": 1,
+  "created_on": "2026-10-14",
+  "archive_sha256": "1baf5c25f01bea24ec124f0544e9efb6374a6f072f4405c022010e875d354eee",
+  "scene_manifest_sha256": "7f8728d8ac3762354e5727c217f8d1400cc6bcf397fac2471fb94240f5e2f83d",
+  "files": {
+    "voxel_grid.nc": {
+      "destination": "data/processed/voxel_grid.nc",
+      "sha256": "448bfcf70ae30b902143c99ebe903975cc9a7c607b85c8b9c6cf4a85c804baca",
+      "size_bytes": 48820
+    },
+    "emission_source_transport.nc": {
+      "destination": "data/processed/emission_source_transport.nc",
+      "sha256": "5ae1d696c335af98ef79606214ea56fb47cea184f8fcfb4c16742fa1d69c807c",
+      "size_bytes": 78974
+    }
+  },
+  "provenance": {
+    "scene": "db/seeds/scene/scene_manifest.json",
+    "source_product": "annual_sector_specific_flux",
+    "release": "EDGAR v8.1",
+    "year": 2022,
+    "sector_code": "TRO",
+    "archive_url": "https://jeodpp.jrc.ec.europa.eu/ftp/jrc-opendata/EDGAR/datasets/v81_FT2022_AP_new/PM2.5/TRO/flx_nc/v8.1_FT2022_AP_PM2.5_2022_TRO_flx_nc.zip",
+    "attribution": "European Commission, Joint Research Centre (JRC), EDGAR v8.1 Global Air Pollutant Emissions",
+    "normalization": {
+      "domain_area_m2": 250000.0,
+      "covered_area_m2": 250000.0,
+      "target_total_kg_s": 3.0733469155025395e-06,
+      "area_weighted_flux_kg_m2_s": 1.2293387662010158e-11,
+      "voxel_volume_m3": 50.0,
+      "normalized_relative_source_sum": 1.0,
+      "integrated_transport_source_kg_s": 3.0733469155025395e-06,
+      "proxy_retained": 0.11194878348716134,
+      "factor_kg_s_per_proxy_unit": 2.7453151519551808e-05
+    },
+    "limitations": [
+      "Annual regional EDGAR road emission proxy; not traffic measurements",
+      "Frozen inputs for offline demo; rerun upstream normalizer to change source",
+      "LoD1, flat terrain; see scene provenance"
+    ]
+  }
+}

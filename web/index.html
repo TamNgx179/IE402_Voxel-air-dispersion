@@ -111,7 +111,7 @@
         <label class="check"><input id="show-roads" type="checkbox" /> Đường</label>
         <label class="check"><input id="show-wind" type="checkbox" checked /> Gió chuyển động <span class="wind-key" aria-hidden="true"></span></label>
         <p id="wind-source-note" class="note wind-disclaimer">Đang tải trường gió của kết quả.</p>
-        <details class="result-details"><summary>Thông tin kết quả</summary><p id="model-note" class="note"></p></details>
+        <details class="result-details"><summary>Thông tin kết quả</summary><p id="model-note" class="note"></p><div id="run-evidence" aria-live="polite"></div></details>
       </details>
 
       <details class="sidebar-section" id="analysis-details">
@@ -153,6 +153,7 @@
   <script src="https://unpkg.com/deck.gl@9.4.0/dist.min.js"></script>
   <script src="./viewer-flow.js"></script>
   <script src="./viewer-api.js"></script>
+  <script src="./viewer-evidence.js"></script>
   <script src="./viewer-grid.js"></script>
   <script src="./building-appearance.js"></script>
   <script src="./app.js"></script>

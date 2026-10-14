@@ -359,6 +359,26 @@ Không dùng `db:reset` trên development DB. Ảnh/báo cáo sinh local ở `ar
 Chưa thay thế kiểm thử clean-room release A7.3/A7.6, mobile/FPS hoặc validation
 bằng quan trắc thực địa; 1 unit test symlink bị skip trên Windows không có quyền tạo symlink.
 
+### Candidate tuần 7 — 14/10/2026
+
+Đã bổ sung Docker monolith/Python + PostGIS, input offline checksum-locked,
+runtime dependency lock, dashboard exact provenance và scripts regression,
+clean-room, model freeze, report assets/evidence index. Fresh-volume rehearsal
+tạo hai run 500.000 voxel qua API, kiểm mọi artifact checksum, exact queries,
+benchmark/EXPLAIN, restart và Chrome headless. Browser không có JS exception;
+dashboard hiển thị 7/7 gates, profile chờ response API trước screenshot.
+
+Full regression candidate: 247 Python PASS, 0 skip; 40 web PASS; backend
+97 PASS + 1 Windows symlink skip; required E2E 53 PASS, 0 skip; build/lint PASS.
+Năm production cases đều qua gate; analytic variance 40 m² khớp nghiệm giải tích.
+Số liệu mới và captions lấy từ run manifests, không copy bảng cũ.
+
+Runbook: [WEEK7_RUNBOOK.md](./WEEK7_RUNBOOK.md). Draft kiến trúc/phương pháp/GIS:
+[REPORT_DRAFT.md](./REPORT_DRAFT.md). Snapshot số liệu và hashes:
+[evidence/week7-candidate.json](./evidence/week7-candidate.json).
+Generated NetCDF/logs/hình 300 dpi nằm local tại `artifacts/week7/`.
+Đây là candidate tuần 7, chưa phải release tuần 8 hoặc validation quan trắc.
+
 ### Dọn tài liệu và mã không dùng — 12/10/2026
 
 Sơ đồ SVG và Mermaid thống nhất Python là subprocess nội bộ của monolith.

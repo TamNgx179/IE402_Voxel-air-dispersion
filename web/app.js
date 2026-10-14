@@ -1089,6 +1089,9 @@ function refresh() {
   $("model-note").textContent = entry
     ? `${MODEL_NOTES[entry.model] || entry.model} ${entry.warnings?.join("; ") || ""}`
     : "Chưa có run thành công để hiển thị nồng độ.";
+  if (typeof ViewerEvidence !== 'undefined') {
+    ViewerEvidence.render($("run-evidence"), ViewerEvidence.viewModel(entry?.summary, state.scenario));
+  }
 
   updateLegend();
   updateStats();

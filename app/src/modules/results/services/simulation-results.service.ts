@@ -246,7 +246,10 @@ export class SimulationResultsService {
   async artifacts(runId: string) {
     await this.context(runId);
     const rows = await this.results.artifacts(runId);
-    return { run_id: runId, artifacts: rows };
+    return {
+      run_id: runId,
+      artifacts: rows.map((row) => ({ ...row, size_bytes: Number(row.size_bytes) })),
+    };
   }
 
   async download(runId: string, kind: string) {

@@ -175,7 +175,10 @@ def test_ec6_viewer_loads_same_origin_api_not_legacy_data_scripts():
     app = (WEB_DIR / "app.js").read_text(encoding="utf-8")
     html = (WEB_DIR / "index.html").read_text(encoding="utf-8")
 
-    assert "fetch(`/api${path}`" in app
+    api_client = (WEB_DIR / "viewer-api.js").read_text(encoding="utf-8")
+    assert 'ViewerApi.request(fetch,`/api${path}`,options)' in app
+    assert "response = await fetcher(url," in api_client
+    assert 'src="./viewer-api.js"' in html
     for name in ("manifest.js", "buildings.js", "roads.js"):
         assert f'src="./data/{name}"' not in html
 

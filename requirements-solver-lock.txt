@@ -1,0 +1,22 @@
+# Runtime resolved and verified on Python 3.11 / Debian bookworm, 2026-10-14.
+# Keep requirements-solver.txt as the supported dependency ranges.
+attrs==26.1.0
+certifi==2026.7.22
+cftime==1.6.6
+jsonschema==4.26.0
+jsonschema-specifications==2025.9.1
+netCDF4==1.7.4
+numpy==2.4.6
+packaging==26.3
+pandas==2.3.3
+pyproj==3.7.2
+python-dateutil==2.9.0.post0
+pytz==2026.5
+PyYAML==6.0.3
+referencing==0.37.0
+rpds-py==2026.9.1
+scipy==1.17.1
+six==1.17.0
+typing_extensions==4.16.0
+tzdata==2026.5
+xarray==2026.9.0

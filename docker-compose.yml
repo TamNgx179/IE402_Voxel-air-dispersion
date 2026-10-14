@@ -1,6 +1,6 @@
 # Local development stack (docs/spec.md D4, docs/DATABASE.md "Chạy").
 #
-# Only the PostGIS database for now; the app container is added in batch 5.
+# Monolith/Python runtime plus PostGIS; startup verifies inputs, migrates and seeds.
 # The credentials below are DEV-ONLY defaults (ie402/ie402). Override them with
 # environment variables or a repo-root .env file (gitignored) and never reuse
 # them outside a local machine.
@@ -11,6 +11,26 @@
 name: ie402-voxel
 
 services:
+  app:
+    build:
+      context: .
+      args:
+        SOURCE_REVISION: ${SOURCE_REVISION:-unknown}
+    init: true
+    restart: unless-stopped
+    environment:
+      PORT: "3000"
+      DATABASE_URL: postgres://${POSTGRES_USER:-ie402}:${POSTGRES_PASSWORD:-ie402}@db:5432/${POSTGRES_DB:-ie402}
+      SOLVER_MODE: real
+      SOLVER_TIMEOUT_S: "900"
+    ports:
+      - "127.0.0.1:${APP_HOST_PORT:-3000}:3000"
+    volumes:
+      - artifacts:/opt/project/artifacts
+    depends_on:
+      db:
+        condition: service_healthy
+    stop_grace_period: 30s
   db:
     image: postgis/postgis:16-3.4
     restart: unless-stopped
@@ -31,4 +51,5 @@ services:
       start_period: 10s
 
 volumes:
+  artifacts:
   pgdata:

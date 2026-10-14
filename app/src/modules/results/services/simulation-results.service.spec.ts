@@ -38,6 +38,7 @@ function service(status = 'succeeded') {
     },
   ];
   const repository = {
+    artifacts: vi.fn(async () => [{ kind: 'columns', size_bytes: '1969537', sha256: 'digest', download_url: '/download' }]),
     runContext: vi.fn(async () => ({ ...context, status })),
     concentrationSlice: vi.fn(async () => cells),
     verticalProfile: vi.fn(async () => ({
@@ -57,6 +58,12 @@ function service(status = 'succeeded') {
 }
 
 describe('SimulationResultsService', () => {
+  it('serializes PostgreSQL bigint artifact sizes as JSON numbers', async () => {
+    const { results } = service();
+    const value = await results.artifacts(context.id);
+    expect(value.artifacts[0]).toMatchObject({ kind: 'columns', size_bytes: 1969537 });
+    expect(typeof value.artifacts[0].size_bytes).toBe('number');
+  });
   it('maps a z request to the nearest layer and returns GeoJSON statistics', async () => {
     const { results } = service();
     const value = await results.slice(context.id, { z_m: 1.5 });

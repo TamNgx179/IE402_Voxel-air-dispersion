@@ -1,3 +1,12 @@
 # Checksummed seed files: bytes must survive checkout unchanged (docs/DATABASE.md §5)
 db/seeds/scene/** -text
 app/test/fixtures/scene/** -text
+# Executable shell scripts must also work from a Windows checkout.
+*.sh text eol=lf
+# Freeze hashes must be identical on Windows and Linux checkouts.
+src/** text eol=lf
+config/** text eol=lf
+deploy/** text eol=lf
+deploy/demo-inputs/inputs.zip -text
+pyproject.toml text eol=lf
+requirements-solver*.txt text eol=lf

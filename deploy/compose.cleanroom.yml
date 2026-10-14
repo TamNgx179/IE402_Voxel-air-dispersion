@@ -1,0 +1,8 @@
+# Used only with a unique project name by scripts/rehearse.mjs.
+# No host data/cache/artifacts are mounted into this stack.
+services:
+  db:
+    ports: !reset []
+  app:
+    ports: !override
+      - "127.0.0.1:${REHEARSAL_PORT:-3107}:3000"

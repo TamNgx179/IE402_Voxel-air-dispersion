@@ -152,3 +152,11 @@ npm run test:e2e   # e2e; các suite DB cần `docker compose up -d db`, nếu k
 npm run lint       # oxlint
 npm run build
 ```
+
+Candidate tuần 7 đã có image monolith/Python và Compose app + PostGIS. Tại
+repo root chạy `docker compose up -d --build --wait`; startup tự verify input,
+migrate và seed, không reset dữ liệu. `/api/runs/:id/artifacts` trả
+`size_bytes` dạng JSON number dù PostgreSQL lưu bigint.
+
+Required regression và clean-room nằm ở `scripts/week7-checks.mjs` và
+`scripts/rehearse.mjs`. Hướng dẫn đầy đủ: [WEEK7_RUNBOOK.md](../docs/WEEK7_RUNBOOK.md).

@@ -35,7 +35,7 @@ Web GIS 3D → NestJS modular monolith → PostgreSQL/PostGIS
 | `P7` | Lát cắt theo z, exceedance, profile và summary query | A | Có | ✅ API, E2E, EXPLAIN và benchmark 500.000 voxel đã có |
 | `P8` | Web 3D có camera 2D/3D, height slider, scenario, threshold, profile và lớp gió | A | Có | ✅ UI/API production FV, vector solver theo run/tầng; còn release rehearsal tuần 7–8 |
 | `P9` | Verification và provenance theo từng run | B | Có | ✅ B5/B6 có convergence, gates, checksum, input/source hash và sensitivity; release freeze ở B7 |
-| `P10` | Docker/demo, runbook, báo cáo và số liệu cuối | A + B | Có | ⬜ |
+| `P10` | Docker/demo, runbook, báo cáo và số liệu cuối | A + B | Có | 🟡 Docker/runbook/draft và evidence candidate tuần 7 đã có; final release tuần 8 còn lại |
 
 ### Công nghệ
 
@@ -409,27 +409,38 @@ unit 96 PASS + 1 Windows symlink skip, web 35/35; browser tạo production run t
 và query/profile thành công. Cách tái lập: [TEST_DEMO.md](./TEST_DEMO.md).
 A7.3–A7.6 và A8 chưa được chốt hoàn thành; không đồng nhất A7.2 với clean-room A7.6.
 
+**Cập nhật 14/10/2026 — candidate tuần 7:** A7.3–A7.6 đã có Dockerfile/Compose
+đầy đủ, dashboard provenance, draft report và nghiệm thu fresh-volume thực tế.
+Script dựng project riêng không mount input host, chạy hai production case qua
+HTTP, kiểm checksum/queries/EXPLAIN, restart và browser. B7.1–B7.6 có full
+science suite, model/config/runtime freeze, phương pháp/GIS limitations, năm
+production cases, hình 300 dpi và evidence matrix. Snapshot nhỏ được lưu tại
+[evidence/week7-candidate.json](./evidence/week7-candidate.json); lệnh tái lập ở
+[WEEK7_RUNBOOK.md](./WEEK7_RUNBOOK.md), draft ở [REPORT_DRAFT.md](./REPORT_DRAFT.md).
+M6 đạt mức candidate trên Docker host hiện tại. Máy vật lý thứ hai, final
+report, release tag và rehearsal bảo vệ vẫn thuộc tuần 8; không chốt M7.
+
 **Người A**
 
 | ID | Công việc | Đầu ra | Tiêu chí đạt |
 |---|---|---|---|
 | `A7.1` | Loading/error/empty states | UI states | Python process lỗi không làm UI treo |
 | `A7.2` | ✅ API e2e + DB integration tests | Required E2E + web regression | 53 E2E PASS, create/status/query/failure; xem TEST_DEMO |
-| `A7.3` | Docker Compose đầy đủ | Compose file | Một lệnh dựng monolith + PostGIS |
-| `A7.4` | Dashboard metrics/provenance | UI | Hiện version, input hash, warnings |
-| `A7.5` | Viết phần kiến trúc/DB/web | Draft report | Có ERD, sequence, query evidence |
-| `A7.6` | Clean-room E2E rehearsal | Log/script/checklist | Máy sạch chạy Compose → migrate → seed → run → query → web |
+| `A7.3` | ✅ Docker Compose đầy đủ | Dockerfile + Compose | Một lệnh dựng monolith + PostGIS |
+| `A7.4` | ✅ Dashboard metrics/provenance | UI + regression | Hiện version, input hash, warnings |
+| `A7.5` | ✅ Viết phần kiến trúc/DB/web | REPORT_DRAFT.md | Có ERD, sequence, query evidence |
+| `A7.6` | ✅ Clean-room E2E rehearsal trên Docker host | Script + evidence snapshot | Fresh volumes → migrate → seed → run → query → browser; máy thứ hai tuần 8 |
 
 **Người B**
 
 | ID | Công việc | Đầu ra | Tiêu chí đạt |
 |---|---|---|---|
-| `B7.1` | Chạy final verification suite | Test report | Không có test chính bị skip vô lý |
-| `B7.2` | Freeze model parameters | Config/version | Mọi run cuối dùng cùng version |
-| `B7.3` | Viết phương pháp và hạn chế | Draft report | Verification ≠ validation |
-| `B7.4` | Xuất figure/table 300 dpi | Report assets | Có caption, units, scenario |
-| `B7.5` | Viết phần dữ liệu GIS 3D và độ tin cậy hình học | Draft report | Có coverage, nguồn height, clipping và flat-terrain limitation |
-| `B7.6` | Lập bảng kết quả 9+ | Final evidence table | Mỗi claim có run_id, metric, figure/table và limitation |
+| `B7.1` | ✅ Chạy final candidate verification suite | JUnit + snapshot | 247 Python pass, 0 skip |
+| `B7.2` | ✅ Freeze model parameters | model-freeze.json + runtime lock | Mọi run cuối dùng cùng version |
+| `B7.3` | ✅ Viết phương pháp và hạn chế | REPORT_DRAFT.md | Verification ≠ validation |
+| `B7.4` | ✅ Xuất figure/table 300 dpi | Report assets + captions | Có caption, units, scenario |
+| `B7.5` | ✅ Viết phần dữ liệu GIS 3D và độ tin cậy hình học | REPORT_DRAFT.md | Có coverage, nguồn height, clipping và flat-terrain limitation |
+| `B7.6` | ✅ Lập bảng kết quả candidate 9+ | Evidence snapshot QG-1…QG-10 | Mỗi claim có run_id, metric, figure/table và limitation |
 
 **Kết quả tuần 7:** clean-room seed → run → verification gate → query → web chạy tự động;
 FV là lớp mặc định; draft báo cáo có kiến trúc, mô hình, sensitivity, external cross-check,
