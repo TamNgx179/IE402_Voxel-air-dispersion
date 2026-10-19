@@ -104,7 +104,7 @@ test("viewer does not load photo textures or render wind arrowheads", () => {
   assert.doesNotMatch(source, /wind-arrowheads|facade-photo-|image\.decode\(/);
   assert.match(source, /ViewerFlow\.streamlet/);
 });
-test("compact sidebar keeps primary controls ahead of collapsed advanced settings", () => {
+test("compact sidebar keeps primary controls ahead of named tool buttons and hidden panels", () => {
   const html = readFileSync(join(__dirname, "../index.html"), "utf8");
   const ids = Array.from(html.matchAll(/\bid="([^"]+)"/g), (m) => m[1]);
   assert.equal(ids.length, new Set(ids).size, "control IDs must remain unique");
@@ -113,19 +113,169 @@ test("compact sidebar keeps primary controls ahead of collapsed advanced setting
   }
   assert.ok(html.indexOf('id="height-slider"') < html.indexOf('id="run-button"'));
   assert.ok(html.indexOf('id="profile"') < html.indexOf('id="threshold-list"'));
-  const sections = Array.from(html.matchAll(/<details\b[^>]*class="sidebar-section[^\"]*"[^>]*>/g), (m) => m[0]);
-  assert.equal(sections.length, 4);
-  assert.ok(sections.every((tag) => !/\bopen\b/.test(tag)));
+  const buttons=Array.from(html.matchAll(/<button\b[^>]*data-tool-panel="([^"]+)"[^>]*>/g));
+  assert.equal(buttons.length,5);
+  for(const [,id] of buttons) {
+    assert.ok(ids.includes(id),`panel ${id} exists`);
+    assert.match(html,new RegExp(`<[^>]+id="${id}"[^>]*hidden`));
+  }
+  assert.ok(html.indexOf('id="height-slider"') < html.indexOf('class="sidebar-nav"'));
+  assert.match(html, /aria-label="Phân tích nâng cao"/);
+  assert.ok(html.indexOf('id="analysis-details"') < html.indexOf('id="profile"'));
+  assert.doesNotMatch(html, /<details\b|<summary\b/);
   const feedback = html.slice(html.indexOf('<div class="query-feedback">'), html.indexOf('<section class="simulation-section"'));
   assert.match(feedback, /id="query-retry"/);
 });
-test("all sidebar disclosures share one readable chevron style without grid swatches", () => {
+test("sidebar uses explicit consistent buttons without dropdown arrows or grid swatches", () => {
   const html = readFileSync(join(__dirname, "../index.html"), "utf8");
   const css = readFileSync(join(__dirname, "../styles.css"), "utf8");
   assert.doesNotMatch(html, /grid-legend|grid-swatch|selected-swatch/);
   assert.match(html, /id="show-grid"/);
-  assert.match(css, /\.panel details > summary\s*\{[^}]*color:var\(--text\)[^}]*font-size:12px; font-weight:500/);
-  assert.match(css, /\.panel details > summary::before\s*\{[^}]*currentColor/);
-  assert.match(css, /\.panel details\[open\] > summary::before\s*\{[^}]*rotate\(45deg\)/);
-  assert.match(css, /summary::-webkit-details-marker\s*\{\s*display:none/);
+  assert.match(css, /\.tool-button\[aria-expanded="true"\]/);
+  assert.match(css, /\.text-button\[aria-expanded="true"\]/);
+  assert.doesNotMatch(css, /summary::before|details\[open\]/);
+  for(const id of ['height-marks','height-dots']) assert.match(html,new RegExp(`id="${id}"`));
+  assert.match(css,/\.height-dots\s*\{[^}]*pointer-events:none/);
+});
+
+test("UI icons use the locally bundled licensed Bootstrap font, including dynamic wind state", () => {
+  const html = readFileSync(join(__dirname, '../index.html'), 'utf8');
+  const app = readFileSync(join(__dirname, '../app.js'), 'utf8');
+  const css = readFileSync(join(__dirname, '../vendor/bootstrap-icons/bootstrap-icons.min.css'), 'utf8');
+  assert.match(html, /href="\.\/vendor\/bootstrap-icons\/bootstrap-icons.min.css"/);
+  assert.doesNotMatch(html, /<svg\b/);
+  for (const [, name] of html.matchAll(/class="bi (bi-[a-z-]+)"/g)) {
+    assert.ok(css.includes(`.${name}::before`), `${name} exists in the official font`);
+  }
+  for (const format of ['woff', 'woff2']) {
+    const font = readFileSync(join(__dirname, `../vendor/bootstrap-icons/fonts/bootstrap-icons.${format}`));
+    assert.equal(font.subarray(0,4).toString(), format === 'woff2' ? 'wOF2' : 'wOFF');
+  }
+  assert.match(readFileSync(join(__dirname, '../vendor/bootstrap-icons/LICENSE'), 'utf8'), /MIT License/);
+  assert.match(app, /bi bi-play-fill/);
+  assert.match(app, /bi bi-pause-fill/);
+  assert.match(readFileSync(join(__dirname, '../styles.css'), 'utf8'), /\.panel\.collapsed #panel-toggle \.bi/);
+});
+
+test("tool buttons have distinct surfaces and readable default/active text contrast", () => {
+  const css = readFileSync(join(__dirname, '../styles.css'), 'utf8');
+  const token = name => css.match(new RegExp(`--${name}:\\s*(#[a-f0-9]{6})`))[1];
+  const luminance = hex => {
+    const rgb = hex.slice(1).match(/../g).map(v => parseInt(v,16)/255)
+      .map(v => v <= .04045 ? v/12.92 : ((v+.055)/1.055)**2.4);
+    return rgb[0]*.2126 + rgb[1]*.7152 + rgb[2]*.0722;
+  };
+  const contrast = (a,b) => {
+    const values = [luminance(a),luminance(b)].sort((x,y)=>y-x);
+    return (values[0]+.05)/(values[1]+.05);
+  };
+  assert.notEqual(token('tool-bg'), token('panel'));
+  assert.ok(contrast(token('tool-text'), token('tool-bg')) >= 4.5);
+  assert.ok(contrast(token('tool-text'), token('tool-hover')) >= 4.5);
+  assert.ok(contrast('#ffffff', token('tool-active')) >= 4.5);
+  assert.match(css, /\.tool-button\[aria-expanded="true"\][^{]*\{[^}]*background:var\(--tool-active\)[^}]*color:#ffffff/);
+  assert.match(css, /\.tool-button:focus-visible\s*\{/);
+});
+
+test("expanded tools separate containers, fields, labels and primary actions", () => {
+  const html = readFileSync(join(__dirname, '../index.html'), 'utf8');
+  const css = readFileSync(join(__dirname, '../styles.css'), 'utf8');
+  assert.match(css, /\.tool-panel\s*\{[^}]*border:1px solid var\(--section-border\)[^}]*background:var\(--section-bg\)/);
+  assert.match(css, /\.tool-panel \.row\s*\{[^}]*grid-template-columns:minmax\(0,1fr\)/);
+  assert.match(css, /\.tool-panel select,[^{]*\{[^}]*border:1px solid var\(--field-border\)[^}]*background:#ffffff/);
+  assert.match(html, /<label for="new-run-scenario">Kịch bản mô phỏng<\/label>/);
+  assert.match(html, /id="region-query" class="action-primary" disabled/);
+  assert.match(html, /for="background">Nồng độ nền \(µg\/m³\)/);
+  assert.match(css, /\.tool-panel button:disabled,[^{]*\{[^}]*opacity:1[^}]*cursor:not-allowed/);
+});
+
+test("expanded labels, helper copy, boundaries and disabled controls have measured contrast", () => {
+  const css = readFileSync(join(__dirname, '../styles.css'), 'utf8');
+  const token = name => css.match(new RegExp(`--${name}:\\s*(#[a-f0-9]{6})`))[1];
+  const lum = hex => hex.slice(1).match(/../g).map(v=>parseInt(v,16)/255)
+    .map(v=>v<=.04045?v/12.92:((v+.055)/1.055)**2.4)
+    .reduce((sum,v,i)=>sum+v*[.2126,.7152,.0722][i],0);
+  const ratio = (a,b) => (Math.max(lum(a),lum(b))+.05)/(Math.min(lum(a),lum(b))+.05);
+  for (const name of ['label','helper','text']) {
+    assert.ok(ratio(token(name),token('section-bg'))>=4.5, `${name} readable on panel`);
+    assert.ok(ratio(token(name),'#ffffff')>=4.5, `${name} readable on input`);
+  }
+  assert.ok(ratio(token('disabled-text'),token('disabled-bg'))>=4.5);
+  assert.ok(ratio(token('field-border'),'#ffffff')>=3, 'field outline visible');
+  assert.ok(ratio(token('section-border'),token('panel'))>=2.5, 'container edge separated');
+  assert.notEqual(token('section-bg'),token('panel'));
+  for (const surface of ['action-bg','action-hover']) {
+    assert.notEqual(token(surface),token('section-bg'));
+    assert.notEqual(token(surface),token('tool-bg'));
+    assert.ok(ratio(token('action-text'),token(surface))>=4.5, `${surface} text readable`);
+  }
+  assert.notEqual(token('action-active'),token('tool-active'));
+  assert.ok(ratio('#ffffff',token('action-active'))>=4.5);
+  assert.ok(ratio('#ffffff',token('action-active-hover'))>=4.5);
+  assert.ok(ratio(token('action-border'),token('section-bg'))>=2.5);
+  assert.match(css, /\.tool-panel \.action-primary, \.tool-panel \.primary-button\s*\{[^}]*background:var\(--action-active\)/);
+  assert.match(css, /\.tool-panel button:not\(\.primary-button\):not\(\.action-primary\)\s*\{[^}]*background:var\(--action-bg\)/);
+});
+
+test("checkbox rows remain plain native choices rather than button-like cards", () => {
+  const css = readFileSync(join(__dirname, '../styles.css'), 'utf8');
+  const html = readFileSync(join(__dirname, '../index.html'), 'utf8');
+  assert.match(css, /\.tool-panel \.check, \.tool-panel \.choices label\s*\{[^}]*display:flex[^}]*border:0[^}]*background:transparent/);
+  assert.doesNotMatch(css, /\.tool-panel \.check:has\(input:checked\)/);
+  for (const id of ['show-buildings','show-facades','show-roads','show-wind']) {
+    assert.match(html, new RegExp(`<input id="${id}" type="checkbox"`));
+  }
+  assert.match(css, /--tool-active: #243c4c/);
+  assert.match(css, /--section-bg: #f1f4f6/);
+  assert.doesNotMatch(css, /#f4f0e8|#a39683|#e9eff5/);
+});
+
+test("analysis separates task types and reserves a readable result area after region settings", () => {
+  const html=readFileSync(join(__dirname,'../index.html'),'utf8');
+  const css=readFileSync(join(__dirname,'../styles.css'),'utf8');
+  assert.match(html,/id="analysis-region-mode"[^>]*aria-pressed="true"/);
+  assert.match(html,/id="compare-panel"[^>]*hidden/);
+  assert.match(html,/id="region-settings" hidden/);
+  assert.match(html,/id="region-export" disabled hidden/);
+  assert.ok(html.indexOf('id="region-feedback"')<html.indexOf('id="region-result"'));
+  assert.match(html,/id="region-result"[^>]*aria-label="Kết quả phân tích vùng"/);
+  assert.match(css,/\.result-metrics\s*\{[^}]*grid-template-columns:repeat\(2,minmax\(0,1fr\)\)/);
+  assert.match(css,/\.result-table-scroll\s*\{[^}]*overflow:auto/);
+  assert.match(html,/id="illustration-reset"[^>]*hidden/);
+});
+
+test("region selection only exposes drawing, not manual coordinate input",()=>{
+  const html=readFileSync(join(__dirname,'../index.html'),'utf8');
+  assert.match(html,/id="region-draw"/);
+  assert.doesNotMatch(html,/region-geojson|region-import|region-input|Nhập vùng bằng tọa độ/);
+  assert.doesNotMatch(readFileSync(join(__dirname,'../viewer-analysis.js'),'utf8'),/parseRegionInput|region-geojson|region-input/);
+  const app=readFileSync(join(__dirname,'../app.js'),'utf8');
+  assert.doesNotMatch(app,/MODEL_NOTES\[entry\.model\][^\n]*warnings/);
+});
+
+test("sidebar action groups and standalone buttons align right without reversing interaction order",()=>{
+  const css=readFileSync(join(__dirname,'../styles.css'),'utf8');
+  assert.match(css,/\.analysis-actions\s*\{[^}]*justify-content:flex-end/);
+  assert.match(css,/\.sidebar-nav\s*\{[^}]*grid-template-columns:repeat\(2,minmax\(0,1fr\)\)/);
+  assert.match(css,/\.panel \.text-button,[^{]*#region-export[^{]*\{[^}]*margin-left:auto[^}]*margin-right:0/);
+  assert.doesNotMatch(css,/row-reverse|direction:\s*rtl/);
+});
+
+test("tool navigation uses a balanced two-column grid with consistent single-line labels",()=>{
+  const css=readFileSync(join(__dirname,'../styles.css'),'utf8');
+  assert.match(css,/\.sidebar-nav\s*\{[^}]*display:grid[^}]*gap:8px/);
+  assert.match(css,/\.tool-button:last-child\s*\{[^}]*grid-column:1 \/ -1/);
+  assert.match(css,/\.tool-button\s*\{[^}]*min-height:44px/);
+  assert.match(css,/\.tool-button span\s*\{[^}]*white-space:nowrap/);
+  assert.match(css,/\.tool-button \.bi\s*\{[^}]*width:18px[^}]*height:18px/);
+});
+
+test("ordinary sidebar helper text has strong contrast on both content and white surfaces",()=>{
+  const css=readFileSync(join(__dirname,'../styles.css'),'utf8');
+  const token=name=>css.match(new RegExp(`--${name}:\\s*(#[a-f0-9]{6})`))[1];
+  const lum=hex=>hex.slice(1).match(/../g).map(v=>parseInt(v,16)/255).map(v=>v<=.04045?v/12.92:((v+.055)/1.055)**2.4).reduce((sum,v,i)=>sum+v*[.2126,.7152,.0722][i],0);
+  for(const fg of ['helper','muted','text']) for(const bg of ['section-bg','panel']) {
+    assert.ok((Math.max(lum(token(fg)),lum(token(bg)))+.05)/(Math.min(lum(token(fg)),lum(token(bg)))+.05)>=7, `${fg} on ${bg}`);
+  }
+  assert.match(css,/\.panel \.note\s*\{[^}]*font-size:13px/);
 });

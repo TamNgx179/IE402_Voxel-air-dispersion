@@ -160,7 +160,7 @@ export class SimulationResultsRepository {
   async runContext(runId: string): Promise<ResultRunContext | null> {
     const { rows } = await this.db.query<ResultRunContext>(
       `SELECT r.id, r.status, r.model, r.model_version, r.input_hash, r.warnings,
-              r.scenario_id, sa.grid
+              r.scenario_id, sa.grid, sa.id AS study_area_id, sa.projected_srid, sa.scene_version
        FROM simulation_runs r
        JOIN scenarios s ON s.id = r.scenario_id
        JOIN study_areas sa ON sa.id = s.study_area_id

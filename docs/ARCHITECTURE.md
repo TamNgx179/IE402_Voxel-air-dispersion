@@ -77,6 +77,16 @@ Trong mỗi NestJS feature, dependency đi một chiều:
 domain/response contract; adapter file/solver/manifest nằm trong `infrastructure/`. Controller và
 service không chứa SQL, còn repository không ném HTTP exception.
 
+Phân tích tuần 8 nằm trong `SimulationResultsModule`, không thêm service triển
+khai độc lập: `SpatialAnalysisController → SpatialAnalysisService →
+SpatialAnalysisRepository → DatabaseService`. DTO comparison/region validate
+input, `schemas/spatial-analysis.schema.ts` giữ kiểu dữ liệu; repository dùng SQL
+tham số hóa và index GiST/PK hiện có, không cần migration hay bảng tensor mới.
+Service kiểm pair/mask trước khi trả ΔC, kiểm polygon và tổng hợp mean theo thể
+tích khí. `web/viewer-analysis.js` giữ trạng thái/lỗi/race của UI và overlay trong
+cùng MapLibre/deck.gl; `viewer-api.js` nhận JSON hoặc CSV. Gió/profile hiện hữu
+vẫn thuộc run gốc. Không đổi pipeline Python, phương trình hoặc dữ liệu nguồn.
+
 ## 2 · Luồng dữ liệu
 
 Các stage số trị vẫn giao tiếp bằng **file trên đĩa/artifact**, không truyền tensor lớn qua

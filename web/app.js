@@ -21,8 +21,8 @@ const SCENARIO_NAMES = {
 
 const MODEL_NOTES = {
   gaussian:
-    "Baseline Gaussian (Briggs đô thị) trên nguồn đường thật: chùm khói đi XUYÊN qua nhà — không có hiệu ứng toà nhà. Dùng để so với mô hình voxel.",
-  fv: "Mô hình voxel: gió chẩn đoán bảo toàn khối lượng + tải–khuếch tán thể tích hữu hạn.",
+    "Mô hình tham chiếu, không xét cản trở của tòa nhà.",
+  fv: "Mô phỏng phát tán theo độ cao, có xét hình khối tòa nhà.",
 };
 
 const THRESHOLD_COLOURS = {
@@ -65,6 +65,9 @@ let retryAction = null;
 let activeRunId = sessionStorage.getItem("voxel-active-run");
 let map = null;
 let overlay = null;
+let spatialAnalysis = null;
+let sidebar = null;
+let heightMarkControl = null;
 let nodes = null;
 let cells = null;
 let gridLines = [];
@@ -110,6 +113,9 @@ async function main() {
     || M.scenarios.find((run) => run.model === "fv")?.id || M.scenarios[0]?.id || null;
   Object.keys(M.thresholds).forEach((key) => (state.thresholds[key] = false));
 
+  if (typeof ViewerSidebar !== 'undefined') sidebar=ViewerSidebar.mount(document,id=>{
+    if(id!=='spatial-analysis' && spatialAnalysis?.isDrawing()) spatialAnalysis.cancelDrawing();
+  });
   buildControls();
   if (activeRunId) trackRun(activeRunId);
 
@@ -119,6 +125,13 @@ async function main() {
   }
 
   createMap();
+  if (typeof ViewerAnalysis !== 'undefined') {
+    spatialAnalysis=ViewerAnalysis.mount({document,map,deck,api,redraw:()=>renderLayers(),context:()=>({
+      id:state.scenario,z:GRID.z_centres_m[state.layer],height:GRID.nz*GRID.dz_m,
+      modified:state.multiplier!==1 || state.background!==0,
+      runs:M.scenarios.map(run=>({id:run.id,label:scenarioLabel(run)})),
+    })});
+  }
   if (state.scenario) {
     loadScenario(state.scenario).then(() => {
       setStatus("Đã tải run từ API", "pass");
@@ -472,6 +485,7 @@ function createMap() {
   const Overlay = deck.MapLibreOverlay || deck.MapboxOverlay;
   const kind = deck.MapLibreOverlay ? "MapLibreOverlay" : "MapboxOverlay";
   overlay = new Overlay({ interleaved: false, layers: [],effects:[BuildingAppearance.lighting(deck)],getTooltip:info=>{
+    if(info.layer?.id?.startsWith('analysis-comparison') && info.object) return spatialAnalysis?.tooltip(info.object);
     if(info.layer?.id==='concentration' && info.object) {
       const {i,j}=info.object, k=state.layer, v=value(k,j,i);
       return `Ô i=${i}, j=${j} · k=${k}\nĐộ cao ${fmt(GRID.z_centres_m[k])} m\n${Number.isFinite(v)?`${fmt(v)} µg/m³ · ước tính hiển thị`:'Ô công trình — không có nồng độ khí'}\nBấm để xem dữ liệu theo độ cao`;
@@ -529,6 +543,7 @@ function useFallbackBasemap() {
 }
 
 function concentrationLayer() {
+  if (spatialAnalysis?.active()) return null;
   if (!current()) return null;
   const z = GRID.z_centres_m[state.layer];
   const scale = colourScale();
@@ -549,6 +564,7 @@ function concentrationLayer() {
     getFillColor: (cell) => cellColour(cell, scale, thresholds),
     updateTriggers: { getPolygon: [z], getFillColor: key },
     onClick: (info) => {
+      if (spatialAnalysis?.isDrawing()) return;
       if (info.object) {
         selectCell(info.object.i,info.object.j);
       }
@@ -579,7 +595,7 @@ function showBuildingAppearance(id) {
   const info=buildingAppearance.features.get(id);
   if(!info) return;
   $('building-appearance-note').textContent=`${id} · ${fmt(info.height)} m · Vật liệu và cửa sổ minh họa; footprint/chiều cao từ GIS.`;
-  $('building-appearance-note').closest('details').open=true;
+  sidebar?.open('map-options');
 }
 
 function facadeLayers() {
@@ -702,8 +718,10 @@ function voxelGridLayer() {
 }
 
 function selectCell(i,j) {
+  if (spatialAnalysis?.isDrawing()) return;
   if(!current() || !ViewerGrid.validCell(GRID,i,j)) return false;
   state.selected={i,j};
+  sidebar?.open('analysis-details');
   $('cell-i').value=String(i); $('cell-j').value=String(j);
   refresh();
   return true;
@@ -739,6 +757,7 @@ function renderLayers(timeMs = performance.now()) {
       greenLayer(),
       roadLayer(),
       concentrationLayer(),
+      ...(spatialAnalysis?.layers(GRID.z_centres_m[state.layer]) || []),
       voxelGridLayer(),
       buildingLayer(),
       ...facadeLayers(),
@@ -792,8 +811,8 @@ function updateWindHud() {
   $('wind-motion').setAttribute('aria-pressed',String(paused));
   $('wind-motion').setAttribute('aria-label',paused ? 'Tiếp tục chuyển động gió' : 'Dừng chuyển động gió');
   $('wind-motion').title=paused ? 'Tiếp tục chuyển động gió' : 'Dừng chuyển động gió';
-  $('wind-motion').innerHTML=paused ? '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="m8 5 11 7-11 7Z"/></svg>'
-    : '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M8 5v14M16 5v14"/></svg>';
+  $('wind-motion').innerHTML=paused ? '<i class="bi bi-play-fill" aria-hidden="true"></i>'
+    : '<i class="bi bi-pause-fill" aria-hidden="true"></i>';
   const vectors = entry.windField.layers.find((layer) => layer.k === state.layer)?.vectors || [];
   if (!vectors.length) { hud.hidden = true; return; }
   const u = vectors.reduce((sum,row) => sum + row[4],0) / vectors.length;
@@ -813,7 +832,7 @@ function scenarioLabel(entry) {
 }
 
 function buildControls() {
-  $('grid-size').textContent=`Mỗi ô ${fmt(GRID.dx_m)} × ${fmt(GRID.dy_m)} m · ${GRID.nx} cột × ${GRID.ny} hàng. Nét đậm mỗi 10 ô.`;
+  $('grid-size').textContent=`Ô ${fmt(GRID.dx_m)} × ${fmt(GRID.dy_m)} m · lưới ${GRID.nx} × ${GRID.ny}`;
   $('cell-i').max=String(GRID.nx-1); $('cell-j').max=String(GRID.ny-1);
   $('show-grid').addEventListener('change',event=>{state.showGrid=event.target.checked;renderLayers();});
   $('cell-picker-form').addEventListener('submit',event=>{event.preventDefault();selectCell(Number($('cell-i').value),Number($('cell-j').value));});
@@ -830,8 +849,8 @@ function buildControls() {
   $("run-button").addEventListener("click", createRun);
   $("run-button").disabled = !AVAILABLE_SCENARIOS.length || Boolean(activeRunId);
   $("run-note").textContent = M.scenarios.length
-    ? "Chọn kịch bản để tạo kết quả mới."
-    : "Chưa có kết quả. Chọn kịch bản để bắt đầu.";
+    ? ""
+    : "Chưa có kết quả. Mở Mô phỏng để bắt đầu.";
 
   const list = $("scenario-list");
   M.scenarios.forEach((entry) => {
@@ -862,8 +881,12 @@ function buildControls() {
 
   const slider = $("height-slider");
   slider.max = String(GRID.nz - 1);
-  document.querySelector(".ticks").innerHTML = [0, .25, .5, .75, 1].map((t) =>
-    `<span>${fmt(GRID.z_centres_m[Math.round(t * (GRID.nz - 1))])} m</span>`).join("");
+  if (typeof ViewerSidebar !== 'undefined') {
+    heightMarkControl=ViewerSidebar.heightMarks(document,slider,GRID.z_centres_m,index=>{
+      state.layer=index;
+      refresh();
+    });
+  }
   slider.addEventListener("input", (event) => {
     state.layer = Number(event.target.value);
     refresh();
@@ -872,6 +895,10 @@ function buildControls() {
   $("multiplier").addEventListener("change", (event) => {
     state.multiplier = Number(event.target.value);
     refresh();
+  });
+  $('illustration-reset').addEventListener('click',()=>{
+    state.multiplier=1;state.background=0;
+    $('multiplier').value='1';$('background').value='0';refresh();
   });
 
   $("background").addEventListener("change", (event) => {
@@ -1016,6 +1043,7 @@ async function trackRun(id) {
         await loadScenario(id);
         state.scenario = id;
         refresh();
+        $('run-note').textContent='Hoàn tất · kết quả mới đã hiển thị trên bản đồ.';
         setStatus("Mô phỏng hoàn tất", "pass");
         return;
       }
@@ -1079,21 +1107,26 @@ function fmtVolume(v) {
 
 function refresh() {
   $('height-slider').disabled=!current();
+  heightMarkControl?.sync();
   for(const id of ['cell-i','cell-j','cell-picker-submit','show-grid']) $(id).disabled=!current();
   const entry = scenarioEntry(state.scenario);
   const z = GRID.z_centres_m[state.layer];
   const half = GRID.dz_m / 2;
+  $('illustration-reset').hidden=exactMode();
+  $('show-facades').disabled=!state.showBuildings;
+  $('stats-context').textContent=`Độ cao ${fmt(z-half)}–${fmt(z+half)} m · ${exactMode()?'kết quả gốc':'đang dùng hệ số/nền minh họa'}`;
 
   $("height-value").textContent = `${fmt(z)} m`;
   $("height-slider").setAttribute("aria-valuetext", `tầng ${state.layer + 1}: ${fmt(z - half)}–${fmt(z + half)} m`);
   $("model-note").textContent = entry
-    ? `${MODEL_NOTES[entry.model] || entry.model} ${entry.warnings?.join("; ") || ""}`
+    ? (MODEL_NOTES[entry.model] || 'Kết quả mô phỏng đang chọn.')
     : "Chưa có run thành công để hiển thị nồng độ.";
   if (typeof ViewerEvidence !== 'undefined') {
     ViewerEvidence.render($("run-evidence"), ViewerEvidence.viewModel(entry?.summary, state.scenario));
   }
 
   updateLegend();
+  spatialAnalysis?.sync();
   updateStats();
   updateProfile();
   scheduleExactQueries();

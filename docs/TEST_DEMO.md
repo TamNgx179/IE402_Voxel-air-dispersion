@@ -374,8 +374,8 @@ Năm production cases đều qua gate; analytic variance 40 m² khớp nghiệm 
 Số liệu mới và captions lấy từ run manifests, không copy bảng cũ.
 
 Runbook: [WEEK7_RUNBOOK.md](./WEEK7_RUNBOOK.md). Draft kiến trúc/phương pháp/GIS:
-[REPORT_DRAFT.md](./REPORT_DRAFT.md). Snapshot số liệu và hashes:
-[evidence/week7-candidate.json](./evidence/week7-candidate.json).
+[REPORT_DRAFT.md](./REPORT_DRAFT.md). Snapshot số liệu và hashes sinh local:
+`artifacts/week7/week7-candidate.json`.
 Generated NetCDF/logs/hình 300 dpi nằm local tại `artifacts/week7/`.
 Đây là candidate tuần 7, chưa phải release tuần 8 hoặc validation quan trắc.
 
@@ -390,6 +390,156 @@ Kiểm lại: web 35/35; unit API 96 pass + 1 skip symlink Windows; required E2E
 Không chạy lại full Python science suite trong đợt dọn mã này.
 
 - [MapLibre raster source](https://maplibre.org/maplibre-style-spec/sources/).
+
+### A8 — So sánh run và truy vấn polygon, 19/10/2026
+
+Tại root, audit xuống dòng bằng `node scripts/normalize-frozen-text.mjs`.
+Chỉ thêm `--apply` để sửa các text file CRLF mà bytes sau chuẩn hóa khớp đúng
+hash freeze đã có. Script kiểm toàn bộ trước khi ghi, không đổi lock, không sửa
+content drift hoặc binary. Sau đó `node scripts/check-freeze.mjs` phải PASS.
+Đợt này đã sửa 57 file xuống dòng; không đổi nội dung số trị/manifest nguồn.
+
+Chạy `node --test scripts/tests/*.test.mjs web/tests/*.test.cjs` tại root;
+trong `app/` chạy `npm test`, `npm run test:e2e:required`, `npm run build`,
+`npm run lint`. Chỉ DB `_test` được reset, không reset development DB.
+Required E2E mới có fixture polygon cắt ô/tầng, holes, solid/null/zero, CSV,
+mask/model/area không tương thích, DTO và run chưa thành công.
+
+Kết quả đợt A8: required E2E **75/75**, 0 skip (21 spatial cases); unit API
+**97 pass + 1 skip** symlink Windows; web **49/49** và freeze regression **4/4**;
+build/lint, JS syntax và diff check PASS. Không chạy lại full Python science
+suite; required E2E có hai fixture Python thật. Smoke production bằng
+`node scripts/verify-spatial-api.mjs --base <origin-trong-startup-log>` kiểm hai
+run khô/mưa, self comparison, region và CSV, 5 checks PASS. Script chỉ đọc dữ
+liệu và không tạo run; report local `artifacts/a8-production-api.json`.
+PostgreSQL `real` được đối chiếu theo float32 round-trip, không so chuỗi thập
+phân ngắn của slice với double-cast bằng equality sai kiểu biểu diễn.
+
+Demo trên web:
+
+1. Chọn run gốc trong selector **Kết quả mô phỏng**, bấm nút **Phân tích**,
+   sau đó chọn **So sánh kết quả**.
+2. Chọn **Kết quả so sánh**, chuyển **Hiển thị trên bản đồ** sang Gốc / So sánh /
+   Chênh lệch. Đổi độ cao bằng slider chính, camera giữ nguyên. Bảng và biểu đồ
+   trung bình đọc số thực DB; legend ΔC có dấu và tâm 0, không phải AQI.
+3. Chuyển sang **Theo vùng**, nhấn **Vẽ vùng**, bấm ít nhất 3 đỉnh nằm trong
+   miền rồi **Hoàn tất**. Khi vẽ chỉ hiện Hoàn tất/Hủy; Hoàn tất chỉ dùng được
+   khi đủ 3 điểm. Chọn xong mới hiện biểu mẫu khoảng độ cao và ngưỡng.
+   **Esc/Hủy vẽ** thoát chế độ vẽ; không chọn nhầm voxel trong lúc vẽ.
+   Giao diện chỉ chọn vùng bằng cách vẽ trên bản đồ, không có nhập tọa độ.
+4. Nhập **Độ cao từ / Đến độ cao (m)** và ngưỡng, nhấn **Phân tích vùng**.
+   Kết quả có thẻ trung bình/cao nhất, tỷ lệ thể tích vượt ngưỡng, thể tích khí,
+   câu diễn giải và bảng theo tâm tầng. **Tải CSV** chỉ hiện sau khi có kết quả.
+   Đây là truy vấn run gốc, không tạo run mới. Đổi run/region/interval làm mất
+   hiệu lực kết quả cũ và cần truy vấn lại. Đưa hệ số về ×1, nền 0 khi dùng phân tích.
+5. Không khí không có dữ liệu trả null, không phải 0; vùng chỉ chứa solid hiện
+   “Không có dữ liệu”. Gió và profile ngoài mục này vẫn của run gốc, không phải ΔC.
+
+Trong `app/`, `npm run db:benchmark:spatial` lưu SQL timings và EXPLAIN vào
+`artifacts/a8-spatial-benchmark.json` trên run FV non-mock mới nhất, không ghi DB.
+Report đo self comparison và region trên 500.000 voxel, không bao gồm HTTP,
+mask validation hay GPU/FPS. Có thể chỉ định `BENCHMARK_RUN_ID` và
+`BENCHMARK_OUTPUT`; đây không phải SLA hoặc validation thực địa.
+
+Browser control hiện trả “Local browser use is disabled in Work settings” dù
+ảnh người dùng cho thấy Browser bật. DOM-boundary regressions không thay thế
+kiểm trực quan/rendering/thao tác thật; không chốt browser QA hoặc review B8.1
+chỉ từ API tests. Không bật full CDP để né quyền đó.
 - [MapLibre raster tile example](https://maplibre.org/maplibre-gl-js/docs/examples/map-tiles/).
 - [OSM tile usage policy](https://operations.osmfoundation.org/policies/tiles/): giữ attribution,
   dùng HTTPS và browser caching; không bulk download/prefetch cho offline.
+
+### Cột công cụ tinh gọn — 19/10/2026
+
+Kết quả, độ cao và chú giải luôn hiện. Năm nút **Mô phỏng / Bản đồ / Thống kê /
+Phân tích / Minh họa** chỉ mở một nhóm tại một thời điểm; bấm lại để đóng.
+Các mục phụ dùng nút có tên thay vì mũi tên xổ xuống. Bấm voxel trên bản đồ
+tự mở Thống kê để xem thông tin ô và profile. Chuyển khỏi Phân tích khi đang
+vẽ vùng sẽ hủy chế độ vẽ, không để bản đồ bị giữ thao tác.
+
+Thanh độ cao có chấm theo đúng vị trí tầng. Với lưới hiện tại, các mốc là
+**1 / 25 / 51 / 75 / 99 m**; bấm nhãn để chuyển nhanh hoặc kéo để chọn các tầng
+ở giữa. Mốc 51 m là tâm tầng thực, không đổi nhãn thành 50 m. Tiến độ và lỗi
+mô phỏng vẫn hiện khi đóng nhóm công cụ; các lưu ý khoa học quan trọng được giữ.
+
+Kiểm tra đợt UI: web **54/54**, E2E phục vụ trang/tài nguyên **13/13** PASS;
+JS syntax và diff check PASS. Browser control vẫn bị tắt nên chưa xác nhận
+trực quan bố cục, kéo slider và thao tác bản đồ trên trình duyệt thật.
+
+Icon UI dùng Bootstrap Icons 1.13.2 dạng font lưu trong `web/vendor/`, kèm
+MIT license, không cần CDN icon. Các nút công cụ dùng nền xanh xám nhạt;
+nút đang mở dùng nền xanh đậm/chữ trắng, kèm trạng thái aria-expanded và
+focus bàn phím. Test đối chiếu glyph/font và tương phản chữ >= 4,5:1 cho
+trạng thái thường, hover, đang mở. Sau đổi icon/màu: web **56/56**, E2E
+trang/tài nguyên **16/16** PASS (có tải cả WOFF/WOFF2). Chưa audit trực quan.
+
+Palette hiện tại tham khảo **Arctic Reflection** trong
+[Figma Neutral Palettes](https://www.figma.com/color-palettes/neutral/):
+màu gốc gồm #243C4C, #5289AD, #ACBCBF, #F4FCFB, #698696. Các màu UI được
+điều chỉnh thành thang xanh lam xám/trung tính để đạt tương phản, không phải
+sao chép toàn bộ palette nguyên trạng. Nền cột trắng, khung #F1F4F6, nút mở
+#243C4C, thao tác chính #355D75; bỏ nền kem/nâu và xanh lá của đợt trước.
+Checkbox trở về ô tick và nhãn thông thường, không viền/nền/khung dạng nút;
+giữ nguyên input checkbox, click nhãn và focus bàn phím. Hover/đang mở/disabled được
+tách màu tương ứng; giữ nguyên logic tải/lỗi/truy vấn. Sau chỉnh phần nội dung:
+web **59/59**; E2E trang/tài nguyên **16/16** ở đợt trước (không chạy lại
+trong lần chỉ đổi CSS này). Test màu kiểm tương phản
+chữ/ghi chú >= 4,5:1 và viền ô nhập >= 3:1 với nền trắng; không thay thế kiểm
+trực quan trong browser.
+
+### Rà luồng thao tác và cách đọc kết quả — 19/10/2026
+
+Phân tích tách Theo vùng/So sánh kết quả để chỉ hiện một biểu mẫu. CSV nằm trong
+khung kết quả, lỗi tải CSV không xóa thống kê đã tính. Đổi vùng/run/thông số sẽ
+ẩn kết quả và CSV cũ; đang truy vấn chặn gửi trùng. Giá trị 0 khác thiếu dữ liệu;
+không diễn giải vùng không có khí là vùng sạch. Thẻ vượt ngưỡng là phần trăm
+thể tích khí có dữ liệu, không phải phần trăm diện tích đất. Bảng độ cao chỉ tính
+phần tầng giao với khoảng chọn. Tất cả là dữ liệu gốc từ API, không tạo mô phỏng.
+
+So sánh chọn kết quả thứ hai tự bật lớp chênh lệch; chỉ hiện nút cập nhật khi cần
+thử lại sau lỗi. Về Theo vùng tắt lớp so sánh để tránh nhầm dữ liệu. Thống kê ghi
+rõ khoảng độ cao và chế độ minh họa; Minh họa có nút Về dữ liệu gốc chỉ khi đã
+đổi thông số. Chạy xong thông báo kết quả mới đang hiển thị; tắt Tòa nhà sẽ vô
+hiệu hóa checkbox Chi tiết mặt đứng.
+
+Kiểm tra: web **67/67**, E2E trang/tài nguyên **16/16**, JS syntax và diff check
+PASS. Smoke API production **5/5**, đối chiếu polygon/CSV với dữ liệu thật và
+không tạo run mới. Browser vẫn trả disabled, chưa kiểm trực quan/kéo bản đồ
+trong browser.
+
+### Câu chữ và thông tin kỹ thuật — 19/10/2026
+
+Nhập vùng thủ công dùng nhãn Tọa độ các đỉnh và ví dụ tọa độ theo dòng, không
+hiện cú pháp type/Polygon/coordinates. Parser vẫn nhận GeoJSON cũ; sai tọa độ
+báo dòng cần sửa, vùng tự đóng. Không thay đổi định dạng polygon gửi tới API.
+
+Thông tin kết quả chỉ hiện phương pháp, thời gian và lưu ý chưa đối chiếu đo
+đạc. Mã kết quả/hash, bảng kiểm tra số học, cảnh báo gốc và liên kết tệp nằm
+sau nút Chi tiết kỹ thuật (mặc định đóng, giữ trạng thái khi refresh). Cảnh báo
+bổ sung có chỉ dẫn xem chi tiết; trạng thái kiểm tra chưa đạt vẫn hiện rõ.
+Không gắn nhãn kiểm tra số học đạt thành xác nhận đúng với thực địa.
+
+Chữ hướng dẫn dùng màu đậm hơn, mô tả/ngữ cảnh có khoảng cách riêng; trạng
+thái chọn vùng nằm trong khối thông báo, bỏ dòng Chưa chọn vùng trùng hướng dẫn.
+Kiểm tra đợt này: web **70/70**, E2E trang/tài nguyên **17/17**, JS syntax PASS.
+Chưa kiểm trực quan vì công cụ browser vẫn báo disabled; không đổi palette.
+
+Cập nhật theo phản hồi tiếp theo: bỏ hoàn toàn Chi tiết kỹ thuật và các liên
+kết/bảng định danh khỏi giao diện, không chỉ ẩn. API và số liệu gốc vẫn giữ
+nguyên. Tóm tắt vẫn phân biệt kiểm tra tính toán với xác nhận thực địa và báo
+có cảnh báo bổ sung khi cần. Chữ thường dùng xám than, hướng dẫn 13 px;
+test tương phản chữ thường/ghi chú đạt ít nhất 7:1 trên nền trắng/xám nội dung.
+
+Lỗi phân tích được chuyển sang tiếng Việt tại giao diện: vùng tự cắt/không có
+diện tích, ngoài miền, độ cao không hợp lệ, kết quả không tương thích, mất kết
+nối và lỗi hệ thống. Lỗi không biết dùng thông báo chung, không xuất nguyên
+tiếng Anh từ máy chủ. Kiểm tra vùng của API không thay đổi. Đã gửi một vùng
+tự cắt tới API đang chạy: HTTP 400, giao diện hướng dẫn vẽ lại bằng tiếng Việt.
+Kiểm tra đợt này: web **73/73**, E2E trang/tài nguyên **17/17**, JS syntax và
+diff check PASS; chưa xác nhận trực quan trong browser.
+
+Cập nhật: bỏ toàn bộ nhập vùng bằng tọa độ và parser/callback không còn dùng;
+chọn vùng bằng Vẽ vùng → Hoàn tất. API polygon giữ nguyên. Nút thao tác đơn
+và hàng nút trong cột điều khiển căn phải, không đảo thứ tự DOM/Tab; các mốc
+slider, checkbox và ô nhập không bị dồn theo nút. Web **73/73**, E2E trang/tài
+nguyên **17/17**, JS syntax/diff check PASS; chưa kiểm trực quan qua browser.

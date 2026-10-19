@@ -75,60 +75,27 @@
 
   function render(container, model, doc = document) {
     if (!container) return;
-    const nodes = [];
+    const roots = [];
     function element(tag, text, className) {
       const node = doc.createElement(tag);
       if (text !== undefined) node.textContent = text;
       if (className) node.className = className;
       return node;
     }
-    nodes.push(element('p', model.message, `evidence-status evidence-${model.state}`));
+    const status=model.identity ? (model.state==='pass'?'Kiểm tra tính toán: đạt':'Kiểm tra tính toán: chưa đạt đầy đủ') : model.message;
+    roots.push(element('p', status, `evidence-status evidence-${model.state}`));
     if (model.identity) {
-      for (const [title, values] of [['Nhận dạng', model.identity], ['Số liệu solver', model.metrics]]) {
-        nodes.push(element('h3', title));
-        const list = element('dl', undefined, 'evidence-values');
-        values.forEach(([label, value]) => {
-          list.append(element('dt', label), element('dd', value));
-        });
-        nodes.push(list);
+      const summary=element('dl',undefined,'run-summary');
+      const code=model.identity.find(([label])=>label==='Mô hình')?.[1];
+      for(const [label,value] of [['Phương pháp',code==='fv'?'Mô hình khối không gian 3D':code==='gaussian'?'Mô hình tham chiếu Gaussian':'Mô phỏng không khí'],...model.metrics.filter(([label])=>['Thời gian tính','Thời gian mô phỏng'].includes(label))]) {
+        summary.append(element('dt',label),element('dd',value));
       }
-      const table = element('table', undefined, 'evidence-checks');
-      table.setAttribute('aria-label', 'Kiểm tra số trị của run');
-      const head = element('thead');
-      const header = element('tr');
-      ['Kiểm tra', 'Kết quả', 'Giá trị', 'Tolerance'].forEach((label) => {
-        const cell = element('th', label);
-        cell.setAttribute('scope', 'col');
-        header.append(cell);
-      });
-      head.append(header);
-      const body = element('tbody');
-      model.checks.forEach((check) => {
-        const row = element('tr');
-        [check.name, check.status, check.value, check.tolerance].forEach((value) => row.append(element('td', value)));
-        body.append(row);
-      });
-      table.append(head, body);
-      const scroll = element('div', undefined, 'evidence-table-scroll');
-      scroll.append(table);
-      nodes.push(scroll);
-      nodes.push(element('h3', 'Nguồn và hạn chế'));
-      const warnings = element('ul', undefined, 'evidence-warnings');
-      (model.warnings.length ? model.warnings : ['Chưa có cảnh báo nguồn dữ liệu trong run này.'])
-        .forEach((warning) => warnings.append(element('li', warning)));
-      nodes.push(warnings);
-      nodes.push(element('p', 'Số liệu trên là output gốc của solver. Hệ số nguồn/nền minh họa không thay đổi kiểm chứng này.', 'note'));
-      const links = element('p', undefined, 'evidence-links');
-      [['JSON số liệu', model.summaryUrl], ['Danh sách artifact / checksum', model.artifactsUrl]].forEach(([label, url]) => {
-        const link = element('a', label);
-        link.href = url;
-        link.target = '_blank';
-        link.rel = 'noopener';
-        links.append(link);
-      });
-      nodes.push(links);
+      roots.push(summary,element('p','Kết quả từ mô hình, chưa được xác nhận bằng đo đạc thực tế. Kiểm tra tính toán không phải đánh giá chất lượng không khí.','science-caution'));
+      if(model.warnings.some(warning=>!/not.?validated|not field validation|not validated against field observations/i.test(warning))) {
+        roots.push(element('p','Dữ liệu có cảnh báo bổ sung. Cần kiểm tra nguồn dữ liệu trước khi dùng cho báo cáo.','science-caution'));
+      }
     }
-    container.replaceChildren(...nodes);
+    container.replaceChildren(...roots);
   }
 
   const api = { number, viewModel, render };

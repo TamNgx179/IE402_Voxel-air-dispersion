@@ -291,3 +291,25 @@ npm run db:benchmark
 
 Đọc provenance để phân biệt FV thật với mock; không lấy benchmark mock làm
 kết quả khoa học. Lệnh solver và kiểm định xem [TEST_DEMO.md](TEST_DEMO.md).
+
+## 8 · Truy vấn comparison/polygon A8
+
+Không thêm bảng: dùng `concentration_columns(run_id,i,j)` và GiST của grid.
+Pair yêu cầu cùng area/grid/scene/model, đủ columns/nz và null mask giống nhau.
+Region dùng ST_Intersects chọn candidates, ST_Intersection/Area trong CRS mét
+và độ dày giao khoảng z để tính trọng số; null solid không vào mẫu số.
+Query luôn lọc run_id; CSV là truy vấn chỉ đọc và không tạo simulation_runs.
+
+Đo ngày 19/10 trên development DB production grid 100×100×50, run
+`2a3ab50e-2202-4b14-9209-3ab1fba4fd92`; 3 warm-up + 20 mẫu:
+
+| Query | p50 (ms) | p95 (ms) |
+|---|---:|---:|
+| Comparison SQL self pair, tầng 1 m | 66,85 | 94,43 |
+| Region SQL, vùng nội miền và khoảng 1–15 m | 203,09 | 221,38 |
+
+Nguồn tái lập: `npm run db:benchmark:spatial` trong `app/`, report local
+`artifacts/a8-spatial-benchmark.json` giữ geometry query, môi trường, units/grid,
+hash/version và full EXPLAIN ANALYZE/BUFFERS. Đây là SQL timings gồm fetch rows,
+không tính HTTP/mask validation/rendering; không phải SLA. Không suy từ
+self-pair benchmark rằng đã so sánh khoa học hai scenario hoặc kiểm GPU/FPS.

@@ -65,8 +65,23 @@ test('render treats model warnings as text, not HTML', () => {
   data.warnings = ['<img src=x onerror=alert(1)>'];
   render(container, viewModel(data, data.run_id), doc);
   assert(children.length > 0);
-  assert(created.some((node) => node.tag === 'li' && node.textContent === data.warnings[0]));
-  assert(created.some((node) => node.tag === 'a' && node.href === '/api/runs/run-one/summary' && node.rel === 'noopener'));
+  assert(!created.some((node) => node.textContent === data.warnings[0]));
+  assert(created.some((node) => node.textContent?.includes('Dữ liệu có cảnh báo bổ sung')));
+  assert(!created.some((node) => node.tag === 'a'));
   render(container, viewModel(null, null), doc);
   assert.equal(children.length, 1);
+});
+
+test('result info has no technical disclosure, raw identifiers or download links even after refresh',()=>{
+  const created=[];
+  const doc={createElement(tag){const el={tag,children:[],attrs:{},textContent:'',append(...xs){this.children.push(...xs);},setAttribute(k,v){this.attrs[k]=v;}};created.push(el);return el;}};
+  const container={children:[],replaceChildren(...xs){this.children=xs;}};
+  const visible=el=>el.hidden?'':[el.textContent,...el.children.map(visible)].join(' ');
+  const model=viewModel(summary(),'run-one');render(container,model,doc);
+  assert.match(visible(container),/Kiểm tra tính toán: đạt/);
+  assert.match(visible(container),/chưa được xác nhận bằng đo đạc thực tế/);
+  assert.doesNotMatch(visible(container),/sha256:|run-one|Residual|5324|5.324|LoD1/);
+  render(container,model,doc);
+  assert(!created.some(el=>['button','a','table'].includes(el.tag)));
+  assert.doesNotMatch(visible(container),/sha256:|Chi tiết kỹ thuật|Residual|Input hash/);
 });

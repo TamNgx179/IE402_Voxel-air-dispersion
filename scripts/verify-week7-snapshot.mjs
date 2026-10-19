@@ -1,4 +1,4 @@
-/** Check the committed snapshot without requiring local generated reports. */
+/** Check a locally generated snapshot without rerunning solver or browser. */
 import { readFile } from 'node:fs/promises';
 import { dirname, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -7,7 +7,7 @@ import { assert } from './lib/process.mjs';
 import { verifyFreeze } from './check-freeze.mjs';
 
 const root = resolve(dirname(fileURLToPath(import.meta.url)), '..');
-const snapshot = JSON.parse(await readFile(resolve(root, 'docs/evidence/week7-candidate.json'), 'utf8'));
+const snapshot = JSON.parse(await readFile(resolve(root, 'artifacts/week7/week7-candidate.json'), 'utf8'));
 const freeze = await verifyFreeze();
 assert(snapshot.schema_version === 1 && snapshot.status === 'candidate_pass', 'Snapshot schema/status invalid');
 assert(snapshot.freeze.candidate_sha256 === freeze.candidate_sha256, 'Snapshot is for a different frozen model');
@@ -19,4 +19,4 @@ for (const [name, expected] of Object.entries(snapshot.science.model_source_sha2
   const raw = await readFile(resolve(root, name));
   assert(createHash('sha256').update(raw).digest('hex') === expected, `Snapshot source changed: ${name}`);
 }
-console.log(`Committed candidate evidence: ${snapshot.science.runs.length} production cases, 10/10 gates; freeze matches`);
+console.log(`Local candidate snapshot: ${snapshot.science.runs.length} production cases, 10/10 gates; freeze matches (not a new test run)`);

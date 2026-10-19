@@ -14,6 +14,9 @@ export interface ResultRunContext {
   status: string;
   model: string;
   scenario_id: string;
+  study_area_id: string;
+  projected_srid: number;
+  scene_version: string | null;
   model_version: string | null;
   input_hash: string | null;
   warnings: string[];

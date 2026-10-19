@@ -192,8 +192,8 @@ quyền OS; science suite phải báo count và lý do skip riêng.
 | Regression counts | `artifacts/week7/checks/checks.json` và Python JUnit |
 | Quality matrix | `artifacts/week7/evidence-index.json` |
 
-Snapshot nhỏ được commit trong `docs/evidence/`; raw NetCDF/log/screenshots
-lưu local và được tái tạo theo runbook. Mỗi claim dùng run ID, metric,
+Snapshot cùng raw NetCDF/log/screenshots chỉ lưu local trong `artifacts/week7/`
+và được tái tạo theo runbook. Mỗi claim dùng run ID, metric,
 figure/table và limitation, không copy số từ các đợt chạy không rõ version.
 
 ## 10. Hạn chế và việc còn lại tuần 8

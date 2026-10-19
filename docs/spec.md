@@ -434,3 +434,37 @@ So với prototype web tĩnh ban đầu, sản phẩm cuối bổ sung một Nes
 PostgreSQL/PostGIS. Monolith phục vụ web/API và gọi Python CLI bằng child process; không có
 worker service, broker hay network hop nội bộ. Thay đổi này không làm đổi mô hình khoa học:
 solver vẫn dùng cùng grid, NetCDF và verification contract.
+
+### D. Phân tích nâng cao tuần 8 — contract A8
+
+Giữ một bản đồ/camera và cao độ chung. Bấm nút **Phân tích**, người dùng
+chọn run gốc (selector chính), run so sánh và lớp Gốc / So sánh / Chênh lệch.
+Nồng độ hai run dùng chung thang tuyến tính; ΔC = so sánh − gốc dùng thang
+phân kỳ đối xứng quanh 0. Không trừ mã uint8/log hoặc áp dụng hệ số minh họa.
+Thông tin profile/thống kê/gió ngoài mục phân tích vẫn thuộc run gốc, được ghi rõ.
+
+| Endpoint | Contract |
+|---|---|
+| `GET /api/runs/:id/comparison?compare_run_id=<uuid>&z_m=1` | Hai run succeeded, cùng study area/CRS/grid/scene/model; đủ nx×ny columns, mỗi column đủ nz, cùng mask null. Trả identity/version/hash hai run, tâm tầng, GeoJSON và thống kê từ số thực DB |
+| `POST /api/runs/:id/region` | Query chỉ đọc: body `polygon` (GeoJSON Polygon WGS84), `z_min_m`, `z_max_m`, `threshold_ug_m3` tùy chọn (mặc định 15) |
+| `POST /api/runs/:id/region/csv` | Cùng validation/công thức với JSON; CSV theo tầng, có identity, units, polygon và khoảng z; không tạo run mới |
+
+Region giới hạn 20 rings/500 vertices; mỗi tọa độ là cặp số hữu hạn lon/lat,
+ring đóng, không tự giao và diện tích dương. Polygon phải nằm hoàn toàn trong
+study area; không clip hoặc MakeValid ngầm. Khoảng z thỏa
+`0 <= z_min_m < z_max_m <= nz*dz_m`. Giao XY được tính bằng PostGIS trong
+EPSG:32648; weight = diện tích giao × chiều dày giao với từng tầng. Mean là
+`sum(C*weight)/sum(weight)` trên ô khí; null/solid bị loại, không coi là C=0.
+Không có thể tích khí thì mean/max=null, exceedance volume=0; zero air vẫn là
+nồng độ hợp lệ. Ngưỡng chỉ là tham chiếu mô hình, không phải validation 24h.
+
+Run không tồn tại trả 404; run chưa succeeded hoặc pair không tương thích trả
+409; DTO/geometry/khoảng z sai trả 400. POST query hiện dùng HTTP 201 theo
+Nest mặc định nhưng **không ghi dữ liệu**. CSV được quote và chống formula injection.
+Giá trị chính xác là số thực đã lưu trong PostgreSQL, không ngụ ý bảo toàn mọi
+chữ số của tensor khoa học gốc. Scene hiện được quản lý theo baseline seed;
+không hỗ trợ so sánh các scene sensitivity riêng hay nội suy hai grid khác nhau.
+
+Request cũ không được ghi đè lựa chọn mới. Lỗi có thao tác thử lại; vẽ polygon
+có Hoàn tất/Hủy/Escape/Xóa; đã bỏ nhập vùng bằng tọa độ khỏi giao diện. Browser QA thật
+và review contract phương pháp với B phải được xác nhận riêng trước khi chốt M7.

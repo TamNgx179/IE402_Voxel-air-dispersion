@@ -202,8 +202,18 @@ Warnings được render như text; run switch không giữ dashboard của run 
 | Figures/tables | `artifacts/week7/production/report-assets.json` |
 | Ma trận gates | `artifacts/week7/evidence-index.json` |
 
-Generated files lớn không commit; snapshot nhỏ trong `docs/evidence/`
-ghi kết quả và hash của report local. Có thể tái lập bằng các lệnh trên.
+Generated files và snapshot chỉ lưu local trong `artifacts/week7/`, không commit
+vào docs. Sau khi tái lập đủ regression, production, analysis/report và clean-room:
+
+```powershell
+node scripts/evidence-index.mjs
+node scripts/snapshot-week7.mjs
+node scripts/verify-week7-snapshot.mjs
+```
+
+Snapshot ở `artifacts/week7/week7-candidate.json` ghi kết quả và hash của report
+local. Lệnh verify chỉ kiểm snapshot/code/freeze, không chạy lại solver hoặc browser.
+Checkout mới cần tái tạo reports trước; không coi thiếu snapshot là đã test PASS.
 Fresh volumes trên Docker host hiện tại chưa thay thế kiểm tra máy vật lý
 thứ hai ở tuần 8. Browser screenshot mobile chưa phải FPS/usability audit.
 Mô hình được verification bằng nghiệm giải tích và sensitivity; chưa có

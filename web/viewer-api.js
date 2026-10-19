@@ -9,7 +9,7 @@
     }
   }
   async function request(fetcher, url, options = {}) {
-    const { timeoutMs = 20000, ...init } = options;
+    const { timeoutMs = 20000, responseType = 'json', ...init } = options;
     const timeout = AbortSignal.timeout(timeoutMs);
     const signal = init.signal
       ? AbortSignal.any([init.signal, timeout])
@@ -31,7 +31,7 @@
     }
     let payload;
     try {
-      payload = await response.json();
+      payload = response.ok && responseType === 'text' ? await response.text() : await response.json();
     } catch {
       throw new ApiError(
         "API trả dữ liệu không hợp lệ. Kiểm tra đúng ứng dụng/cổng đang chạy.",

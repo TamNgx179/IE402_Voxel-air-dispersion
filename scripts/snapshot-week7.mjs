@@ -1,4 +1,4 @@
-/** Commit a compact evidence snapshot; large tensors/logs stay in artifacts/. */
+/** Generate a local candidate snapshot; reports stay outside product docs. */
 import { createHash } from 'node:crypto';
 import { readFile } from 'node:fs/promises';
 import { dirname, resolve } from 'node:path';
@@ -80,5 +80,5 @@ const snapshot = {
     'Backup video/screenshots and technical Q&A',
   ],
 };
-await writeJson(resolve(root, 'docs/evidence/week7-candidate.json'), snapshot);
-console.log('Snapshot written: docs/evidence/week7-candidate.json');
+await writeJson(resolve(root, 'artifacts/week7/week7-candidate.json'), snapshot);
+console.log('Local snapshot written: artifacts/week7/week7-candidate.json');

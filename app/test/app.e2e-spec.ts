@@ -77,6 +77,9 @@ describe('API (e2e)', () => {
       'run-button',
       'query-retry',
       'cell-picker-form',
+      'spatial-analysis',
+      'compare-run',
+      'region-draw',
     ]) {
       expect(page.text).toContain(`id="${id}"`);
     }
@@ -86,12 +89,26 @@ describe('API (e2e)', () => {
     'app.js',
     'viewer-api.js',
     'viewer-grid.js',
+    'viewer-analysis.js',
+    'viewer-sidebar.js',
+    'viewer-evidence.js',
     'viewer-flow.js',
     'building-appearance.js',
     'styles.css',
+    'vendor/bootstrap-icons/bootstrap-icons.min.css',
   ])('serves viewer dependency %s rather than HTML fallback', async (asset) => {
     const res = await request(app.getHttpServer()).get(`/${asset}`).expect(200);
     expect(res.headers['content-type']).not.toMatch(/html/);
     expect(res.text.length).toBeGreaterThan(50);
+  });
+
+  it.each(['woff2', 'woff'])('serves the local icon font (%s)', async (format) => {
+    const res = await request(app.getHttpServer())
+      .get(`/vendor/bootstrap-icons/fonts/bootstrap-icons.${format}`)
+      .expect(200);
+    expect(res.headers['content-type']).not.toMatch(/html/);
+    expect(Buffer.isBuffer(res.body)).toBe(true);
+    expect(res.body.length).toBeGreaterThan(1000);
+    expect(res.body.subarray(0, 4).toString()).toBe(format === 'woff2' ? 'wOF2' : 'wOFF');
   });
 });

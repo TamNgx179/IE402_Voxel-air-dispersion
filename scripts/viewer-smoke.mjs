@@ -131,13 +131,17 @@ export async function browserSmoke({ base, out, timeout = 120_000 }) {
         document.getElementById('height-slider').dispatchEvent(new Event('input'));`);
       await waitUntil(() => client.evaluate(`document.getElementById('height-value').textContent.includes('15')`),
         Boolean, { name: 'height slider 15m' });
-      await client.evaluate(`document.getElementById('run-evidence').closest('details').open=true;
-        document.getElementById('run-evidence').closest('.layer-options').open=true;
+      await client.evaluate(`const mapTools=document.querySelector('[data-tool-panel="map-options"]');
+        if(mapTools.getAttribute('aria-expanded')!=='true') mapTools.click();
+        const info=document.querySelector('[data-disclosure="result-info-content"]');
+        if(info.getAttribute('aria-expanded')!=='true') info.click();
         document.getElementById('run-evidence').scrollIntoView({block:'center'});`);
       await client.screenshot(join(out, `run-${index + 1}-evidence.png`));
       checks(`Run ${id}: exact evidence and 15m layer`);
     }
-    await client.evaluate(`document.getElementById('cell-i').value='0';
+    await client.evaluate(`document.querySelector('[data-tool-panel="analysis-details"]').click();
+      document.querySelector('[data-disclosure="cell-picker-content"]').click();
+      document.getElementById('cell-i').value='0';
       document.getElementById('cell-j').value='0';
       document.getElementById('cell-picker-form').dispatchEvent(new Event('submit',{cancelable:true}));`);
     await waitUntil(() => client.evaluate(`!document.getElementById('cell-info').hidden &&

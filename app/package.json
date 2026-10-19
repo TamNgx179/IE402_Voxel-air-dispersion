@@ -25,6 +25,7 @@
     "db:reset": "tsx src/database/cli.ts reset",
     "db:seed": "tsx src/database/cli.ts seed",
     "db:benchmark": "tsx src/database/benchmark-results.ts",
+    "db:benchmark:spatial": "tsx src/database/benchmark-spatial-analysis.ts",
     "db:import-run": "tsx src/database/import-verified-run.ts"
   },
   "dependencies": {
