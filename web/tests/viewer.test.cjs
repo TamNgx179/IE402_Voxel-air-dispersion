@@ -10,6 +10,17 @@ const {
   streamlet,
 } = require("../viewer-flow.js");
 const grid = { nx: 10, ny: 10, nz: 2, dx_m: 5, dy_m: 5, dz_m: 2 };
+test('building clicks during polygon drawing cannot switch tools or cancel the draft',()=>{
+  const source=readFileSync(join(__dirname,'../app.js'),'utf8');
+  const fn=source.slice(source.indexOf('function showBuildingAppearance('),source.indexOf('function facadeLayers('));
+  const note={textContent:''},opened=[];let drawing=true,reads=0;
+  const context={spatialAnalysis:{isDrawing:()=>drawing},buildingAppearance:{features:{get(){reads++;return {height:30};}}},$:()=>note,fmt:String,sidebar:{open:id=>opened.push(id)}};
+  require('node:vm').runInNewContext(fn+';showBuildingAppearance("building-1");',context);
+  assert.deepEqual(opened,[]);assert.equal(reads,0);assert.equal(note.textContent,'');
+  drawing=false;
+  require('node:vm').runInNewContext(fn+';showBuildingAppearance("building-1");',context);
+  assert.deepEqual(opened,['map-options']);assert.match(note.textContent,/30 m/);
+});
 function field(u = 1, v = 0, air = () => true) {
   const layers = [0, 1].map((k) => ({
     k,

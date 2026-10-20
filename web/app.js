@@ -554,7 +554,7 @@ function concentrationLayer() {
     id: "concentration",
     data: cells,
     extruded: false,
-    pickable: true,
+    pickable: !spatialAnalysis?.isDrawing(),
     getPolygon: (cell) => [
       [...node(cell.i, cell.j), z],
       [...node(cell.i + 1, cell.j), z],
@@ -586,12 +586,13 @@ function buildingLayer() {
     getFillColor: BuildingAppearance.material,
     getLineColor: [199, 207, 206],
     material: BuildingAppearance.WALL_MATERIAL,
-    pickable:true,
+    pickable:!spatialAnalysis?.isDrawing(),
     onClick:(info)=>{if(info.object) showBuildingAppearance(info.object.properties.source_feature_id);},
   });
 }
 
 function showBuildingAppearance(id) {
+  if(spatialAnalysis?.isDrawing()) return;
   const info=buildingAppearance.features.get(id);
   if(!info) return;
   $('building-appearance-note').textContent=`${id} · ${fmt(info.height)} m · Vật liệu và cửa sổ minh họa; footprint/chiều cao từ GIS.`;
@@ -606,7 +607,7 @@ function facadeLayers() {
     visible,opacity:detailOpacity*.65,_full3d:true,getPolygon:d=>d.polygon,getFillColor:d=>d.color,material:false}),
     new deck.SolidPolygonLayer({id:'facade-windows',data:buildingAppearance.windows,
     visible,opacity:detailOpacity,_full3d:true,getPolygon:d=>d.polygon,getFillColor:d=>d.color,
-    material:false,pickable:true,onClick:info=>{if(info.object) showBuildingAppearance(info.object.id);}})];
+    material:false,pickable:!spatialAnalysis?.isDrawing(),onClick:info=>{if(info.object) showBuildingAppearance(info.object.id);}})];
 }
 
 function roadLayer() {

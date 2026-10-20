@@ -193,6 +193,14 @@ test('comparison auto-selects difference, explains direction and hides redundant
   assert.equal(ui.els['comparison-retry'].hidden,true);
 });
 
+test('self-comparison legend formats zero without a misleading negative-zero label',async()=>{
+  const ui=controls(async()=>({z_center_m:1,feature_collection:{features:[]},stats:{air_cells:3,baseline:{mean_ug_m3:1},comparison:{mean_ug_m3:1},delta:{mean_ug_m3:0,min_ug_m3:0,max_ug_m3:0}}}));
+  ui.change(ui.namedLabel('Kết quả so sánh'),'base');
+  await new Promise(resolve=>setTimeout(resolve,210));
+  assert.match(content(ui.els['comparison-result']),/ΔC: 0 → 0 → 0/);
+  assert.doesNotMatch(content(ui.els['comparison-result']),/-0/);
+});
+
 
 test('analysis errors translate server validation into actionable Vietnamese without raw English',()=>{
   const cases=[

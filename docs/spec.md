@@ -467,4 +467,12 @@ không hỗ trợ so sánh các scene sensitivity riêng hay nội suy hai grid 
 
 Request cũ không được ghi đè lựa chọn mới. Lỗi có thao tác thử lại; vẽ polygon
 có Hoàn tất/Hủy/Escape/Xóa; đã bỏ nhập vùng bằng tọa độ khỏi giao diện. Browser QA thật
-và review contract phương pháp với B phải được xác nhận riêng trước khi chốt M7.
+đã kiểm trực tiếp ngày 20/10; review contract phương pháp với B vẫn cần xác nhận
+riêng trước khi chốt M7. Khi vẽ, các lớp nồng độ/tòa nhà/cửa sổ không bắt picking
+để đổi công cụ; click thông thường được phục hồi sau Hoàn tất/Hủy/Esc.
+
+Fixture bàn giao cho B8.1 ở `app/test/spatial-analysis.e2e-spec.ts`: vùng giao
+28 m², khoảng z=[1,3] m, sau loại ô rắn còn thể tích khí 20 m³, mean=7,5 µg/m³,
+max=10 µg/m³; với ngưỡng 7 µg/m³, thể tích vượt là 10 m³. Pair fixture có ΔC
+cả dương/âm và mean ΔC=1; tự so sánh bằng 0. Null không khí khác nồng độ 0.
+Đây là contract/test do A chuẩn bị, không thay cho review độc lập của B.

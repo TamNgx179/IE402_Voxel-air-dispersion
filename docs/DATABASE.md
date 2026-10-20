@@ -313,3 +313,8 @@ Nguồn tái lập: `npm run db:benchmark:spatial` trong `app/`, report local
 hash/version và full EXPLAIN ANALYZE/BUFFERS. Đây là SQL timings gồm fetch rows,
 không tính HTTP/mask validation/rendering; không phải SLA. Không suy từ
 self-pair benchmark rằng đã so sánh khoa học hai scenario hoặc kiểm GPU/FPS.
+
+Đo lại ngày 20/10/2026 trên cùng run/grid, 3 warm-up + 20 mẫu, không sửa DB:
+comparison SQL self pair p50/p95 **124,94/146,43 ms**; region SQL
+**267,66/302,32 ms**. Report cùng đường dẫn trên đã cập nhật. Chênh lệch thời gian
+phản ánh môi trường/tải máy lúc đo, không phải thay đổi thuật toán hay SLA mới.

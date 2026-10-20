@@ -38,7 +38,7 @@
     }
     return {type:'Polygon',coordinates:raw.coordinates.map(r=>r.map(p=>[...p]))};
   }
-  const number = value=>value===null||value===undefined ? 'Không có dữ liệu' : Number(value).toLocaleString('vi-VN',{maximumSignificantDigits:5});
+  const number = value=>value===null||value===undefined ? 'Không có dữ liệu' : Number(value===0?0:value).toLocaleString('vi-VN',{maximumSignificantDigits:5});
   function analysisError(error) {
     const message=String(error?.message||'');
     if(/positive area|self.?intersection|polygon must be valid/i.test(message)) return 'Vùng đã vẽ không hợp lệ. Hãy vẽ lại, tránh để các cạnh cắt nhau hoặc các điểm nằm trên cùng một đường thẳng.';

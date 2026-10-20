@@ -543,3 +543,47 @@ chọn vùng bằng Vẽ vùng → Hoàn tất. API polygon giữ nguyên. Nút 
 và hàng nút trong cột điều khiển căn phải, không đảo thứ tự DOM/Tab; các mốc
 slider, checkbox và ô nhập không bị dồn theo nút. Web **73/73**, E2E trang/tài
 nguyên **17/17**, JS syntax/diff check PASS; chưa kiểm trực quan qua browser.
+
+### A8 — Nghiệm thu trực tiếp và sửa lỗi picking, 20/10/2026
+
+Browser đã dùng được; các dòng báo disabled ở các mốc 19/10 là lịch sử, không
+còn là blocker hiện tại. Đã build/start monolith theo scripts trong app/package.json;
+giữ nguyên development DB. Lần start đầu diễn ra trước khi build tạo dist nên
+báo thiếu dist/main; sau khi build exit 0, start thành công, không sửa source để
+né lỗi startup. App để chạy phục vụ demo ở origin trong log Bootstrap, cổng 3001.
+
+Browser QA tại viewport 887×764, không giả lập kết quả:
+
+| Luồng | Kết quả quan sát |
+|---|---|
+| Vẽ trên vùng có nhà/cửa sổ | Phát hiện picking mở mục Bản đồ, callback đổi tool hủy vẽ; các click tiếp theo mở Thống kê. Đã sửa: không picking nồng độ/nhà/cửa sổ trong draw mode và guard showBuildingAppearance. Test hồi quy FAIL trước sửa, PASS sau sửa |
+| Polygon 4 đỉnh và 0–15 m | Mean 0,17508; max 0,50691 µg/m³; thể tích khí 348.630 m³; bảng từng tầng và CSV hiện đúng |
+| Đổi khoảng 0–10 m | Kết quả/CSV cũ bị ẩn; truy vấn lại mean 0,20514 µg/m³, thể tích khí 228.010 m³ |
+| Tải CSV | Browser hiện “Đã tải bảng CSV”; smoke API đối chiếu các hàng CSV với JSON |
+| Vẽ lại rồi Esc | Thoát draw mode, giữ polygon trước đó; Hoàn tất chỉ bật khi đủ 3 điểm |
+| Polygon tự cắt | Trả thông báo tiếng Việt hướng dẫn vẽ lại, không hiển thị kết quả/CSV sai |
+| Xóa vùng | Ẩn settings/result/CSV, trở về Vẽ vùng |
+| So sánh mùa khô–mưa, 25 m | Mean gốc 0,02523; so sánh 0,025787; Δmean 0,00055683 µg/m³; 8.709 ô khí |
+| Gốc/So sánh/Chênh lệch | Đổi lớp trên cùng map; hai lớp nồng độ chung thang tuyến tính; ΔC có tâm 0 |
+| Tự so sánh | ΔC=0; sửa nhãn -0 thành 0, có regression riêng |
+
+Ảnh local: `artifacts/a8-acceptance/region-0-10m.png` và
+`artifacts/a8-acceptance/comparison-25m.png`. Bản ghi local ở
+`artifacts/a8-acceptance/acceptance.json`. Không tạo lại docs/evidence.
+
+Freeze: clone sạch commit `1d11064` vào thư mục tạm bằng Git với
+`core.autocrlf=false`, checkout detached rồi chạy `node scripts/check-freeze.mjs`.
+Windows Node 22.16.0 và Linux Node 22.23.3 (image node:22-alpine, mount checkout
+read-only, không network/capabilities trong container) cùng PASS 74 files và
+candidate SHA `bfe88511d6764bd0ddaf690b497d6adcf55f1fdc5f8777c4ae03df5eccbb49d8`.
+Linux gọi export verifyFreeze để không ghi artifacts vào mount read-only.
+Không thay lock hoặc byte nội dung mô hình; không gọi đây là máy vật lý thứ hai.
+
+Kiểm tra lại: **76 web + 4 freeze regression PASS**, **38 E2E A8/trang-tài nguyên
+PASS** (21 PostGIS spatial + 17 app shell), production API smoke **5/5 PASS**,
+strict freeze/build/JS syntax/diff check PASS. SQL benchmark chạy lại trên 500.000
+voxel; số đo trong DATABASE.md. Không chạy lại full Python science suite.
+
+A8.2–A8.4 đã có kiểm browser trực tiếp. A8.1 còn xác nhận contract độc lập của
+B8.1; fixture/công thức đã bàn giao trong spec. Chưa chốt M7 (B8.2/B8.3 chưa
+hoàn tất), chưa thay nghiệm thu mobile/performance/máy thứ hai ở tuần 10.

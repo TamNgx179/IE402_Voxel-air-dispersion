@@ -9,7 +9,7 @@ chuyển công việc chốt báo cáo, demo và release từ tuần 8 cũ sang 
 Mã task hiện hành theo tuần thực hiện: A8/B8 = nâng cấp đợt 1, A9/B9 = nâng cấp
 đợt 2, A10/B10 = bàn giao. Các trao đổi/tài liệu trước điều chỉnh có thể dùng mã cũ;
 tra cứu công việc theo tên và bảng hiện hành dưới đây. Không thay đổi trạng thái
-hoàn thành của tuần 1–7; mọi tính năng nâng cấp vẫn chưa thực hiện.
+hoàn thành của tuần 1–7; trạng thái nâng cấp xem bảng cập nhật theo từng task.
 Hai tuần nâng cấp là 10 ngày làm việc tương đối, không phải cam kết ngày lịch;
 nếu vẫn làm bán thời gian phải giảm phạm vi hoặc giãn lịch.
 
@@ -479,10 +479,10 @@ phương án demo dự phòng luôn phải giữ. Trong UI dùng nhóm phân tí
 thu gọn, không đưa mọi tùy chọn lên luồng xem bản đồ chính.
 
 **Điều kiện bắt đầu:** xử lý tính tái lập checkout/freeze trước khi phát triển.
-Kiểm ngày 19/10 cho thấy 57 file local lệch SHA-256 nhưng khớp khi chuẩn hóa
-CRLF → LF; đây là kết quả chẩn đoán, chưa phải đã sửa. Không cập nhật lock để
-che sai lệch. Phải xác nhận model/input không đổi và hash nhất quán trên checkout
-Windows/Linux trước khi chốt freeze mới.
+Đã sửa 57 file CRLF-only mà không đổi nội dung hay lock. Ngày 20/10,
+checkout sạch commit `1d11064` với `core.autocrlf=false` khớp đủ 74 hash trên
+Windows Node 22.16.0 và Linux Node 22.23.3 trong Docker (mount checkout read-only).
+Đây là kiểm khác runtime/OS trên cùng host, không phải nghiệm thu máy thứ hai.
 
 ### Tuần 8 — So sánh run, phân tích vùng và thiết kế nghiên cứu → M7
 
@@ -490,17 +490,19 @@ Windows/Linux trước khi chốt freeze mới.
 
 | ID | Công việc | Đầu ra | Tiêu chí đạt |
 |---|---|---|---|
-| `A8.1` | 🟡 Chuẩn hóa checkout/freeze và chốt contract với B | LF repair + strict hash PASS; contract ở spec | Đã khớp 74 frozen files sau sửa 57 CRLF-only; còn review phương pháp với B và xác nhận checkout máy/OS khác |
-| `A8.2` | 🟡 So sánh hai run trên web/API | Exact comparison, một map/camera, 3 chế độ và biểu đồ | API/production pair và DOM-state tests có kiểm; còn browser QA thật trước khi chốt |
-| `A8.3` | 🟡 Chọn polygon và khoảng cao độ | DTO/schema/controller/service/repository, draw/GeoJSON, JSON/CSV | Đã kiểm PostGIS partial XY/z, holes, solid/null và CSV; còn browser QA vẽ/nhập/xuất thực tế |
-| `A8.4` | 🟡 Kiểm thử comparison và query vùng | Real PostGIS E2E, web regression, freeze tests, benchmark/EXPLAIN | Đã có đo SQL trên 500.000 voxel; browser đang báo disabled nên chưa nghiệm thu toàn bộ UI/rendering |
+| `A8.1` | 🟡 Chuẩn hóa checkout/freeze và chốt contract với B | Freeze checkout sạch Windows/Linux PASS; contract và fixture ở spec | Phần chuẩn hóa của A đã xong; còn xác nhận phương pháp độc lập của B tại B8.1, không tự ký thay |
+| `A8.2` | ✅ So sánh hai run trên web/API | Exact comparison, một map/camera, 3 chế độ và biểu đồ | Browser 20/10: khô–mưa, đổi 25 m, Gốc/So sánh/Chênh lệch, tự so sánh ΔC=0; số liệu production đối chiếu API |
+| `A8.3` | ✅ Chọn polygon và khoảng cao độ | Vẽ trực tiếp, JSON/CSV, kết quả theo tầng | Browser 20/10: vẽ qua tòa nhà, 0–15/0–10 m, tải CSV, đổi thông số ẩn kết quả cũ, Esc/Xóa, lỗi vùng tự cắt tiếng Việt; không có nhập tọa độ theo yêu cầu |
+| `A8.4` | ✅ Kiểm thử comparison và query vùng | PostGIS E2E, web regression, freeze tests, benchmark/EXPLAIN và browser QA | Đã sửa lỗi picking tòa nhà làm thoát vẽ; regression tái hiện FAIL→PASS. Đo lại SQL 500.000 voxel ngày 20/10; chi tiết TEST_DEMO/DATABASE |
 
 **Cập nhật triển khai 19/10/2026:** phương án một bản đồ, chuyển Gốc / So sánh /
 Chênh lệch, không thay solver. API/CSV và tests triển khai trong Results module;
 schema/input rules ở `spec.md`, cách chạy ở `TEST_DEMO.md`, benchmark ở `DATABASE.md`.
-Không chốt M7 chỉ từ API tests: công cụ browser trả disabled dù ảnh Settings
-cho thấy Browser bật. Đây là hạn chế kiểm thử đang mở, không yêu cầu bật full CDP.
-Task B8.1 vẫn thuộc B; công thức trọng số trong spec là contract đề xuất chờ review.
+**Nghiệm thu 20/10/2026:** browser đã hoạt động; đã kiểm trực tiếp A8 và lưu ảnh
+local ở `artifacts/a8-acceptance/`. Không còn lấy trạng thái browser disabled của
+19/10 làm blocker hiện tại. Task B8.1 vẫn thuộc B; công thức trọng số và fixture
+trong spec đã chuẩn bị để B review, chưa có xác nhận độc lập. M7 vẫn cần B8.2/B8.3;
+mobile/performance release và máy vật lý thứ hai giữ ở tuần 10.
 
 **Người B**
 
