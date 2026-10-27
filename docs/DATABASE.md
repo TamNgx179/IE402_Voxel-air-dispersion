@@ -1,10 +1,45 @@
 # Cơ sở dữ liệu — PostgreSQL/PostGIS
 
-> **Trạng thái: v1, cách lưu nồng độ (spec D1) đã chốt ngày 06/10/2026.** Dẫn xuất từ
+> **Trạng thái: v1, cách lưu nồng độ (spec BR-24/49) đã chốt ngày 06/10/2026.** Dẫn xuất từ
 > [`spec.md`](spec.md) (BR-22..BR-27, *Hợp đồng v1 · D1*). Migration ở `db/migrations/` là
 > nguồn sự thật khi đã có; tài liệu này phải được sửa trong cùng PR với migration.
 
 ## 1 · ERD
+
+### Phạm vi hiện hành và nâng cấp đề xuất — 27/10/2026
+
+Schema/migration hiện có vẫn là chuẩn triển khai; tài liệu không tạo migration mới.
+Baseline dùng EPSG:32648 khi tính mét/diện tích; endpoint hiện chưa tổng quát hóa mọi CRS.
+`concentration_columns` giữ một cột z cho từng ô XY. Phân tích vùng lấy diện tích giao
+polygon–ô XY nhân chiều dày giao khoảng z, loại solid/null, sau đó mới tính trọng số thể
+tích. Đây là phân tích khối voxel dù lưu geometry XY + array; không cần giả vờ mọi
+phép toán đều gọi ST_3DIntersects. Xem [PostGIS 2D/3D](https://postgis.net/docs/ST_3DIntersects.html).
+
+Giá trị chính xác nghĩa là số float đã nhập từ NetCDF, không phải mọi chữ số của nghiệm
+liên tục. Không dùng uint8 visualization để aggregate. Mean vùng không phải trung bình
+các mean tầng nếu thể tích khác nhau. Không khí có C=0 vẫn tính vào mẫu/thể tích; toàn
+solid/no-data trả mean/max null, không phải 0. Công thức/fixture A8 tại spec BR-44–45.
+
+Transect spec BR-46–48 **đã có route/repository A9.3**: tái dùng grid/cột nồng độ, tra ô
+bằng origin/spacing theo miền nửa kín, trả mẫu theo khoảng cách dọc tuyến và tâm tầng.
+Không cần thêm bảng cho từng lần vẽ; chỉ đọc không tạo run. Giới hạn số mẫu trước SQL,
+parameterize dữ liệu và kiểm query plan/runtime trên dataset baseline. Không gọi tập
+mẫu theo đường là thể tích; không nội suy mặc định hoặc nhân đôi thống kê do ô bị lấy lặp.
+
+`TransectRepository.projectLine` dùng PostGIS để chiếu tuyến và kiểm toàn tuyến nằm trong
+study area; service tính khoảng cách dọc tuyến trong CRS mét, lấy mẫu đều gồm hai đầu.
+`columns` dùng arrays tham số/ordinality và join khóa run/i/j để lấy slice mảng z và
+solid range. Tối đa 20.000 mẫu vị trí × tầng; thiếu cột nồng độ trả no-data, thiếu grid
+metadata hoặc có giá trị nồng độ trong solid trả 409. Giá trị float4 được cast float8
+trước khi truyền JSON/CSV để tránh làm tròn qua dạng text của real.
+
+Nghiên cứu khác lưới/khác mask không dùng guard comparison A8 hiện tại để lách hợp đồng;
+phải thiết kế phép đối chiếu offline trên miền vật lý chung. LoD render không ghi DB,
+không sửa height/mask. Nếu LoD2 đổi physics thì cần thiết kế version scene tương ứng
+trước khi mở rộng schema, không mặc định đã hỗ trợ bằng dữ liệu height hiện tại.
+
+Các SQL minh họa bên dưới giải thích thiết kế; repository và E2E mới xác nhận câu SQL
+đang chạy. Benchmark SQL+fetch không là độ trễ HTTP đầu-cuối hoặc FPS của viewer.
 
 ```mermaid
 erDiagram
@@ -249,7 +284,7 @@ tâm 10,7746° N 106,7035° E, 500 × 500 m, model CRS **EPSG:32648**.
 | Lớp | Nguồn | Giấy phép | Hiện có | Khoảng trống |
 |---|---|---|---|---|
 | Footprint nhà | OSM qua osmnx | ODbL 1.0 | **62 toà**, phủ 23,3 % diện tích miền | OSM **thiếu nhà thấp**, rõ nhất ở khối phía nam (đối chiếu ảnh vệ tinh 29/09). Chưa đếm được số nhà thiếu |
-| Chiều cao nhà | Google Open Buildings 2.5D Temporal | CC BY 4.0 / ODbL 1.0 | 62/62 toà lấy từ GOB; trung vị 23,2 m, max 91,0 m | Đối chứng OSM chỉ có ở 14 toà (`height`) và 13 toà (`building:levels`). Sai số GOB cho Việt Nam không được công bố (RESEARCH §12.3) |
+| Chiều cao nhà | Google Open Buildings 2.5D Temporal | CC BY 4.0 / ODbL 1.0 | 62/62 toà lấy từ GOB; trung vị 23,2 m, max 91,0 m | Đối chứng OSM chỉ có ở 14 toà (`height`) và 13 toà (`building:levels`). Sai số GOB cho Việt Nam không được công bố (RESEARCH §4) |
 | Đường | OSM `drive` | ODbL 1.0 | 67 cạnh / 6.395,5 m, có cấp đường | — |
 | Mặt nước | OSM `natural=water`, `waterway`, `landuse=reservoir/basin` | ODbL 1.0 | **1 vùng**, 241 m² (`way/801710836`) — tải 06/10/2026 | Sông Sài Gòn nằm ngoài miền 500 m |
 | Công viên / cây xanh | OSM `leisure=park/garden/…`, `landuse=grass/…`, `natural=wood/scrub/…` | ODbL 1.0 | **17 vùng**: 4 park, 4 garden, 4 grass, 5 scrub — tải 06/10/2026 | Phố đi bộ Nguyễn Huệ là `highway=pedestrian`, không phải lớp xanh |
@@ -290,7 +325,7 @@ npm run db:benchmark
 ```
 
 Đọc provenance để phân biệt FV thật với mock; không lấy benchmark mock làm
-kết quả khoa học. Lệnh solver và kiểm định xem [TEST_DEMO.md](TEST_DEMO.md).
+kết quả khoa học. Lệnh solver và kiểm định xem [README – chạy và kiểm thử](../README.md).
 
 ## 8 · Truy vấn comparison/polygon A8
 

@@ -1,6 +1,6 @@
-# ROADMAP — 10 tuần, 2 người, ứng dụng web GIS 3D
+# ROADMAP — 10 mốc tuần, 2 người, ứng dụng web GIS 3D
 
-**Ràng buộc:** 2 người · 10 tuần sau điều chỉnh · lịch gốc bán thời gian · một study area · PM2.5 · chạy được trên
+**Ràng buộc:** 2 người · giữ mã 10 mốc tuần để truy vết · một study area · PM2.5 · chạy được trên
 laptop. Kế hoạch không có gói seminar; thời gian được dùng cho API, cơ sở dữ liệu, tích hợp,
 kiểm thử và báo cáo cuối kỳ.
 
@@ -10,8 +10,10 @@ Mã task hiện hành theo tuần thực hiện: A8/B8 = nâng cấp đợt 1, A
 đợt 2, A10/B10 = bàn giao. Các trao đổi/tài liệu trước điều chỉnh có thể dùng mã cũ;
 tra cứu công việc theo tên và bảng hiện hành dưới đây. Không thay đổi trạng thái
 hoàn thành của tuần 1–7; trạng thái nâng cấp xem bảng cập nhật theo từng task.
-Hai tuần nâng cấp là 10 ngày làm việc tương đối, không phải cam kết ngày lịch;
-nếu vẫn làm bán thời gian phải giảm phạm vi hoặc giãn lịch.
+**Rà soát 27/10/2026:** ưu tiên đáp ứng đề bài và chất lượng, không khóa phần nâng cấp
+trong 10 ngày. Mốc 9 được chia các đợt theo phụ thuộc ở dưới; chốt lịch sau pilot của B
+và benchmark của A. Giữ lịch sử hoàn thành, không tự đóng task chỉ vì cập nhật tài liệu.
+Tham chiếu yêu cầu/ca kiểm thử: spec §4–6. Đề bài không bắt buộc LoD2.
 
 | Nhóm việc trong bản kế hoạch trước | Vị trí/mã hiện hành |
 |---|---|
@@ -121,13 +123,16 @@ Sơ đồ 8 tuần cũ không còn là lịch thực hiện hiện hành; bảng
 | `M5` | 6 | Web 3D đọc API, hai scenario chạy được | Không còn đọc trực tiếp file nội bộ |
 | `M6` | 7 | Demo ổn định, integration tests, số liệu báo cáo | Chạy lại từ DB rỗng và tạo kết quả |
 | `M7` | 8 | So sánh hai run, phân tích polygon, pilot nghiên cứu lưới | API/SQL/web và fixture khớp; thiết kế thí nghiệm tái lập |
-| `M8` | 9 | Nghiên cứu lưới, export và tính năng nâng cấp ổn định | Regression đạt, kết luận đúng mức; khóa phạm vi tính năng |
+| `M8` | 9 (nhiều đợt) | Nghiên cứu lưới, mặt cắt đứng, export và LoD render ổn định | XG-3/6/7 và regression đạt, kết luận đúng mức; khóa phạm vi tính năng |
 | `M9` | 10 | Báo cáo cuối, demo máy thứ hai và release | QG/XG bắt buộc đạt; đủ bộ bàn giao và phương án dự phòng |
 
 ### Cổng chất lượng mục tiêu 9+
 
 Hoàn thành task không đồng nghĩa tự động đạt cổng. Release chỉ được gọi là hoàn thành khi tất
 cả điều kiện dưới đây có bằng chứng lưu trong repository/artifacts:
+
+Đây là cổng chất lượng nhóm chọn để hướng tới bài làm tốt; điểm cuối do giảng viên chấm,
+không phải cam kết 9+. Chỉ dùng tên “đạt” sau khi có kết quả thực và review đúng người.
 
 | Gate | Bằng chứng bắt buộc | Nếu chưa đạt |
 |---|---|---|
@@ -177,7 +182,10 @@ hợp lệ, subprocess thoát thành công và B trả verification pass.
 
 ---
 
-## 4. Tiến độ thực tế tại thời điểm lập kế hoạch
+## 4. Tiến độ thực tế tại thời điểm lập kế hoạch (lịch sử)
+
+Các khoảng trống trong mục này là baseline lúc lập kế hoạch, không phải danh sách thiếu
+hiện tại. Trạng thái hiện hành xem từng task tuần 8–10; không suy ra API/DB chưa có từ bảng cũ.
 
 ### Kết quả đã đạt được
 
@@ -271,7 +279,7 @@ input artifacts và Gaussian baseline.
 
 **Trạng thái 07/10/2026:** B2.1 và B2.2 PASS. Input `100×100×50` được tái dựng từ scene đã
 khóa checksum, chuẩn hóa bằng EDGAR v8.1 chính thức và hai Gaussian baseline đã được chạy lại.
-Cách kiểm tra và giới hạn tuyên bố ở `docs/TEST_DEMO.md`.
+Cách kiểm tra và giới hạn tuyên bố ở README (chạy/test) và spec §5–6 (ca kiểm thử).
 
 ### Tuần 3 — Run API và verification 2D → M2
 
@@ -329,7 +337,7 @@ sau đó xem lại bằng `GET /runs/:id`. Đây là cổng quyết định quan
 **Trạng thái 07/10/2026:** A4 PASS ở mức real E2E smoke: `POST /runs` đi qua NestJS,
 PostGIS, Python wind/FV, manifest verification rồi query lại artifact/summary/slice/profile.
 B1–B4 đã có real CLI smoke 3D, corrected face velocities, verification manifest và exit-code
-regression test; cách tái lập ở `docs/TEST_DEMO.md`.
+regression test; cách tái lập ở README (chạy/test) và spec §5–6 (ca kiểm thử).
 Không suy diễn smoke run thành production result: dữ liệu EDGAR local, production grid và
 steady-state vẫn thuộc B5.
 
@@ -375,7 +383,7 @@ dùng icon SVG và bảng màu nhẹ. Benchmark ban đầu dùng synthetic;
 **Trạng thái 09/10/2026 — B5.1–B5.6:** hoàn tất trên 5 production cases 500.000 voxel.
 Hội tụ 660–663 s mô phỏng, wall-clock 94,55–166,89 s, RSS 303–317 MB; mọi gate pass.
 Audit scene/voxel độc lập 0 mismatch; có ước lượng K số cạnh K vật lý và mass ledger.
-Chi tiết kiểm thử và lệnh tái lập: [TEST_DEMO.md](./TEST_DEMO.md); phương pháp: [RESEARCH.md](./RESEARCH.md).
+Chi tiết kiểm thử và lệnh tái lập: [README – chạy và kiểm thử](../README.md); phương pháp: [RESEARCH.md](./RESEARCH.md).
 
 ### Tuần 6 — Web 3D đọc API và so sánh scenario → M5
 
@@ -397,7 +405,7 @@ Chi tiết kiểm thử và lệnh tái lập: [TEST_DEMO.md](./TEST_DEMO.md); p
 |---|---|---|---|
 | `B6.1` | Chạy hai wind scenarios | Hai artifact bundles | Plume đổi hướng hợp lý |
 | `B6.2` | So sánh FV với Gaussian | Tables/figures | Gắn nhãn model rõ ràng |
-| `B6.3` | So sánh lát 1,5 m và 15 m | Figure/metrics | Có khác biệt định lượng |
+| `B6.3` | So sánh lát yêu cầu 1,5 m (tâm1 m) và 15 m | Figure/metrics | Định lượng chênh lệch theo dữ liệu, kể cả nhỏ/0, không ép một chiều tăng/giảm |
 | `B6.4` | Sensitivity tối thiểu | Bảng sensitivity | Một tham số chính được thay đổi |
 | `B6.5` | Xuất scene manifest và kiểm tra coverage | Manifest + QA figures | Mọi feature hiển thị truy được nguồn; không có building đặt tay |
 | `B6.6` | Sensitivity chiều cao và benchmark/cross-check | Tables/figures | Kết luận chính không dựa vào một bộ height duy nhất; claim đúng mức bằng chứng |
@@ -411,21 +419,21 @@ kéo height slider, đổi scenario, xem threshold, profile và summary hoàn to
 K×0,5, height±20%, provenance/geometry QA và vector corrected `u,v,w` qua artifact API.
 Cross-check độc lập bằng nghiệm giải tích phương trình nhiệt (variance 40 m², sai số 0
 trong tolerance 1%); đây là verification, không phải validation quan trắc/wind tunnel.
-Hình 300 dpi và bảng số liệu được sinh từ manifests; xem [TEST_DEMO.md](./TEST_DEMO.md).
+Hình 300 dpi và bảng số liệu được sinh từ manifests; xem [README – chạy và kiểm thử](../README.md).
 Web ưu tiên FV thật; nút Chạy đã hoàn tất production run tự động. Không dùng fake wind.
-Clean-room Compose, final report, release freeze/evidence index vẫn thuộc tuần 7–8.
+Clean-room candidate thuộc tuần 7; final report/release freeze thuộc mốc tuần 10 theo lịch mới.
 
 ### Tuần 7 — Kiểm thử tích hợp, dashboard và báo cáo kết quả → M6
 
 **Cập nhật 12/10/2026:** A7.1 đã bổ sung retry bootstrap/result/query, tiếp tục polling
 sau mất kết nối, mở khóa session khi saved run 404, không tự retry POST tạo run.
-Test request/state và thao tác browser được ghi ở `TEST_DEMO.md`.
+Test request/state và thao tác browser được ghi ở README và spec §5–6.
 Theo lựa chọn mới, bỏ pilot ảnh Sunwah; dùng vật liệu/cửa sổ sáng minh họa,
 giữ footprint/height GIS. Gió đổi từ mũi tên sang vệt mềm theo trường solver,
 không thêm xoáy/turbulence giả. Ảnh pilot cũ lưu local ngoài web để có thể khôi phục.
 A7.2 đã hoàn tất regression ngày 12/10/2026: required E2E 53/53 không skip,
 unit 96 PASS + 1 Windows symlink skip, web 35/35; browser tạo production run thật
-và query/profile thành công. Cách tái lập: [TEST_DEMO.md](./TEST_DEMO.md).
+và query/profile thành công. Cách tái lập: [README – chạy và kiểm thử](../README.md).
 Tại mốc 12/10, A7.3–A7.6 và nhóm bàn giao chưa được chốt; không đồng nhất A7.2
 với clean-room A7.6. Xem cập nhật 14/10 ngay dưới cho trạng thái mới hơn.
 
@@ -436,7 +444,7 @@ HTTP, kiểm checksum/queries/EXPLAIN, restart và browser. B7.1–B7.6 có full
 science suite, model/config/runtime freeze, phương pháp/GIS limitations, năm
 production cases, hình 300 dpi và ma trận kiểm chứng. Snapshot sinh local tại
 `artifacts/week7/week7-candidate.json`; lệnh tái lập ở
-[WEEK7_RUNBOOK.md](./WEEK7_RUNBOOK.md), draft ở [REPORT_DRAFT.md](./REPORT_DRAFT.md).
+[README – chạy và kiểm thử](../README.md); nội dung kiến trúc/phương pháp hiện ở ARCHITECTURE/RESEARCH. File nháp báo cáo đã bỏ theo yêu cầu.
 M6 đạt mức candidate trên Docker host hiện tại. Máy vật lý thứ hai, final
 report, release tag và rehearsal bảo vệ chưa chốt; theo lịch điều chỉnh sẽ làm ở tuần 10, không chốt M9.
 
@@ -445,10 +453,10 @@ report, release tag và rehearsal bảo vệ chưa chốt; theo lịch điều c
 | ID | Công việc | Đầu ra | Tiêu chí đạt |
 |---|---|---|---|
 | `A7.1` | Loading/error/empty states | UI states | Python process lỗi không làm UI treo |
-| `A7.2` | ✅ API e2e + DB integration tests | Required E2E + web regression | 53 E2E PASS, create/status/query/failure; xem TEST_DEMO |
+| `A7.2` | ✅ API e2e + DB integration tests | Required E2E + web regression | 53 E2E PASS, create/status/query/failure; xem spec §5–6 và script regression |
 | `A7.3` | ✅ Docker Compose đầy đủ | Dockerfile + Compose | Một lệnh dựng monolith + PostGIS |
-| `A7.4` | ✅ Dashboard metrics/provenance | UI + regression | Hiện version, input hash, warnings |
-| `A7.5` | ✅ Viết phần kiến trúc/DB/web | REPORT_DRAFT.md | Có ERD, sequence, query evidence |
+| `A7.4` | ✅ Kết quả dễ đọc và truy được provenance | UI + API/artifacts + regression | UI giữ units/cảnh báo cần thiết; raw version/hash/ledger đã bỏ khỏi sidebar theo yêu cầu, truy qua API/artifacts |
+| `A7.5` | ✅ Viết phần kiến trúc/DB/web | Nội dung kiến trúc/DB; nháp cũ đã bỏ | Có ERD, sequence, query evidence |
 | `A7.6` | ✅ Clean-room E2E rehearsal trên Docker host | Script + evidence snapshot | Fresh volumes → migrate → seed → run → query → browser; máy thứ hai tuần 10 theo lịch điều chỉnh |
 
 **Người B**
@@ -457,9 +465,9 @@ report, release tag và rehearsal bảo vệ chưa chốt; theo lịch điều c
 |---|---|---|---|
 | `B7.1` | ✅ Chạy final candidate verification suite | JUnit + snapshot | 247 Python pass, 0 skip |
 | `B7.2` | ✅ Freeze model parameters | model-freeze.json + runtime lock | Mọi run cuối dùng cùng version |
-| `B7.3` | ✅ Viết phương pháp và hạn chế | REPORT_DRAFT.md | Verification ≠ validation |
+| `B7.3` | ✅ Viết phương pháp và hạn chế | Nội dung phương pháp/dữ liệu ở RESEARCH; nháp cũ đã bỏ | Verification ≠ validation |
 | `B7.4` | ✅ Xuất figure/table 300 dpi | Report assets + captions | Có caption, units, scenario |
-| `B7.5` | ✅ Viết phần dữ liệu GIS 3D và độ tin cậy hình học | REPORT_DRAFT.md | Có coverage, nguồn height, clipping và flat-terrain limitation |
+| `B7.5` | ✅ Viết phần dữ liệu GIS 3D và độ tin cậy hình học | Nội dung phương pháp/dữ liệu ở RESEARCH; nháp cũ đã bỏ | Có coverage, nguồn height, clipping và flat-terrain limitation |
 | `B7.6` | ✅ Lập bảng kết quả candidate 9+ | Evidence snapshot QG-1…QG-10 | Mỗi claim có run_id, metric, figure/table và limitation |
 
 **Kết quả tuần 7:** clean-room seed → run → verification gate → query → web chạy tự động;
@@ -473,8 +481,8 @@ GIS 3D; tăng độ tin cậy số trị, không thêm microservice, auth nhiề
 thật hoặc hiệu ứng làm thay đổi ý nghĩa khoa học. A tiếp tục sở hữu API/web/DB,
 B sở hữu phương pháp/dữ liệu/solver. Tuần 10 mới chốt release; hoàn thành nâng cấp không tự hoàn thành các task bàn giao.
 
-**Thứ tự ưu tiên:** so sánh hai run → truy vấn polygon → nghiên cứu lưới →
-kịch bản giảm nguồn chạy thật nếu còn thời gian. Kiểm máy thứ hai, báo cáo và
+**Thứ tự ưu tiên:** giữ comparison/polygon đã làm → review B và nghiên cứu lưới →
+mặt cắt đứng + xuất kết quả → LoD hiển thị và QA → giảm nguồn/LoD2 có điều kiện. Kiểm máy thứ hai, báo cáo và
 phương án demo dự phòng luôn phải giữ. Trong UI dùng nhóm phân tích nâng cao
 thu gọn, không đưa mọi tùy chọn lên luồng xem bản đồ chính.
 
@@ -493,11 +501,11 @@ Windows Node 22.16.0 và Linux Node 22.23.3 trong Docker (mount checkout read-on
 | `A8.1` | 🟡 Chuẩn hóa checkout/freeze và chốt contract với B | Freeze checkout sạch Windows/Linux PASS; contract và fixture ở spec | Phần chuẩn hóa của A đã xong; còn xác nhận phương pháp độc lập của B tại B8.1, không tự ký thay |
 | `A8.2` | ✅ So sánh hai run trên web/API | Exact comparison, một map/camera, 3 chế độ và biểu đồ | Browser 20/10: khô–mưa, đổi 25 m, Gốc/So sánh/Chênh lệch, tự so sánh ΔC=0; số liệu production đối chiếu API |
 | `A8.3` | ✅ Chọn polygon và khoảng cao độ | Vẽ trực tiếp, JSON/CSV, kết quả theo tầng | Browser 20/10: vẽ qua tòa nhà, 0–15/0–10 m, tải CSV, đổi thông số ẩn kết quả cũ, Esc/Xóa, lỗi vùng tự cắt tiếng Việt; không có nhập tọa độ theo yêu cầu |
-| `A8.4` | ✅ Kiểm thử comparison và query vùng | PostGIS E2E, web regression, freeze tests, benchmark/EXPLAIN và browser QA | Đã sửa lỗi picking tòa nhà làm thoát vẽ; regression tái hiện FAIL→PASS. Đo lại SQL 500.000 voxel ngày 20/10; chi tiết TEST_DEMO/DATABASE |
+| `A8.4` | ✅ Kiểm thử comparison và query vùng | PostGIS E2E, web regression, freeze tests, benchmark/EXPLAIN và browser QA | Đã sửa lỗi picking tòa nhà làm thoát vẽ; regression tái hiện FAIL→PASS. Đo lại SQL 500.000 voxel ngày 20/10; chi tiết spec §5–6 và DATABASE |
 
 **Cập nhật triển khai 19/10/2026:** phương án một bản đồ, chuyển Gốc / So sánh /
 Chênh lệch, không thay solver. API/CSV và tests triển khai trong Results module;
-schema/input rules ở `spec.md`, cách chạy ở `TEST_DEMO.md`, benchmark ở `DATABASE.md`.
+schema/input rules ở `spec.md`, cách chạy ở README và spec §5–6, benchmark ở `DATABASE.md`.
 **Nghiệm thu 20/10/2026:** browser đã hoạt động; đã kiểm trực tiếp A8 và lưu ảnh
 local ở `artifacts/a8-acceptance/`. Không còn lấy trạng thái browser disabled của
 19/10 làm blocker hiện tại. Task B8.1 vẫn thuộc B; công thức trọng số và fixture
@@ -525,7 +533,10 @@ PASS cho nghiên cứu chưa hoàn thành.
 | ID | Công việc | Đầu ra | Tiêu chí đạt |
 |---|---|---|---|
 | `A9.1` | ⬜ Tích hợp kịch bản giảm nguồn (có điều kiện) | Form tối giản, config snapshot, run thật và comparison | Tạo run_id mới, spawn Python qua executor hiện tại; units/provenance/gates đầy đủ; không nhân màu phía client để giả mô phỏng |
-| `A9.2` | ⬜ Xuất kết quả dùng cho báo cáo | CSV chính xác và ảnh bản đồ có chú giải | Có run IDs, cao độ yêu cầu/tâm ô hoặc khoảng z, units, legend, nguồn/attribution và trạng thái minh họa; ảnh không được ngầm coi là số liệu chính xác |
+| `A9.2` | 🟡 Hoàn thiện xuất kết quả dùng cho báo cáo | CSV vùng/comparison/transect đã có; còn hoàn thiện export chung và ảnh bản đồ có chú giải | Có run IDs, cao độ yêu cầu/tâm ô hoặc khoảng z, units, legend, nguồn/attribution và trạng thái minh họa; ảnh không được ngầm coi là số liệu chính xác |
+| `A9.3` | ✅ Mặt cắt đứng theo đường vẽ | DTO/schema/service/repository/controller trong Results, biểu đồ khoảng cách–z và CSV | 27/10: PostGIS E2E, web regression, browser FV thật; CSV 1.700 mẫu khớp JSON và DB. Chi tiết spec BR-46–48; review phương pháp độc lập vẫn thuộc B9.4 |
+| `A9.4` | ⬜ LoD hiển thị có giảm geometry thật | Ba mức render, culling chi tiết, đo trước/sau | Spec F; TC-LOD; giảm vertices/layer data chứ không chỉ opacity; query/CSV không đổi |
+| `A9.5` | ⬜ Hoàn thiện UX và thông tin chất lượng | Kết quả dễ đọc, chất lượng chiều cao/nguồn qua bảng thông tin gọn và export | TC-UX/TC-GEO; không thêm sidebar dài, không phục hồi nhập tọa độ hay bảng kỹ thuật đã bỏ; lỗi tiếng Việt, retry và stale response đúng |
 
 **Người B**
 
@@ -534,9 +545,12 @@ PASS cho nghiên cứu chưa hoàn thành.
 | `B9.1` | ⬜ Hoàn tất nghiên cứu lưới/bước thời gian | Bảng sai số, đồ thị, observed order/GCI nếu phù hợp | Báo cáo cả kết quả không hội tụ; chỉ tính/diễn giải GCI khi thỏa giả thiết, không suy ra grid convergence của đô thị từ analytic case; ghi hạn chế geometry thay đổi khi raster hóa |
 | `B9.2` | ⬜ Chạy baseline và giảm nguồn (có điều kiện) | Ba bundle cùng geometry/wind/K và báo cáo ΔC | Nguồn và mass ledger thay đổi đúng contract; phân biệt giả định tuyến tính với kết quả chạy; không gọi giảm emission proxy là dự báo chính sách hoặc cải thiện chất lượng không khí thực đo |
 | `B9.3` | ⬜ Chốt figure/table và nội dung khoa học | Hình có caption/units, sensitivity và limitations | Số liệu sinh từ artifacts cùng version; nếu bỏ kịch bản giảm nguồn thì dùng kết quả hai mùa và lưới, không để bảng placeholder |
+| `B9.4` | ⬜ Review mặt cắt, phân tích cao độ và chất lượng hình học | Fixture A9.3 đã có C=2+3z và tuyến gấp khúc; B còn review độc lập, bảng/hình theo tầng/cột và nguồn/fallback chiều cao | Không coi test của A là B ký duyệt; đối chiếu E/TC-CUT, 0/null/solid và tâm ô; kết luận theo dữ liệu kể cả khác biệt nhỏ, bàn giao phần khoa học cho A9.5/báo cáo |
+| `B9.5` | ⬜ Đánh giá khả thi LoD2, chỉ triển khai khi qua cổng | Nguồn mái, giấy phép, chất lượng, quyết định làm/không làm và phương pháp đối chiếu | Spec G; TC-ROOF; không có nguồn thì giữ LoD1. Nếu đổi physics: scene/mask/run mới, không bỏ guard comparison A8 |
 
-**Kết quả tuần 9 — M8:** gói mở rộng có so sánh run, phân tích polygon, xuất
-kết quả và nghiên cứu sai số; các tính năng đủ ổn định để khóa phạm vi và chuyển
+**Kết quả mốc tuần 9 — M8:** gói mở rộng có mặt cắt đứng, phân tích cao độ,
+export tái lập, nghiên cứu sai số và LoD hiển thị đo được. LoD2/giảm nguồn được ghi rõ
+đã làm hoặc hoãn có lý do; không là điều kiện ngầm. Các tính năng đủ ổn định để khóa phạm vi và chuyển
 sang nghiệm thu/báo cáo cuối ở tuần 10. Không đánh dấu release tại M8.
 
 ### Tuần 10 — Báo cáo, nghiệm thu và release cuối → M9
@@ -574,12 +588,15 @@ Release chỉ được chốt khi `QG-1` đến `QG-10` đều có trạng thái
 |---|---|---|---|
 | Tuần 8, ngày 1–2 | A8.1; contract comparison/polygon | B8.1–B8.2; fixture, review freeze và thiết kế nghiên cứu | Hash nhất quán; chốt dấu ΔC, trọng số vùng và ngân sách thí nghiệm |
 | Tuần 8, ngày 3–5 | A8.2–A8.4; comparison/polygon và tests | B8.3; pilot lưới, đối chiếu query; B8.4 nếu đủ thời gian | M7; demo hai run và vùng chọn; quyết định giữ/hoãn giảm nguồn |
-| Tuần 9, ngày 1–3 | A9.2; A9.1 nếu giữ | B9.1–B9.3; nghiên cứu và số liệu, giảm nguồn nếu giữ | API/web/export khớp artifacts; không lấy thời gian kiểm thử để bù tính năng |
-| Tuần 9, ngày 4–5 | Hoàn thiện regression/EXPLAIN cho A8/A9, sửa lỗi và khóa phạm vi | Kiểm lại thí nghiệm/figure/table, review contract | M8; feature freeze, không thêm chức năng mới; chuẩn bị bộ bàn giao tuần 10 |
+| Mốc 9, đợt 1 | A9.3 đã triển khai 27/10; phối hợp B review và hoàn thiện A9.2 từ CSV sẵn có | B9.4 review độc lập fixture của A và phương pháp, bổ sung hình/bảng; B9.1 chạy thí nghiệm sau pilot | Mặt cắt và export khớp giá trị tham chiếu, nghiên cứu không bị lẫn dt/lưới; A xong không tự đóng phần B |
+| Mốc 9, đợt 2 | A9.4 benchmark/LoD; A9.5 UX/quality | B9.1 phân tích sai số; B9.3 hình/bảng, B9.5 đánh giá dữ liệu mái | Kết quả chiều cao và hiệu năng có số đo, LoD2 có kết luận khả thi |
+| Mốc 9, đợt 3 tùy chọn | A9.1 sau contract B8.4, chỉ khi giữ | B9.2 hoặc pilot LoD2 khi nguồn đủ | Run thật/config/mask đúng; không dùng hiệu ứng màu thay solver |
+| Cuối mốc 9 | Regression/EXPLAIN/UI và khóa phạm vi | Review độc lập, kiểm lại bảng/hình và diễn giải | M8; tất cả gate cốt lõi và nâng cấp đã chọn có kết quả, không để placeholder |
 | Tuần 10 | A10.1–A10.5 | B10.1–B10.4 | M9; máy vật lý thứ hai, final report/artifacts, Q&A và demo dự phòng; tag/version chỉ theo phê duyệt |
 
-Tuần 8–9 là 10 ngày phát triển tương đối. Tuần 10 dành cho công việc bàn giao
-của tuần 8 trong kế hoạch cũ, không phải một tuần bổ sung tính năng thứ ba.
+Mỗi đợt có thể kéo dài hơn một tuần lịch; chưa có căn cứ để cam kết ngày hoàn tất.
+Ước lượng lại sau B8.3 và pilot A9.3/A9.4; hai người cùng review, không chia đều chỉ bằng số task.
+Tuần 10 là mốc bàn giao của tuần 8 cũ, không bổ sung tính năng sau feature freeze.
 Viết nháp báo cáo và chuẩn bị runbook được làm song song; chỉ chốt bản cuối sau M8.
 
 **Cổng nghiệm thu bổ sung:**
@@ -591,6 +608,8 @@ Viết nháp báo cáo và chuẩn bị runbook được làm song song; chỉ c
 | `XG-3` Sai số được định lượng | Có nghiên cứu lưới/bước thời gian, cấu hình tái lập và kết luận đúng mức, kể cả chưa hội tụ |
 | `XG-4` Giảm nguồn (nếu giữ) | Solver chạy thật với run/config/hash riêng; gates/mass ledger pass; so sánh đúng baseline |
 | `XG-5` Bàn giao được | Máy thứ hai, báo cáo, demo dự phòng; QG-1…QG-10 không hồi quy và A10/B10 được chốt |
+| `XG-6` Chiều đứng rõ ràng | Mặt cắt/profile/lát ngang có fixture tham chiếu, axes/units/tâm ô đúng và hình/bảng định lượng từ B9.4 |
+| `XG-7` LoD hiển thị đúng nghĩa | Geometry giảm thật ở mức xa; số đo cùng môi trường trước/sau; kết quả khoa học bất biến theo zoom |
 
 Nếu cắt kịch bản giảm nguồn thì ghi rõ A9.1/B8.4/B9.2 là **hoãn** và XG-4 là
 **không thuộc phạm vi**, không đánh dấu PASS. M7/M8 chỉ hoàn thành sau kiểm tra
@@ -616,7 +635,7 @@ Phần bàn giao của tuần 8 cũ được chuyển sang tuần 10, không tí
 | Integration, Docker, report, rehearsal | 2 | 2 | 4 |
 | **Tổng** | **16** | **16** | **32** |
 
-**Ngân sách hai tuần nâng cấp (tuần 8–9), kèm hỗ trợ bàn giao tuần 10:** tối đa 20 người-ngày, A/B mỗi người 10 ngày
+**Ước lượng lịch sử trước nâng cấp 27/10 (không còn là trần hiện hành):** 20 người-ngày, A/B mỗi người 10 ngày
 làm việc tập trung, ngoài 32 người-ngày nền tảng. Đây không tương đương 2 tuần
 bán thời gian của lịch gốc.
 
@@ -630,7 +649,7 @@ bán thời gian của lịch gốc.
 | **Tổng mở rộng tối đa** | **10** | **10** | **20** |
 
 Nếu chỉ có thời lượng bán thời gian, ưu tiên XG-1/XG-2/XG-3/XG-5, hoãn giảm
-nguồn và giãn lịch sau pilot ngày 2; không lấy thời gian nghiệm thu/báo cáo để
+nguồn/LoD2 và giãn lịch sau pilot; phạm vi hiện hành giữ thêm XG-6/XG-7 đã chọn, không lấy thời gian nghiệm thu/báo cáo để
 bù cho tính năng mới. Không coi M6 candidate hiện tại là release đã hoàn tất.
 
 Nếu trễ, cắt theo thứ tự: cache/concurrency nâng cao → sensitivity thứ hai → advanced 3D query → hiệu ứng
@@ -640,7 +659,11 @@ thị giác. Không cắt run lifecycle, PostGIS query, FV output, verification 
 
 ## 8. Giả định và độ tin cậy
 
-### Độ tin cậy kế hoạch: khoảng 75%
+### Căn cứ ước lượng và điều kiện cập nhật
+
+Không có dữ liệu để gán xác suất 75% cho lịch. Bảng ngân sách cũ chỉ giữ làm mốc so sánh,
+chưa gồm A9.3–A9.5/B9.4–B9.5. Sau pilot ghi thời gian thực từng gói, chia lại tải A/B
+và lịch mốc 9 trước khi cam kết; không cắt verification, DB/query hoặc chiều z để giữ lịch.
 
 Các giả định chính:
 

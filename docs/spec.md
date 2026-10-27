@@ -1,478 +1,184 @@
-# Đặc tả — Mô phỏng lan truyền ô nhiễm không khí đô thị trên lưới voxel GIS 3D
+# Đặc tả yêu cầu — Mô phỏng lan truyền ô nhiễm không khí đô thị bằng mô hình GIS 3D
 
-> Đây là đặc tả cấp dự án. `RESEARCH.md` cung cấp cơ sở khoa học và nguồn tham khảo;
-> `ARCHITECTURE.md` mô tả cách các thành phần ghép với nhau; `ROADMAP.md` quy định tiến độ
-> và phân công. Khi tài liệu mâu thuẫn, đặc tả này là chuẩn về yêu cầu sản phẩm.
+## 1. Mục tiêu
 
-## Định nghĩa
+Xây dựng mô hình khối không gian (voxel) mô phỏng phát tán chất ô nhiễm theo độ cao, sử dụng mô hình 3D Array/voxel và phân tích không gian đúng đề bài của giảng viên. Sản phẩm cho phép xem nồng độ theo vị trí và chiều cao, phân tích vùng, mặt cắt đứng và đối chiếu kịch bản trên cảnh đô thị lấy từ dữ liệu GIS.
 
-**Voxel** là một ô của lưới ba chiều đều, mang giá trị tại mọi vị trí trong thể tích. Voxel
-khác raster 2.5D, mô hình bề mặt và point cloud vì nó biểu diễn được trường nồng độ trong
-toàn bộ không khí: phía trên mái, giữa hẻm phố và theo nhiều cao độ.
+PostgreSQL/PostGIS và truy vấn là yêu cầu bổ sung của nhóm. Kết quả là mô phỏng PM2.5 thụ động với giả thiết được công bố; không thay thế quan trắc hay đánh giá chất lượng không khí thực tế. Không đặt trước kết luận nồng độ phải giảm theo độ cao.
 
-**Run mô phỏng** là một lần chạy bất đồng bộ, được định danh bằng `run_id`, gắn với snapshot
-tham số, phiên bản mô hình, dữ liệu đầu vào, trạng thái, metrics và artifacts.
+Đây là yêu cầu nghiệm thu, không phải danh sách tính năng đã hoàn thành. Cơ sở phương pháp ở [RESEARCH.md](RESEARCH.md), thiết kế ở [ARCHITECTURE.md](ARCHITECTURE.md), tiến độ và phân công ở [ROADMAP.md](ROADMAP.md).
 
-## Mục tiêu
+## 2. Ràng buộc
 
-Tạo trường nồng độ PM2.5 ba chiều cho một khu vực đô thị tại Việt Nam bằng:
+- Kiến trúc modular monolith NestJS: DTO, schema, controller, service và repository có trách nhiệm rõ; web cùng origin, Python là subprocess nội bộ, PostgreSQL/PostGIS lưu và truy vấn dữ liệu. Không thêm microservice hoặc hàng đợi phân tán.
+- Miền chuẩn 500 × 500 × 100 m; bước lưới 5 × 5 × 2 m, 100 × 100 × 50 ô. Các mô-đun đọc kích thước từ cấu hình; mảng theo `[z,y,x]`.
+- Tính toán khoảng cách/diện tích bằng CRS chiếu theo mét; khu vực chuẩn dùng EPSG:32648. Web nhận kinh độ/vĩ độ WGS84; không tính diện tích trực tiếp bằng độ.
+- z là độ cao trên mặt đất phẳng z=0, không phải cao độ địa hình khảo sát. Phải phân biệt tâm ô, biên ô, solid, no-data và nồng độ bằng 0.
+- NetCDF là dữ liệu khoa học đầy đủ, kèm tọa độ, đơn vị, CRS và provenance. DB lưu phần phục vụ truy vấn; dữ liệu màu không phải dữ liệu tính toán.
+- Mọi nguồn dữ liệu phải có xuất xứ, phiên bản/thời điểm tải, giấy phép và phép biến đổi. Chiều cao suy ra/fallback phải phân biệt với số đo.
+- Tham số, ngưỡng kiểm tra số trị và đơn vị lấy từ cấu hình được phiên bản hóa. Ngưỡng tham chiếu hiển thị không chứng minh tuân thủ tiêu chuẩn trung bình 24 giờ.
+- Kiểm thử dùng DB PostGIS thật cho truy vấn không gian; kiểm tra phương pháp số độc lập với kiểm tra API/UI. Không suy kết quả nghiệm thu từ ảnh giao diện hoặc số lượng test.
 
-1. mô hình hình học thành phố dạng voxel;
-2. trường gió chẩn đoán bảo toàn khối lượng;
-3. phương trình tải–khuếch tán giải bằng thể tích hữu hạn;
-4. các phép phân tích không gian 3D;
-5. ứng dụng modular monolith NestJS có web/API, PostgreSQL/PostGIS và gọi Python solver nội bộ.
-
-Luận điểm cần chứng minh là bản đồ 2D không đủ để thể hiện biến thiên nồng độ theo chiều
-cao. Hệ thống phải trung thực về sai số, provenance và các hiện tượng vật lý chưa mô hình hoá.
-
-## Cơ sở yêu cầu
-
-| Mã | Loại | Nội dung hỗ trợ |
-|---|---|---|
-| `ASSIGN-1` | Đề tài | Mô phỏng lan truyền ô nhiễm không khí đô thị bằng mô hình GIS 3D |
-| `ASSIGN-2` | Kỹ thuật bắt buộc | Mô hình 3D Array/voxel và phân tích không gian |
-| `EXT-1` | Nghiên cứu | Trực quan hoá 2D thiếu thông tin đứng, vị trí 3D và biểu diễn gió không gian |
-| `EXT-2` | Nghiên cứu | Độ phân giải lưới ảnh hưởng mạnh tới sai số mô hình vi mô đô thị |
-| `EXT-3` | EPA | Hệ số phát tán Gaussian đô thị và power-law wind profile |
-| `EXT-4` | QES/URock | Công thức mass-consistency và nghiệm Poisson/SOR |
-| `EXT-5` | Nghiên cứu | Diagnostic wind rẻ hơn nhiều so với LES/DNS nhưng thiếu physics dòng chảy |
-| `EXT-6` | PostGIS | Truy vấn không gian, GiST, `ST_3DIntersects`, `ST_3DDWithin` |
-| `OBS-1` | Repo | Lưới mặc định 500 × 500 × 100 m, `dx=dy=5 m`, `dz=2 m` |
-| `OBS-2` | Repo | Mảng 3D theo `[z,y,x]`, mảng 2D theo `[y,x]` |
-| `OBS-3` | Repo | NetCDF hiện lưu geometry, wind/concentration và provenance |
-| `OBS-4` | Repo | Gaussian baseline, emission, voxel, analysis và web prototype đã có code/test |
-| `SCOPE-1` | Quyết định dự án | PM2.5 được coi là chất thụ động, không phản ứng |
-| `SCOPE-2` | Quyết định dự án | Verification bắt buộc; validation thực địa chưa thuộc MVP |
-| `SCOPE-3` | Quyết định dự án | Một NestJS modular monolith, PostgreSQL/PostGIS và Python solver subprocess là kiến trúc mục tiêu |
-
-### Lưu ý trung thực học thuật
-
-- Benchmark của QES-Plume, CAIRDIO hoặc mô hình khác chỉ dùng làm tham khảo, không được
-  trình bày như độ chính xác đạt được của project.
-- Độ chính xác chiều cao Google Open Buildings ngoài Global South phải được nêu kèm hạn chế.
-- Verification bằng nghiệm giải tích và định luật bảo toàn không phải validation ngoài thực địa.
-- Ngưỡng QCVN/WHO là mức so sánh kết quả, không phải bằng chứng rằng mô hình đúng.
-
-## Phạm vi
+## 3. Phạm vi
 
 ### Trong phạm vi
 
-- Voxel occupancy mask và height field LoD1 cho một study area.
-- Nguồn phát thải giao thông raster hoá vào voxel gần mặt đất.
-- Mass-consistent diagnostic wind: inflow profile, building mask, nghiệm Poisson/SOR.
-- Finite-volume advection–diffusion: upwind bậc một, central diffusion, explicit time step.
-- Gaussian plume analytic làm baseline so sánh.
-- Verification: nghiệm giải tích, bảo toàn khối lượng, boundedness, wall impermeability, CFL.
-- Ít nhất năm phép phân tích không gian 3D.
-- NestJS monolith phục vụ web/API, tạo run, theo dõi trạng thái và truy vấn kết quả.
-- PostgreSQL/PostGIS lưu metadata, geometry, metrics, slices/summaries và provenance.
-- `SimulationModule` gọi Python CLI dưới dạng child process nền và xuất NetCDF/artifacts.
-- Web dựng lại study area 3D từ dữ liệu thực: footprint và chiều cao toà nhà, đường, mặt
-  nước/công viên nếu nguồn có; đồng thời có height slider, scenario switch, threshold,
-  profile và summary.
+- Chuẩn bị footprint/chiều cao nhà, đường và dữ liệu khí tượng/phát thải; voxel hóa cảnh đô thị, phân biệt không khí và vật cản.
+- Trường gió chẩn đoán bảo toàn khối lượng; tải–khuếch tán thể tích hữu hạn ba chiều. Gaussian dùng làm baseline có nhãn.
+- Chạy mô phỏng bất đồng bộ; lưu trạng thái, tham số, metrics, artifact và truy vết nguồn.
+- Web GIS 3D có xoay/nghiêng, nhà LoD1, lát nồng độ theo độ cao, chuyển động gió, chọn ô/profile, thống kê/ngưỡng, phân tích vùng, mặt cắt và so sánh kết quả tương thích.
+- Xuất CSV/ảnh; kiểm tra bảo toàn, tính dương, hội tụ, độ nhạy dữ liệu/lưới/thời bước; dựng lại dự án trên môi trường sạch.
+- Tối ưu LoD hiển thị. Nâng hình học mái lên LoD2 chỉ khi đủ dữ liệu, giấy phép và kiểm chất lượng.
 
 ### Ngoài phạm vi
 
-- Röckle đầy đủ bảy vùng, CFD/RANS/LES hoặc chemical transport model.
-- Chemistry, deposition, washout, resuspension và traffic-produced turbulence đầy đủ.
-- Validation bằng wind tunnel/field measurements trong MVP.
-- Dự báo sức khoẻ, cảnh báo chính thức hoặc thay thế mô hình quy chuẩn AERMOD.
-- Multi-tenant, billing, Kubernetes, mobile app và phân quyền doanh nghiệp.
-- Seminar riêng; toàn bộ công sức tập trung cho sản phẩm, báo cáo và bảo vệ cuối kỳ.
+- CFD giải động lượng đầy đủ, RANS/LES, phản ứng hóa học, mô hình sức khỏe, dự báo vận hành hoặc tuyên bố đã được kiểm định thực địa khi chưa có đối chiếu phù hợp.
+- Thành phố số có texture ảnh thật cho từng nhà, mái/địa hình tự sinh không có căn cứ; LoD2 không phải yêu cầu bắt buộc của giảng viên.
+- Microservice, Redis/broker phân tán, hệ thống tài khoản/thanh toán và seminar.
 
-## Ràng buộc
+## 4. Quy tắc nghiệp vụ
 
-- Grid contract nằm trong `config/project.yaml`; không hard-code spacing ở module khác.
-- Mảng 3D là `[z,y,x]`; mảng 2D là `[y,x]`.
-- Tensor đầy đủ trao đổi bằng CF-conventions NetCDF-4; concentration dùng `float32`.
-- PostgreSQL/PostGIS không thay thế NetCDF cho toàn bộ tensor 3D.
-- Geometry dùng projected CRS phù hợp study area khi tính khoảng cách/diện tích.
-- `POST /runs` trả `202`; HTTP handler không chờ solver, nhưng tác vụ nền vẫn thuộc cùng
-  monolith và không qua message broker/microservice.
-- Hai người, tám tuần, bán thời gian; A sở hữu monolith/web/DB/integration, B sở hữu Python solver/model.
-- Không commit secrets, file môi trường hoặc dữ liệu có giấy phép không phù hợp.
-
-## Quy tắc nghiệp vụ
-
-### 5.1 Tên gọi và bản chất mô hình
-
-| Mã | Quy tắc | Nguồn |
-|---|---|---|
-| `BR-1` | Gọi đúng là **mass-consistent diagnostic wind model**, không gọi là Röckle đầy đủ hoặc CFD | `EXT-4`, `SCOPE-1` |
-| `BR-2` | Không giải phương trình động lượng; toà nhà tác động qua solid mask và face coefficients | `EXT-4`, `EXT-5` |
-| `BR-3` | Chất mô phỏng là PM2.5 thụ động, không phản ứng | `SCOPE-1` |
-| `BR-4` | Gaussian là baseline/đối chiếu, không phải solver voxel chính | `OBS-4` |
-
-### 5.2 Solver vận chuyển
-
-| Mã | Quy tắc | Nguồn |
-|---|---|---|
-| `BR-5` | Advection dùng first-order upwind; không dùng central differencing cho advection | verification hiện có |
-| `BR-6` | Flux tính trên mặt ô để khối lượng rời ô này đi vào ô kề tương ứng | conservation law |
-| `BR-7` | `dt` được tính từ trường vận tốc thực, Courant mục tiêu không quá 0,5 | stability analysis |
-| `BR-8` | Run dừng theo steady-state criterion, không dựa vào số bước cố định | model contract |
-| `BR-9` | Building wall và ground không cho flux xuyên qua; boundary ngoài có clean inflow/open outflow | model contract |
-| `BR-10` | Nồng độ âm vượt tolerance làm run thất bại; không âm thầm clip để che lỗi | verification rule |
-| `BR-36` | Wind solver phải xuất corrected face velocities `uf,vf,wf`; transport dùng trực tiếp các flux này thay vì nội suy lại từ tâm ô | numerical consistency |
-| `BR-37` | Positivity được kiểm trên giá trị cập nhật thô trước mọi round-off correction; mọi correction phải ghi lượng mass thay đổi | numerical honesty |
-
-### 5.3 Geometry, grid và dữ liệu
-
-| Mã | Quy tắc | Nguồn |
-|---|---|---|
-| `BR-11` | Grid mặc định 100 × 100 × 50 nhưng mọi module phải đọc từ config | `OBS-1` |
-| `BR-12` | Thứ tự trục `[z,y,x]` là contract xuyên suốt | `OBS-2` |
-| `BR-13` | Thiếu chiều cao nhà phải được báo cáo; không dùng default im lặng | data quality |
-| `BR-14` | Output khoa học đầy đủ là NetCDF kèm units, CRS, coordinates và provenance | `OBS-3` |
-| `BR-15` | Nguồn dữ liệu, thời điểm tải, version và phép biến đổi phải được lưu | reproducibility |
-
-### 5.4 Monolith, Python subprocess và trạng thái run
-
-| Mã | Quy tắc | Nguồn |
-|---|---|---|
-| `BR-16` | `POST /runs` validate DTO, tạo snapshot tham số và trả `202 Accepted` cùng `run_id` | `SCOPE-3` |
-| `BR-17` | Trạng thái hợp lệ: `queued → running → succeeded/failed`; có thể thêm `cancelled/stale` | architecture |
-| `BR-18` | Python solver không mở port/API; chỉ `SimulationModule` được spawn process bằng command/arguments whitelist | architecture |
-| `BR-19` | Monolith chỉ chạy một simulation process tại một thời điểm trong MVP; retry ghi attempt count và không nhân đôi kết quả | reliability |
-| `BR-20` | Chỉ run vượt qua verification mới được đánh dấu `succeeded` | `SCOPE-2` |
-| `BR-21` | HTTP disconnect không huỷ subprocess; DB là nguồn sự thật và monolith khôi phục/đánh dấu run gián đoạn khi restart | architecture |
-
-### 5.5 PostgreSQL/PostGIS và truy vấn
-
-| Mã | Quy tắc | Nguồn |
-|---|---|---|
-| `BR-22` | DB lưu study area, buildings, roads, scenarios, runs, metrics, slices/summaries và artifacts | `SCOPE-3` |
-| `BR-23` | Geometry có SRID đúng và GiST index; foreign key/index B-tree cho `run_id`, `z_m`, `status` | `EXT-6` |
-| `BR-24` | Tensor đầy đủ nằm ở artifact storage; DB chỉ giữ phần cần filter/aggregate/spatial query | storage trade-off |
-| `BR-25` | Query từ client dùng endpoint/whitelist; không nhận SQL tự do | security |
-| `BR-26` | Tối thiểu có query slice theo z, vùng vượt ngưỡng, profile đứng và summary theo tầng | assignment DB/query |
-| `BR-27` | Truy vấn chính phải có `EXPLAIN (ANALYZE, BUFFERS)` hoặc bằng chứng index phù hợp | performance |
-
-### 5.6 Web và tính trung thực
-
-| Mã | Quy tắc | Nguồn |
-|---|---|---|
-| `BR-28` | Web chỉ gọi API same-origin của monolith, không query DB hoặc gọi Python CLI trực tiếp | architecture |
-| `BR-29` | Height slider đổi đúng lớp `z_m` mà không reload toàn trang | product objective |
-| `BR-30` | UI hiển thị units, scenario, model version, threshold và warnings | reproducibility |
-| `BR-31` | Numerical diffusion và các physics bị thiếu phải xuất hiện trong report/UI | `SCOPE-2` |
-| `BR-32` | Toà nhà trên web dùng đúng footprint và `height_m` của dữ liệu đã voxel hoá; không đặt khối nhà thủ công | 3D scene contract |
-| `BR-33` | Đường, mặt nước và cây xanh lấy từ lớp GIS có provenance và cùng CRS; không bịa feature để làm đẹp | data integrity |
-| `BR-34` | Cảnh MVP là LoD1; cửa sổ/vật liệu minh họa phải được ghi nhãn, không tuyên bố là facade/roof khảo sát nếu nguồn không có. Dùng màu thân nhà trung tính và daylight minh họa có kiểm soát; chi tiết rõ dần khi zoom gần, không sửa dữ liệu GIS/solver | honesty; RESEARCH §20 |
-| `BR-35` | Geometry web, PostGIS và voxel mask phải dùng cùng study-area transform và được kiểm bằng overlay/anchor points | spatial consistency |
-
-### 5.7 Cổng chất lượng release
-
-| Mã | Quy tắc | Nguồn |
-|---|---|---|
-| `BR-38` | FV voxel là kết quả mặc định trên web và trong báo cáo; Gaussian chỉ là baseline có nhãn | project objective |
-| `BR-39` | Run chỉ được `succeeded` khi CFL, divergence, positivity, wall flux, mass balance và artifact integrity đều pass | verification gate |
-| `BR-40` | Threshold/units có một nguồn cấu hình được version hoá; DB seed, API, web và report không được tự chép số riêng | consistency |
-| `BR-41` | Có sensitivity chiều cao và ít nhất một external benchmark/cross-check; mức tuyên bố phải khớp loại bằng chứng | academic quality |
-| `BR-42` | Release phải chạy được trên môi trường sạch theo chuỗi Compose → migrate → seed → run → query → web | reproducibility |
-| `BR-43` | Mọi kết luận định lượng trong báo cáo truy được về `run_id`, model version, input hash, table/figure và limitation | traceability |
-
-## API contract
-
-Mọi endpoint nằm dưới tiền tố `/api`; `/` phục vụ web tĩnh cùng origin. OpenAPI sinh tự động
-tại `/api/docs`.
-
-| Method | Endpoint | Kết quả |
-|---|---|---|
-| `GET` | `/health` | trạng thái monolith, DB, artifact directory và Python runtime |
-| `GET` | `/study-areas` | vùng nghiên cứu và bounds |
-| `GET` | `/scenarios` | kịch bản khí tượng/phát thải |
-| `POST` | `/runs` | tạo run bất đồng bộ, trả `run_id` |
-| `GET` | `/runs/:id` | status, progress, error, metrics |
-| `POST` | `/runs/:id/retry` | đưa run `failed`/`stale` về `queued`, tăng `attempt`; run `succeeded` trả `409` |
-| `GET` | `/runs/:id/slices?z_m=` | concentration layer tại cao độ |
-| `GET` | `/runs/:id/exceedance?threshold=` | cells/vùng vượt ngưỡng |
-| `GET` | `/runs/:id/profile?x=&y=` | profile theo chiều cao |
-| `GET` | `/runs/:id/summary` | mean/max, exceedance volume, mass balance |
-| `GET` | `/runs/:id/artifacts` | manifest và artifact references |
-
-## Mô hình dữ liệu tối thiểu
-
-| Bảng | Trường chính |
+| Mã | Quy tắc |
 |---|---|
-| `study_areas` | `id`, `name`, `geom`, `projected_srid`, `metadata` |
-| `building_footprints` | `id`, `study_area_id`, `geom`, `height_m`, `height_source` |
-| `road_segments` | `id`, `study_area_id`, `geom`, `road_class`, `emission_weight` |
-| `scenarios` | `id`, `name`, `wind_from_deg`, `wind_speed_m_s`, `parameters` |
-| `simulation_runs` | `id`, `scenario_id`, `status`, `model_version`, `input_hash`, timestamps, `error` |
-| `run_metrics` | `run_id`, CFL, divergence, mass terms, steps, runtime |
-| `grid_cells` | `study_area_id`, `i`, `j`, `geom` (ô 5 × 5 m), `solid_from_k` |
-| `concentration_columns` | `run_id`, `i`, `j`, `c_ug_m3 real[nz]` — một dòng cho mỗi cột voxel |
-| `thresholds` | `key`, `value_ug_m3`, `label`, `config_hash` — sinh từ config, không nhập tay |
-| `artifacts` | `run_id`, `kind`, `uri/path`, `checksum`, `size_bytes`, `manifest` |
+| `BR-1` | Gọi đúng là **mass-consistent diagnostic wind model**, không gọi là Röckle đầy đủ hoặc CFD |
+| `BR-2` | Không giải phương trình động lượng; toà nhà tác động qua solid mask và face coefficients |
+| `BR-3` | Chất mô phỏng là PM2.5 thụ động, không phản ứng |
+| `BR-4` | Gaussian là baseline/đối chiếu, không phải solver voxel chính |
+| `BR-5` | Advection dùng first-order upwind; không dùng central differencing cho advection |
+| `BR-6` | Flux tính trên mặt ô để khối lượng rời ô này đi vào ô kề tương ứng |
+| `BR-7` | `dt` được tính từ trường vận tốc thực, Courant mục tiêu không quá 0,5 |
+| `BR-8` | Production dùng steady-state criterion và giới hạn an toàn; phải báo lý do dừng, không coi hết max steps là hội tụ. Analytic/transient study có thể dừng ở thời điểm vật lý cố định đã chốt trước |
+| `BR-9` | Building wall và ground không cho flux xuyên qua; boundary ngoài có clean inflow/open outflow |
+| `BR-10` | Nồng độ âm vượt tolerance làm run thất bại; không âm thầm clip để che lỗi |
+| `BR-11` | Grid mặc định 100 × 100 × 50 nhưng mọi module phải đọc từ config |
+| `BR-12` | Thứ tự trục `[z,y,x]` là contract xuyên suốt |
+| `BR-13` | Thiếu chiều cao nhà phải được báo cáo; không dùng default im lặng |
+| `BR-14` | Output khoa học đầy đủ là NetCDF kèm units, CRS, coordinates và provenance |
+| `BR-15` | Nguồn dữ liệu, thời điểm tải, version và phép biến đổi phải được lưu |
+| `BR-16` | `POST /runs` validate DTO, tạo snapshot tham số và trả `202 Accepted` cùng `run_id` |
+| `BR-17` | Trạng thái hợp lệ: `queued → running → succeeded/failed`; có thể thêm `cancelled/stale` |
+| `BR-18` | Python solver không mở port/API; chỉ `SimulationModule` được spawn process bằng command/arguments whitelist |
+| `BR-19` | Monolith chỉ chạy một simulation process tại một thời điểm trong MVP; retry ghi attempt count và không nhân đôi kết quả |
+| `BR-20` | Chỉ run vượt qua verification mới được đánh dấu `succeeded` |
+| `BR-21` | HTTP disconnect không huỷ subprocess; DB là nguồn sự thật và monolith khôi phục/đánh dấu run gián đoạn khi restart |
+| `BR-22` | DB lưu study area, buildings, roads, scenarios, runs, metrics, slices/summaries và artifacts |
+| `BR-23` | Geometry có SRID đúng và GiST index; foreign key/index B-tree cho `run_id`, `z_m`, `status` |
+| `BR-24` | Tensor đầy đủ nằm ở artifact storage; DB chỉ giữ phần cần filter/aggregate/spatial query |
+| `BR-25` | Query từ client dùng endpoint/whitelist; không nhận SQL tự do |
+| `BR-26` | Tối thiểu có query slice theo z, vùng vượt ngưỡng, profile đứng và summary theo tầng |
+| `BR-27` | Truy vấn chính phải có `EXPLAIN (ANALYZE, BUFFERS)` hoặc bằng chứng index phù hợp |
+| `BR-28` | Web chỉ gọi API same-origin của monolith, không query DB hoặc gọi Python CLI trực tiếp |
+| `BR-29` | Height slider đổi đúng lớp `z_m` mà không reload toàn trang |
+| `BR-30` | UI hiện units/scenario/threshold và cảnh báo cần thiết; version/hash/provenance truy được qua API/export, không buộc hiển thị chi tiết kỹ thuật trên sidebar |
+| `BR-31` | Numerical diffusion và các physics bị thiếu phải xuất hiện trong report/UI |
+| `BR-32` | Toà nhà trên web dùng đúng footprint và `height_m` của dữ liệu đã voxel hoá; không đặt khối nhà thủ công |
+| `BR-33` | Đường, mặt nước và cây xanh lấy từ lớp GIS có provenance và cùng CRS; không bịa feature để làm đẹp |
+| `BR-34` | Cảnh MVP là LoD1; cửa sổ/vật liệu minh họa phải được ghi nhãn, không tuyên bố là facade/roof khảo sát nếu nguồn không có. Dùng màu thân nhà trung tính và daylight minh họa có kiểm soát; chi tiết rõ dần khi zoom gần, không sửa dữ liệu GIS/solver |
+| `BR-35` | Geometry web, PostGIS và voxel mask phải dùng cùng study-area transform và được kiểm bằng overlay/anchor points |
+| `BR-36` | Wind solver phải xuất corrected face velocities `uf,vf,wf`; transport dùng trực tiếp các flux này thay vì nội suy lại từ tâm ô |
+| `BR-37` | Positivity được kiểm trên giá trị cập nhật thô trước mọi round-off correction; mọi correction phải ghi lượng mass thay đổi |
+| `BR-38` | FV voxel là kết quả mặc định trên web và trong báo cáo; Gaussian chỉ là baseline có nhãn |
+| `BR-39` | Run chỉ được `succeeded` khi CFL, divergence, positivity, wall flux, mass balance và artifact integrity đều pass |
+| `BR-40` | Threshold/units có một nguồn cấu hình được version hoá; DB seed, API, web và report không được tự chép số riêng |
+| `BR-41` | Có sensitivity chiều cao và ít nhất một external benchmark/cross-check; mức tuyên bố phải khớp loại bằng chứng |
+| `BR-42` | Release phải chạy được trên môi trường sạch theo chuỗi Compose → migrate → seed → run → query → web |
+| `BR-43` | Mọi kết luận định lượng trong báo cáo truy được về `run_id`, model version, input hash, table/figure và limitation |
+| `BR-44` | Phân tích vùng dùng diện tích giao XY nhân chiều dày giao khoảng z; trung bình có trọng số thể tích không khí. Ô rắn và thiếu số liệu bị loại; số 0 hợp lệ. Không có ô khí: trung bình/cực đại null, thể tích vượt ngưỡng 0. |
+| `BR-45` | So sánh lấy kết quả đối chiếu trừ kết quả gốc. Chỉ so sánh khi cùng khu vực, CRS, lưới, hình học, mô hình và mặt nạ; không dùng chức năng này cho nghiên cứu khác độ phân giải. |
+| `BR-46` | Mặt cắt nhận LineString WGS84 gồm 2–100 đỉnh, toàn tuyến trong miền. Khoảng lấy mẫu mặc định min(dx,dy), do người dùng nhập phải dương và không lớn hơn mức này. Lấy cả hai đầu tuyến với khoảng đều theo chiều dài chiếu; tối đa 20.000 mẫu vị trí–tầng. |
+| `BR-47` | Mặt cắt đọc ô hiện có, không nội suy nồng độ và không chạy lại solver. Đảo tuyến đảo thứ tự mẫu. Phân biệt ô khí, ô rắn và thiếu số liệu; CSV giữ cùng số liệu, đơn vị và metadata với JSON. |
+| `BR-48` | Chỉ số ô theo khoảng nửa kín; độ cao 2 m thuộc tầng bắt đầu ở 2 m, 100 m ngoài miền mặc định. Trả cả độ cao yêu cầu và tâm tầng. Đổi độ cao, vùng hoặc run phải vô hiệu hóa kết quả cũ. |
+| `BR-49` | Nồng độ trong NetCDF lưu float32; DB bảo toàn giá trị đã lưu khi chuyển float4 sang float8 trước xuất JSON. Dữ liệu màu uint8 chỉ để vẽ, không dùng thống kê hoặc CSV. |
+| `BR-50` | API dùng tiền tố /api. Input sai trả 400; run không tồn tại 404; kết quả chưa sẵn sàng hoặc dữ liệu không tương thích 409. Không trả SQL, stack trace hoặc đường dẫn nội bộ cho người dùng. |
+| `BR-51` | CSV xử lý dấu phẩy, dấu nháy, xuống dòng và nguy cơ công thức bảng tính; ảnh xuất phải có legend, độ cao, đơn vị và định danh kết quả. |
+| `BR-52` | LoD hiển thị được phép thay mức chi tiết và culling theo camera nhưng không thay dữ liệu GIS, mặt nạ solver hoặc kết quả truy vấn; đánh giá bằng đo trước/sau trên cùng cảnh và thiết bị. |
+| `BR-53` | LoD2 mái chỉ triển khai khi có nguồn hình học kiểm chứng, giấy phép và kiểm chất lượng. Thiếu nguồn tiếp tục LoD1, không tự bịa mái. LoD hiển thị, LoD hình học và độ phân giải solver là ba khái niệm riêng. |
+| `BR-54` | Nghiên cứu độ phân giải dùng nhiều lưới/thời bước với cùng bài toán vật lý; báo sai số, chi phí và khuếch tán số. Residual nhỏ không thay thế kiểm tra hội tụ lưới. |
+| `BR-55` | UI dùng tiếng Việt dễ hiểu, đơn vị rõ ràng, nhãn ngắn; giải thích phụ trong nút thông tin dùng được bằng chuột và bàn phím. Nút đơn chiếm cả hàng; chưa chọn ô không hiển thị thẻ kết quả trống. |
+| `BR-56` | Loading, mất mạng, rỗng và lỗi phải có hướng xử lý; phản hồi bất đồng bộ cũ không được ghi đè kết quả mới. Không che lỗi bằng số 0 hoặc dữ liệu minh họa không có nhãn. |
 
-ERD, kiểu cột, khoá và index: [`DATABASE.md`](DATABASE.md).
+## 5. Trường hợp biên
 
-## Hợp đồng v1 — monolith ↔ Python solver ↔ DB
+| Mã | Trường hợp | Kết quả mong đợi |
+|---|---|---|
+| E-01 | Độ cao đúng biên tầng, âm hoặc bằng đỉnh miền | Chọn theo khoảng nửa kín; ngoài miền trả lỗi, không tự ép về tầng gần nhất. |
+| E-02 | CRS, thứ tự tọa độ hoặc dimensions sai | Chặn trước khi tính; không âm thầm hoán đổi trục. |
+| E-03 | Thiếu chiều cao nhà | Áp dụng chính sách fallback có nguồn và thống kê tỷ lệ; không coi là số đo. |
+| E-04 | Ô solid, no-data hoặc C=0 | Phân biệt ba trạng thái; không bỏ số 0 và không tô solid như không khí sạch. |
+| E-05 | Khoảng z chỉ giao một phần tầng | Dùng chiều dày thực sự giao khi tính thể tích và trung bình. |
+| E-06 | Vùng không có thể tích không khí | Trả mean/max null, thể tích vượt ngưỡng 0; UI thông báo không có số liệu phù hợp. |
+| E-07 | Polygon tự cắt, diện tích 0 hoặc ngoài miền | Trả 400; toàn bộ vùng phải nằm trong miền nghiên cứu. Không tự cắt vùng hoặc bịa nồng độ. |
+| E-08 | Run không có/chưa sẵn sàng | 404/409 phù hợp; UI không dùng kết quả cũ thay thế. |
+| E-09 | Hai yêu cầu mô phỏng và retry | Chạy tuần tự concurrency=1, theo dõi attempt; không nhân đôi artifact. |
+| E-10 | Mất HTTP, Python lỗi hoặc ứng dụng restart | Không coi mất HTTP là hủy; ghi thất bại/gián đoạn đúng trạng thái, cho phép phục hồi theo chính sách. |
+| E-11 | CFL/divergence/mass/positivity không đạt | Không đánh dấu succeeded; lưu lý do và số liệu chẩn đoán. |
+| E-12 | Hết giới hạn bước nhưng chưa hội tụ | Báo lý do dừng, không công bố hội tụ. |
+| E-13 | Artifact thiếu hoặc checksum sai | Chặn nhập/xuất kết quả không toàn vẹn; báo lỗi cụ thể. |
+| E-14 | Comparison khác CRS/lưới/model/scene/mask | 409 trước phép trừ; không nội suy ngầm. |
+| E-15 | Comparison bằng 0 hoặc âm | Giữ dấu và số 0, thang màu phân kỳ có legend. |
+| E-16 | Tuyến ít hơn 2, quá 100 đỉnh hoặc hai đỉnh liên tiếp trùng | 400; tuyến tự cắt không tự động bị coi là Polygon sai. |
+| E-17 | Tuyến ra ngoài miền hoặc step không hợp lệ | 400 trước truy vấn nồng độ; không cắt tuyến hoặc sửa step ngầm. |
+| E-18 | Mặt cắt vượt 20.000 mẫu vị trí–tầng | 400 trước truy vấn nồng độ; hướng dẫn tăng bước hoặc giảm tuyến/khoảng cao. |
+| E-19 | Đảo hướng tuyến | Khoảng cách tính từ đầu tuyến mới, dãy mẫu đảo tương ứng; nồng độ ô không đổi. |
+| E-20 | Tuyến đi qua nhà hoặc cột thiếu dữ liệu | Trả trạng thái solid/no-data, không nội suy qua vật cản. |
+| E-21 | CSV có dấu nháy, xuống dòng hoặc tiền tố công thức | Escape đúng và chống thực thi công thức; không làm biến dạng số đo. |
+| E-22 | Đổi run/vùng/z trong khi chờ API | Bỏ phản hồi cũ và yêu cầu cập nhật kết quả theo lựa chọn hiện tại. |
+| E-23 | Chưa chọn ô hoặc chưa vẽ tuyến/vùng | Không bày thẻ kết quả trống; giữ hành động cần làm tiếp theo. |
+| E-24 | Mất mạng hoặc truy vấn lỗi | Thông báo tiếng Việt, giữ lựa chọn và cho thử lại; không hiển thị số 0 giả. |
+| E-25 | Tooltip với bàn phím/cảm ứng | Focus/click mở được, Escape đóng; không cản thao tác vẽ hoặc nút chính. |
+| E-26 | Zoom làm đổi LoD hiển thị | Chỉ thay mức chi tiết vẽ; query, CSV và mặt nạ solver không đổi. |
+| E-27 | Không có mái đủ tin cậy | Giữ LoD1 và ghi giới hạn; không công bố LoD2 từ texture. |
+| E-28 | Residual nhỏ nhưng kết quả đổi theo lưới | Báo riêng hội tụ lặp và hội tụ lưới; không gộp thành đạt. |
+| E-29 | Nồng độ dưới ngưỡng tham chiếu | Chỉ mô tả kết quả mô hình, không kết luận không khí an toàn hay đạt chuẩn 24 giờ. |
 
-> **Trạng thái: D1–D4 đã chốt ngày 06/10/2026 (cổng M0).** Từ đây mọi thay đổi phải tăng
-> `schema_version` và sửa spec, migration/DTO và `config/manifest.schema.json` trong cùng một
-> PR (ROADMAP §9.1). Nạp vào DB dùng `columns.csv.gz` qua `COPY`, không dùng Parquet.
+## 6. Tiêu chí nghiệm thu
 
-### D1 · Kết quả nồng độ trong PostGIS
-
-Tensor đầy đủ nằm trong `concentration.nc`. DB giữ **một dòng cho mỗi cột voxel `(i, j)`**,
-chứa mảng `c_ug_m3` dài `nz` theo thứ tự `k` tăng dần; phần tử `NULL` là voxel rắn (toà nhà).
-Geometry chỉ lưu **một lần** cho mỗi study area trong `grid_cells`.
-
-| Lý do | Hệ quả |
+| Mã | Điều kiện đạt |
 |---|---|
-| 100 × 100 × 50 voxel thành 10.000 dòng/run thay vì 500.000 | Đo kích thước thật trong A5.6 |
-| Profile đứng là một dòng | `/profile` không cần aggregate |
-| Slice tại tầng `k` là `c_ug_m3[k+1]` JOIN `grid_cells` | `/slices`, `/exceedance` dùng GiST trên `grid_cells.geom` khi lọc bbox |
-| Summary theo tầng dùng `unnest(...) WITH ORDINALITY` | `/summary` không cần bảng phụ |
-
-Quy tắc cao độ: `z_m` được quy về **ô chứa nó**, `k = floor(z_m / dz)`; response trả cả
-`requested_z_m` yêu cầu lẫn tâm tầng thực (`z_center_m`); `z_m` giữ giá trị tâm tầng để
-tương thích client cũ. Ví dụ `z_m = 1,5` → `k = 0`, tâm 1 m. Miền hợp lệ là
-`0 ≤ z_m < nz × dz`; điểm ngay biên 2 m thuộc tầng `k = 1` khi `dz = 2 m`.
-
-### D2 · Lệnh gọi Python solver
-
-```text
-<PYTHON_BIN> -m src.solver run --run-id <uuid> --config <artifacts/<run_id>/config.yaml> --out <artifacts/<run_id>/>
-```
-
-`SimulationModule` đọc source YAML từ `PROJECT_CONFIG_PATH` (mặc định
-`<REPO_ROOT>/config/project.yaml`), ghi snapshot bất biến theo run trước khi spawn, chạy từ thư
-mục gốc repo và truyền arguments dạng mảng (không qua shell). Solver không mở port và không đọc DB.
-
-| Exit code | Nghĩa | Trạng thái run |
-|---:|---|---|
-| `0` | Hoàn tất, mọi verification check pass, manifest hợp lệ | `succeeded` |
-| `2` | Input/config sai (schema, file thiếu, CRS sai) | `failed` · `error.kind = input` |
-| `3` | Mô hình chạy nhưng không đạt gate (SOR không hội tụ, âm vượt tolerance, mass budget, divergence) | `failed` · `error.kind = model` |
-| `4` hoặc khác | Lỗi hệ thống (I/O, hết bộ nhớ, exception bất ngờ) | `failed` · `error.kind = system` |
-| bị kill do timeout | Monolith dừng tiến trình | `failed` · `error.kind = timeout` |
-
-Tiến độ: mỗi dòng stdout là một JSON
-`{"event": "progress", "stage": "wind|transport|export", "fraction": 0.0–1.0}`; stderr ghi vào
-`solver.log`. Monolith chỉ đánh dấu `succeeded` khi exit `0` **và** manifest khớp
-[`config/manifest.schema.json`](../config/manifest.schema.json) **và** mọi checksum khớp.
-
-Chế độ giả cho tích hợp trước khi có solver thật (A3.4):
-
-- `--mock` ghi đủ bộ artifact đúng contract với một trường nồng độ **tổng hợp** (một chùm
-  Gaussian dựng sẵn), `model = "fv"`, verification `pass`, và `warnings` luôn chứa
-  `"mock run: synthetic field, not a model result"`. Kết quả mock không bao giờ được dùng
-  trong báo cáo.
-- `--mock-fail input|model|system` thoát với mã 2/3/4 tương ứng; với `model`, manifest vẫn được
-  ghi nhưng `verification.status = "fail"`.
-- Không có `--mock` thì solver thật chạy wind SOR → corrected face flux → FV transport.
-  Smoke grid dùng để nghiệm thu B4; B5 production dùng cùng toán tử Poisson với CG
-  và cùng explicit FV face flux được lắp thành ma trận thưa. SOR và bước flux trực tiếp
-  vẫn giữ để đối chiếu regression; đây không phải implicit transport hay mô hình mới.
-
-Thư mục kết quả:
-
-```text
-artifacts/<run_id>/
-├── config.yaml              snapshot do monolith ghi
-├── wind.nc                  u,v,w tâm ô + uf,vf,wf mặt ô (BR-36)
-├── concentration.nc         C [z,y,x], ug m-3, float32
-├── columns.csv.gz           i,j,c_ug_m3 dạng mảng PostgreSQL — monolith COPY vào concentration_columns
-├── metrics.json             dt, Courant, steps, simulated_s, wall_clock_s, mass ledger
-├── manifest.json            theo manifest.schema.json
-└── solver.log
-```
-
-### D3 · Run ở mốc M3 (tuần 4)
-
-Run M3 chạy: wind SOR, rồi FV trong **thời gian mô phỏng cố định**
-(`transport.max_simulated_s` = 600 s, khoảng hai lần thời gian gió 1,6–1,8 m/s đi hết 500 m), rồi verification gate trên production grid. Tiêu chí dừng
-steady-state (BR-8) được thêm ở B5.1 qua trường `stopping.criterion` của manifest, **không đổi
-contract**: `"fixed_time"` ở M3, `"steady_state"` từ M4.
-
-### D3.1 · Production B5/B6 (09/10/2026)
-
-Production mặc định `steady_state`: relative L1 change ≤1e-3 qua 3 kiểm tra liên tiếp
-cách 30 s sau ít nhất 600 s; max 1.800 s. Chưa hội tụ thì failed/exit 3, không xuất
-kết quả thành công. Wind dùng CG cho cùng hệ Poisson, SOR giữ làm reference; CSR là
-tiền tính cùng toán tử FV explicit, không đổi phương trình thành implicit.
-Manifest có convergence residual/history, method, checksum và gate; `wind-vectors.json`
-downsample corrected face averages với run_id, tầng và units m/s. UI không fallback
-gió nền thành solver wind. Kết quả 5 cases và kiểm hình học độc lập ở
-[TEST_DEMO.md](./TEST_DEMO.md).
-
-### D4 · Đóng gói
-
-Một image ứng dụng (Node LTS + Python venv cài `requirements-solver.txt` — tập con của
-`requirements.txt` chỉ gồm thư viện solver cần) và một service `postgis/postgis` trong Compose.
-B sở hữu `requirements-solver.txt` và lệnh kiểm môi trường Python; A sở hữu Dockerfile và
-Compose. Không có container riêng cho Python.
-
-## Trường hợp biên
-
-| Tình huống | Xử lý bắt buộc |
-|---|---|
-| Nhà thiếu chiều cao | fail hoặc dùng fallback có cờ provenance; không im lặng |
-| Nhà cao hơn domain | clip và phát warning định lượng |
-| SOR không hội tụ | run `failed`, lưu residual và iteration count |
-| Nguồn nằm trong solid voxel | reject hoặc relocate theo rule được ghi lại |
-| Gió bằng 0 | solver chuyển thành pure diffusion và không chia cho 0 |
-| Concentration âm | kiểm trước correction; fail nếu vượt tolerance, không che bằng clipping; round-off correction phải ghi mass delta |
-| Face velocity thiếu/không khớp grid | Python run fail trước transport, không nội suy ngầm từ cell-centred field |
-| Payload web quá lớn | downsample/tiling và ghi hệ số |
-| Python subprocess chết giữa run | monolith lưu exit code/stderr, run thành `failed`, có thể retry theo attempt |
-| Monolith restart | quét `queued/running`, giữ artifacts đã hoàn tất và đánh dấu run bị gián đoạn |
-| Artifact thiếu/checksum sai | không trả như kết quả hợp lệ |
-| CRS sai hoặc geometry không hợp lệ | reject khi ingest/migration |
-| Query bbox không giao study area | trả collection rỗng, không lỗi 500 |
-
-## Tiêu chí nghiệm thu
-
-### 9.1 Geometry và dữ liệu
-
-| ID | Tiêu chí | Truy vết |
-|---|---|---|
-| `AC-1` | Voxeliser ghi `H(y,x)` và `B(z,y,x)` đúng dimensions/coordinates | `BR-11..14` |
-| `AC-2` | Building height thiếu được phát hiện và ghi rõ nguồn/fallback | `BR-13` |
-| `AC-3` | NetCDF mở đúng chiều trong QGIS/Panoply mà không cần code riêng | `BR-14` |
-
-### 9.2 Wind và transport
-
-| ID | Tiêu chí | Truy vết |
-|---|---|---|
-| `AC-4` | Divergence sau correction dưới tolerance tại mọi air voxel | `BR-1..2` |
-| `AC-5` | Velocity trong solid voxel bằng 0 và không có flux xuyên tường | `BR-9` |
-| `AC-6` | Closed domain bảo toàn khối lượng trong sai số floating-point | `BR-6` |
-| `AC-7` | Source/open boundary thoả emitted = remaining + escaped trong tolerance | `BR-6` |
-| `AC-8` | Không có concentration âm vượt tolerance | `BR-5`, `BR-10` |
-| `AC-9` | Pure diffusion và uniform advection khớp nghiệm giải tích trong ngưỡng đã ghi | `SCOPE-2` |
-| `AC-10` | Run báo `dt`, Courant, steps, simulated time và wall-clock | `BR-7..8` |
-
-### 9.3 Monolith, Python subprocess và DB
-
-| ID | Tiêu chí | Truy vết |
-|---|---|---|
-| `AC-11` | Request hợp lệ trả `202` + `run_id`; request sai bị reject trước khi tạo run | `BR-16` |
-| `AC-12` | Run đi qua state machine và được phục hồi/đánh dấu đúng sau khi monolith restart | `BR-17`, `BR-21` |
-| `AC-13` | Python exit khác 0 tạo status/error rõ ràng, không tạo artifact “thành công” | `BR-20` |
-| `AC-14` | Migration + seed dựng DB mới từ đầu và có FK/SRID/index | `BR-22..23` |
-| `AC-15` | Slice, exceedance, profile và summary trả đúng `run_id`, `z_m`, units | `BR-26` |
-| `AC-16` | Spatial query có bằng chứng dùng index hoặc lý giải đo được | `BR-27` |
-| `AC-17` | Hai run đồng thời được tuần tự hoá theo giới hạn concurrency=1; retry không nhân đôi output | `BR-19` |
-
-### 9.4 Web và kết quả
-
-| ID | Tiêu chí | Truy vết |
-|---|---|---|
-| `AC-18` | Height slider đổi lớp nồng độ mà không reload trang | `BR-29` |
-| `AC-19` | Hai wind scenarios cho plume direction khác nhau hợp lý | objective |
-| `AC-20` | Lát 1,5 m và 15 m thể hiện được cấu trúc đứng | objective |
-| `AC-21` | UI hiện threshold, units, version và warnings | `BR-30..31` |
-| `AC-22` | Gaussian/FV được gắn nhãn rõ, không trộn kết quả | `BR-4` |
-| `AC-22a` | 100% building hiển thị có `source_feature_id`, `height_source` và footprint truy ngược được | `BR-32` |
-| `AC-22b` | Chọn mẫu ít nhất 10 toà nhà: footprint, tâm và chiều cao web khớp DB/scene package trong tolerance | `BR-32`, `BR-35` |
-| `AC-22c` | Road/water/green layers khớp basemap và không có feature được đặt tay ngoài dữ liệu nguồn | `BR-33` |
-| `AC-22d` | UI/report ghi rõ cảnh là LoD1 và địa hình phẳng `z=0` | `BR-34` |
-
-### 9.5 Trung thực học thuật
-
-| ID | Tiêu chí | Truy vết |
-|---|---|---|
-| `AC-23` | Báo cáo dùng từ “verification”, không tuyên bố validation chưa thực hiện | `SCOPE-2` |
-| `AC-24` | Numerical diffusion được đo/ước lượng cạnh physical diffusivity | `BR-31` |
-| `AC-25` | Hạn chế cavity/wake, canyon vortex, traffic turbulence và flat terrain được nêu | `BR-31` |
-| `AC-26` | Mọi run có model version, input hash và provenance | `BR-15`, `BR-30` |
-
-### 9.6 Cổng nghiệm thu mục tiêu 9+
-
-| ID | Tiêu chí | Truy vết |
-|---|---|---|
-| `AC-27` | Artifact gió chứa `uf,vf,wf`; divergence của chính face field đưa vào transport dưới tolerance tại mọi air cell | `BR-36` |
-| `AC-28` | Regression test cố tình tạo bước không ổn định phải fail trước clipping; test phát hiện được giá trị âm | `BR-10`, `BR-37` |
-| `AC-29` | Với một production run: emitted mass = remaining + escaped + documented correction trong tolerance; correction xấp xỉ 0 | `BR-37`, `BR-39` |
-| `AC-30` | Mở web sau release mặc định tải scenario `model=fv`; Gaussian chỉ xuất hiện khi người dùng bật comparison | `BR-38` |
-| `AC-31` | Run có verification fail không thể chuyển thành `succeeded` hoặc xuất hiện trong danh sách kết quả hợp lệ | `BR-39` |
-| `AC-32` | Test tự động so sánh threshold/units từ config, DB, API payload, web legend và report fixture, không có sai khác | `BR-40` |
-| `AC-33` | Báo cáo có sensitivity chiều cao và external benchmark/cross-check, nêu rõ đó là verification hay validation | `BR-41` |
-| `AC-34` | Trên môi trường sạch, runbook dựng monolith + DB, seed, spawn Python solver, trả 4 query và mở web mà không sửa tay | `BR-42` |
-| `AC-35` | Evidence index liên kết mỗi figure/table quan trọng tới `run_id`, commit/model version, input hash và manifest | `BR-43` |
-
-## Ghi chú quan sát (cập nhật 09/10/2026)
-
-| Đã quan sát trong repo | Chưa được chứng minh và cần triển khai/đo |
-|---|---|
-| NestJS modular monolith, migration/seed PostGIS và internal executor đã tồn tại | Clean-room Compose rehearsal tuần 7–8 chưa thực hiện |
-| HTTP → Python production FV → PostGIS → web đã succeeded; viewer ưu tiên FV thật, vector theo tầng | Release rehearsal trên máy sạch còn ở tuần 7–8 |
-| 5 cases `100×100×50` hội tụ, tất cả mass/divergence/CFL/positivity/wall gates pass | Parameter freeze và release artifacts cần chốt ở B7/B8 |
-| Corrected faces có tests, K×0,5 và height±20%; cross-check nghiệm giải tích variance 40 m² pass | Chưa field/wind-tunnel validation; Gaussian không phải ground truth |
-| Production runtime 94,55–166,89 s/RSS 303–317 MB; benchmark DB trên FV thật có p50/p95 | Một lần đo runtime/case, không phải thống kê nhiều lượt |
-| Dữ liệu cảnh có provenance và hạn chế phát thải được ghi nhận | Chưa có validation hiện trường; không được tuyên bố “đã validation” |
-
-## Nguồn
-
-- `docs/RESEARCH.md`: cơ sở khoa học, dữ liệu, mô hình và danh mục nguồn đầy đủ.
-- `docs/ARCHITECTURE.md`: kiến trúc modular monolith, Python subprocess, DB và trade-off.
-- `docs/ROADMAP.md`: tiến độ, phân công A/B và tiêu chí mốc.
-- [PostGIS 3D predicates](https://postgis.net/docs/ST_3DIntersects.html).
-- [PostGIS spatial indexes](https://postgis.net/documentation/faq/spatial-indexes/).
-- [US EPA dispersion modelling](https://www.epa.gov/scram/air-quality-dispersion-modeling-preferred-and-recommended-models).
-
-## Phụ lục thay đổi phạm vi
-
-### A. Chiều cao công trình
-
-Open Buildings 2.5D được dùng cho coverage; OSM là nguồn footprint/đối chứng. Khi chiều cao
-bị clip ở 100 m hoặc khác mạnh với OSM, warning và provenance phải đi cùng kết quả.
-
-### B. Mạng đường và địa hình
-
-Road graph phải loại bản sao hai chiều khi tổng hợp chiều dài/phát thải. MVP giả định mặt
-đất phẳng `z=0`; đây là hạn chế được ghi rõ, không phải kết quả đã kiểm chứng.
-
-### C. Kiến trúc modular monolith
-
-So với prototype web tĩnh ban đầu, sản phẩm cuối bổ sung một NestJS modular monolith và
-PostgreSQL/PostGIS. Monolith phục vụ web/API và gọi Python CLI bằng child process; không có
-worker service, broker hay network hop nội bộ. Thay đổi này không làm đổi mô hình khoa học:
-solver vẫn dùng cùng grid, NetCDF và verification contract.
-
-### D. Phân tích nâng cao tuần 8 — contract A8
-
-Giữ một bản đồ/camera và cao độ chung. Bấm nút **Phân tích**, người dùng
-chọn run gốc (selector chính), run so sánh và lớp Gốc / So sánh / Chênh lệch.
-Nồng độ hai run dùng chung thang tuyến tính; ΔC = so sánh − gốc dùng thang
-phân kỳ đối xứng quanh 0. Không trừ mã uint8/log hoặc áp dụng hệ số minh họa.
-Thông tin profile/thống kê/gió ngoài mục phân tích vẫn thuộc run gốc, được ghi rõ.
-
-| Endpoint | Contract |
-|---|---|
-| `GET /api/runs/:id/comparison?compare_run_id=<uuid>&z_m=1` | Hai run succeeded, cùng study area/CRS/grid/scene/model; đủ nx×ny columns, mỗi column đủ nz, cùng mask null. Trả identity/version/hash hai run, tâm tầng, GeoJSON và thống kê từ số thực DB |
-| `POST /api/runs/:id/region` | Query chỉ đọc: body `polygon` (GeoJSON Polygon WGS84), `z_min_m`, `z_max_m`, `threshold_ug_m3` tùy chọn (mặc định 15) |
-| `POST /api/runs/:id/region/csv` | Cùng validation/công thức với JSON; CSV theo tầng, có identity, units, polygon và khoảng z; không tạo run mới |
-
-Region giới hạn 20 rings/500 vertices; mỗi tọa độ là cặp số hữu hạn lon/lat,
-ring đóng, không tự giao và diện tích dương. Polygon phải nằm hoàn toàn trong
-study area; không clip hoặc MakeValid ngầm. Khoảng z thỏa
-`0 <= z_min_m < z_max_m <= nz*dz_m`. Giao XY được tính bằng PostGIS trong
-EPSG:32648; weight = diện tích giao × chiều dày giao với từng tầng. Mean là
-`sum(C*weight)/sum(weight)` trên ô khí; null/solid bị loại, không coi là C=0.
-Không có thể tích khí thì mean/max=null, exceedance volume=0; zero air vẫn là
-nồng độ hợp lệ. Ngưỡng chỉ là tham chiếu mô hình, không phải validation 24h.
-
-Run không tồn tại trả 404; run chưa succeeded hoặc pair không tương thích trả
-409; DTO/geometry/khoảng z sai trả 400. POST query hiện dùng HTTP 201 theo
-Nest mặc định nhưng **không ghi dữ liệu**. CSV được quote và chống formula injection.
-Giá trị chính xác là số thực đã lưu trong PostgreSQL, không ngụ ý bảo toàn mọi
-chữ số của tensor khoa học gốc. Scene hiện được quản lý theo baseline seed;
-không hỗ trợ so sánh các scene sensitivity riêng hay nội suy hai grid khác nhau.
-
-Request cũ không được ghi đè lựa chọn mới. Lỗi có thao tác thử lại; vẽ polygon
-có Hoàn tất/Hủy/Escape/Xóa; đã bỏ nhập vùng bằng tọa độ khỏi giao diện. Browser QA thật
-đã kiểm trực tiếp ngày 20/10; review contract phương pháp với B vẫn cần xác nhận
-riêng trước khi chốt M7. Khi vẽ, các lớp nồng độ/tòa nhà/cửa sổ không bắt picking
-để đổi công cụ; click thông thường được phục hồi sau Hoàn tất/Hủy/Esc.
-
-Fixture bàn giao cho B8.1 ở `app/test/spatial-analysis.e2e-spec.ts`: vùng giao
-28 m², khoảng z=[1,3] m, sau loại ô rắn còn thể tích khí 20 m³, mean=7,5 µg/m³,
-max=10 µg/m³; với ngưỡng 7 µg/m³, thể tích vượt là 10 m³. Pair fixture có ΔC
-cả dương/âm và mean ΔC=1; tự so sánh bằng 0. Null không khí khác nồng độ 0.
-Đây là contract/test do A chuẩn bị, không thay cho review độc lập của B.
+| `AC-1` | Voxeliser ghi `H(y,x)` và `B(z,y,x)` đúng dimensions/coordinates |
+| `AC-2` | Building height thiếu được phát hiện và ghi rõ nguồn/fallback |
+| `AC-3` | NetCDF mở đúng chiều trong QGIS/Panoply mà không cần code riêng |
+| `AC-4` | Divergence sau correction dưới tolerance tại mọi air voxel |
+| `AC-5` | Velocity trong solid voxel bằng 0 và không có flux xuyên tường |
+| `AC-6` | Closed domain bảo toàn khối lượng trong sai số floating-point |
+| `AC-7` | Source/open boundary thoả emitted = remaining + escaped trong tolerance |
+| `AC-8` | Không có concentration âm vượt tolerance |
+| `AC-9` | Pure diffusion và uniform advection khớp nghiệm giải tích trong ngưỡng đã ghi |
+| `AC-10` | Run báo `dt`, Courant, steps, simulated time và wall-clock |
+| `AC-11` | Request hợp lệ trả `202` + `run_id`; request sai bị reject trước khi tạo run |
+| `AC-12` | Run đi qua state machine và được phục hồi/đánh dấu đúng sau khi monolith restart |
+| `AC-13` | Python exit khác 0 tạo status/error rõ ràng, không tạo artifact “thành công” |
+| `AC-14` | Migration + seed dựng DB mới từ đầu và có FK/SRID/index |
+| `AC-15` | Slice, exceedance, profile và summary trả đúng `run_id`, `z_m`, units |
+| `AC-16` | Spatial query có bằng chứng dùng index hoặc lý giải đo được |
+| `AC-17` | Hai run đồng thời được tuần tự hoá theo giới hạn concurrency=1; retry không nhân đôi output |
+| `AC-18` | Height slider đổi lớp nồng độ mà không reload trang |
+| `AC-19` | Hai wind scenarios được đối chiếu hướng lan truyền với trường gió và điều kiện biên, không ép phải khác lớn |
+| `AC-20` | Đối chiếu nhiều tầng và profile, ghi cả cao độ yêu cầu/tâm ô thực; báo cáo biến thiên kể cả khi gần 0 |
+| `AC-21` | UI hiện units/legend và thông báo cần thiết; version/provenance truy được qua API/export, không bắt buộc bày chi tiết kỹ thuật trên sidebar |
+| `AC-22` | Gaussian/FV được gắn nhãn rõ, không trộn kết quả |
+| `AC-22a` | 100% building hiển thị có `source_feature_id`, `height_source` và footprint truy ngược được |
+| `AC-22b` | Chọn mẫu ít nhất 10 toà nhà: footprint, tâm và chiều cao web khớp DB/scene package trong tolerance |
+| `AC-22c` | Road/water/green layers khớp basemap và không có feature được đặt tay ngoài dữ liệu nguồn |
+| `AC-22d` | UI/report ghi rõ cảnh là LoD1 và địa hình phẳng `z=0` |
+| `AC-23` | Báo cáo dùng từ “verification”, không tuyên bố validation chưa thực hiện |
+| `AC-24` | Numerical diffusion được đo/ước lượng cạnh physical diffusivity |
+| `AC-25` | Hạn chế cavity/wake, canyon vortex, traffic turbulence và flat terrain được nêu |
+| `AC-26` | Mọi run có model version, input hash và provenance |
+| `AC-27` | Artifact gió chứa `uf,vf,wf`; divergence của chính face field đưa vào transport dưới tolerance tại mọi air cell |
+| `AC-28` | Regression test cố tình tạo bước không ổn định phải fail trước clipping; test phát hiện được giá trị âm |
+| `AC-29` | Với một production run: emitted mass = remaining + escaped + documented correction trong tolerance; correction xấp xỉ 0 |
+| `AC-30` | Mở web sau release mặc định tải scenario `model=fv`; Gaussian chỉ xuất hiện khi người dùng bật comparison |
+| `AC-31` | Run có verification fail không thể chuyển thành `succeeded` hoặc xuất hiện trong danh sách kết quả hợp lệ |
+| `AC-32` | Test tự động so sánh threshold/units từ config, DB, API payload, web legend và report fixture, không có sai khác |
+| `AC-33` | Báo cáo có sensitivity chiều cao và external benchmark/cross-check, nêu rõ đó là verification hay validation |
+| `AC-34` | Trên môi trường sạch, runbook dựng monolith + DB, seed, spawn Python solver, trả 4 query và mở web mà không sửa tay |
+| `AC-35` | Mỗi figure/table quan trọng có metadata liên kết `run_id`, commit/model version, input hash và manifest trong báo cáo/artifacts; không yêu cầu tạo docs EVIDENCE riêng |
+| `AC-36` | Vùng giao một phần ô/tầng, nhiều ô, toàn solid, thiếu dữ liệu và nồng độ 0 trả kết quả đúng phép tính tay. |
+| `AC-37` | Comparison kiểm tra tương thích trước tính; dấu chênh lệch và giá trị CSV khớp truy vấn gốc. |
+| `AC-38` | Mặt cắt qua nhiều tầng trả đúng ô, chainage và endpoints; kiểm đảo tuyến, solid/no-data, giới hạn mẫu và CSV đối chiếu DB. |
+| `AC-39` | Export giữ đơn vị/provenance; CSV mở đúng cột, chống công thức; ảnh có đủ legend và thông tin tái lập. |
+| `AC-40` | LoD hiển thị có số đo trước/sau và kiểm không đổi query/CSV; thiếu dữ liệu mái không được công bố LoD2. |
+| `AC-41` | Nghiên cứu lưới/thời bước báo cùng miền vật lý, sai số, chi phí, khuếch tán số và giới hạn kết luận. |
+| `AC-42` | UI không hiển thị chưa chọn ô; nút đơn đầy hàng, chú thích ngắn, tooltip mở bằng focus/hover và đóng bằng Escape; trạng thái lỗi tiếng Việt có hướng khắc phục. |
+| `AC-43` | Đổi run/lớp/vùng khi request đang chạy không làm kết quả cũ xuất hiện; mất mạng có thể thử lại mà không tạo run trùng. |

@@ -18,6 +18,18 @@ Màu/cửa sổ sinh ổn định theo building ID, chỉ là minh họa ngoại
 DB và kết quả solver không đổi. Mặt đứng lệch ra ngoài 8 cm chỉ để tránh z-fighting.
 Có thể tắt Chi tiết mặt đứng để so sánh.
 
+### Ranh giới LoD — rà soát 27/10/2026
+
+Code hiện dựng facade và đổi opacity theo zoom; chưa loại geometry/vertices khỏi
+render data. Vì vậy chưa được gọi là LoD render đã tối ưu. A9.4 sẽ tách ba mức
+tổng quan/trung gian/chi tiết và culling, đo trước/sau theo spec BR-52/AC-40.
+Các mức này không là CityGML LoD0/1/2. Footprint/height/mask/query phải bất biến.
+
+LoD2 hình học cần dữ liệu mái có nguồn và kiểm chất lượng (spec BR-53 và roadmap B9.5), không được
+suy từ cửa sổ hoặc màu. Hiện chỉ có footprint/height/fallback, chưa có roof geometry
+đã xác minh. Không khôi phục texture ảnh thật. Nguồn tham khảo chuẩn/hình học mới và
+giới hạn áp dụng ở RESEARCH §1–3, không lấy ngoại hình làm bằng chứng đúng mô hình.
+
 ## Luồng gió
 
 Không còn đầu mũi tên: dùng các vệt ngắn, mờ dần ở hai đầu, chuyển động liên tục.

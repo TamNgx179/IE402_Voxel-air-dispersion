@@ -9,6 +9,10 @@
 
 ## 1 · Thành phần
 
+**Cập nhật 27/10/2026:** sơ đồ tổng quan dưới đây mô tả monolith hiện có; mục “Luồng
+nâng cấp mục tiêu” tách A9.3 đã có và LoD/export ảnh còn dự kiến. Đối chiếu yêu cầu giảng viên và trạng thái qua
+spec §4–6, không suy ra tính năng đã có từ một node trên sơ đồ.
+
 ![Kiến trúc modular monolith GIS 3D](img/architecture-monolith.svg)
 
 Sơ đồ tổng quan nhóm theo người dùng, ứng dụng NestJS, lưu trữ và nguồn ngoài.
@@ -58,13 +62,13 @@ flowchart TB
     API --> ART
 ```
 
-**Everything in the diagram shares one lattice.** Cell-centred fields — the building mask, the
-Lagrange multiplier, the concentration and the analysis copy of `u,v,w` — are all `[z, y, x]` on
-the same 100 × 100 × 50 grid (spec, *Ràng buộc*). The corrected face velocities are the one
-deliberate exception: `uf` is `[z, y, x+1]`, `vf` is `[z, y+1, x]`, `wf` is `[z+1, y, x]`, staggered on
-the same lattice so transport uses them without interpolation (spec BR-36). There is no resampling
-and no coordinate translation between stages, so a bug cannot hide in a conversion that does not
-exist.
+**Các field trong mỗi run dùng chung lưới.** Mask nhà, nhân tử Lagrange, nồng độ và bản
+`u,v,w` tại tâm ô cho phân tích có thứ tự `[z,y,x]`, baseline 100 × 100 × 50.
+Face field lệch nửa ô có shape `uf=[z,y,x+1]`, `vf=[z,y+1,x]`, `wf=[z+1,y,x]`;
+transport dùng trực tiếp các flux mặt đã correction, không nội suy lại từ tâm (BR-36).
+Giữ lưới chung giảm chuyển đổi giữa các bước solver nhưng không loại trừ lỗi alignment:
+GIS đầu vào, NetCDF→DB và projected CRS→web vẫn cần kiểm. Nghiên cứu khác lưới là run
+riêng, không phải cặp comparison A8 tương thích.
 
 Kiến trúc mục tiêu là **modular monolith**, không phải microservice. NestJS là một ứng dụng duy
 nhất chứa các module nghiệp vụ, phục vụ frontend và gọi pipeline Python bằng tiến trình con.
@@ -175,7 +179,7 @@ API của monolith và không đọc trực tiếp file nội bộ.
 Ngoại hình viewer nằm tại `web/building-appearance.js`: palette ngà/pearl, kính minh họa,
 material và preset ambient + key/fill cho deck.gl 9.4.0. Chi tiết mặt đứng rõ dần theo
 zoom; không tải ảnh texture, không đưa cửa sổ/vật liệu/ánh sáng vào DB hay solver.
-Đây là cấu hình trực quan, không phải mô phỏng mặt trời. Nguồn tham khảo ở RESEARCH §20.
+Đây là cấu hình trực quan, không phải mô phỏng mặt trời. Nguồn tham khảo ở RESEARCH §9.
 | Scientific release gate | verification record attached to `run_id` | API chỉ công bố run khi face-divergence, CFL, positivity, wall flux, mass balance và artifact checksum đều pass |
 | Thresholds and units | versioned project configuration + DB seed version | API/web/report đọc cùng nguồn; không hard-code các bản sao độc lập |
 
@@ -225,7 +229,7 @@ phải được ghi vào ledger. FV output là sản phẩm chính; Gaussian ch�
 ## 6 · Trade-off và các phương án bị loại
 
 **This is the section that matters.** A design with no rejected options is a design nobody chose.
-Phân tích nguồn và so sánh đầy đủ nằm ở [`RESEARCH.md`](RESEARCH.md) §10; phần này là bản
+Phân tích nguồn và so sánh đầy đủ nằm ở [`RESEARCH.md`](RESEARCH.md) §7; phần này là bản
 tóm tắt kiến trúc.
 
 ### 6.1 Wind field
@@ -287,19 +291,19 @@ JSON/GeoJSON/Parquet là payload nhẹ cho web. Không ép một định dạng 
 
 ## 7 · Hướng phát triển
 
-In order of value per unit of effort:
+Thứ tự hiện hành theo spec/ROADMAP sau rà soát 27/10:
 
-1. **The 7 Röckle zones** — bounded work with a published formula set, and it removes the largest
-   stated limitation. Roughly twice the current wind cost.
-2. **Validation against Michelstadt or MUST** wind-tunnel data, free from Hamburg EWTL. Turns
-   "verified" into "validated" — the single biggest credibility gain sau MVP.
-3. **A flux limiter** on advection, cutting numerical diffusion without abandoning boundedness.
-4. **Traffic-produced turbulence** as an extra near-road diffusivity — what governs calm
-   conditions, and currently absent entirely.
-5. **A time series** rather than one steady state per run, enabling a diurnal cycle.
-6. **NO₂ with the NO–O₃ reaction**, once the passive-scalar baseline is trusted.
-7. **Tối ưu internal executor và cache** nếu benchmark cho thấy cần; vẫn giữ monolith.
-8. **Object storage** chỉ khi artifact vượt khả năng lưu local; không đổi application boundary.
+1. Review độc lập công thức vùng/comparison và đóng nghiên cứu lưới/dt; không đổi
+   solver chỉ để có thêm tên thuật toán.
+2. Mặt cắt đứng, kết quả theo tầng và export có metadata để làm rõ đóng góp voxel.
+3. LoD render giảm geometry/culling thật, benchmark trước/sau và kiểm query bất biến.
+4. Rà chất lượng height/fallback, error/loading/empty và khả năng bàn giao máy thứ hai.
+5. Giảm nguồn chạy thật hoặc LoD2 có dữ liệu mái chỉ sau cổng khả thi, ghi rõ giữ/hoãn.
+6. Wind-tunnel/field validation, Röckle đầy đủ, flux limiter, turbulence, transient và
+   chemistry là hướng nghiên cứu về sau; mỗi mục cần thiết kế/kiểm chứng riêng. Không
+   có căn cứ nói chi phí Röckle chỉ gấp đôi hoặc thêm một dataset là được “validated”.
+7. Tối ưu executor/cache/object storage chỉ khi đo được nhu cầu; giữ monolith và
+   contract artifact. Chưa cần hạ tầng phân tán hay 3D Tiles cho baseline hiện tại.
 
 ### Definition of done cho release mục tiêu 9+
 
@@ -329,7 +333,67 @@ Web nhận vector từ artifact endpoint đã kiểm checksum, đúng run_id/uni
 mask, không biến metadata gió nền thành kết quả solver. Hạt gió lấy mẫu field downsample,
 hiển thị tăng tốc ×6 và chặn solid/domain; không phải transport particle của PM2.5.
 Pause/reduced-motion giữ hình tĩnh. Hai baseline thật và một run tạo bằng nút Chạy đã thành công;
-[TEST_DEMO.md](./TEST_DEMO.md) ghi cách kiểm tra và tái lập. Clean-room release vẫn cần A7/A8.
+[README – chạy và kiểm thử](../README.md) ghi cách kiểm tra và tái lập. Nghiệm thu release cuối vẫn thuộc A10/B10.
+
+## Luồng nâng cấp mục tiêu — A9.3 đã triển khai, phần còn lại dự kiến
+
+```mermaid
+flowchart LR
+  subgraph CLIENT["Web GIS 3D — cùng origin"]
+    MAP["MapLibre / deck.gl hiện có"]
+    CUT["Mặt cắt khoảng cách–z + CSV · A9.3 đã có"]
+    LOD["LoD render / culling · dự kiến A9.4"]
+    EXPORT["Ảnh + CSV có metadata · A9.2"]
+  end
+  subgraph APP["Một NestJS monolith"]
+    CTRL["Results controller + DTO"]
+    SVC["Results service + response schema"]
+    REPO["Results repository / SQL"]
+    EXEC["SimulationModule / executor hiện có"]
+    PY["Python child process: voxel → wind → FV → verification"]
+  end
+  PG[("PostgreSQL / PostGIS: grid XY + cột z")]
+  FILE[("NetCDF / manifest / metrics")]
+  CUT -->|"POST transect / transect/csv"| CTRL
+  MAP --> CTRL
+  CTRL --> SVC --> REPO --> PG
+  SVC --> EXPORT
+  MAP --> LOD
+  EXEC --> PY --> FILE
+  EXEC --> PG
+```
+
+Các node ghi “dự kiến” thuộc mã nguồn deploy chung, không tạo Python HTTP service,
+broker hoặc dịch vụ transect riêng. API vùng/comparison/transect hiện hành ở spec BR-44–50.
+
+| Lớp | Trách nhiệm | Điều không được làm |
+|---|---|---|
+| DTO/controller | Validate tuyến/z/bước lấy mẫu/giới hạn tải, status và OpenAPI | Không chạy solver hoặc nhét SQL trong controller |
+| Service/schema | Run readiness, georeference, null/solid, response/provenance | Không dùng pixel màu để suy nồng độ |
+| Repository | Tra grid/cột nồng độ, giao XY và khoảng z, query có giới hạn | Không coi ST_Intersects XY là phép giao thể tích XYZ |
+| Client | Vẽ tuyến, trục khoảng cách–z, legend, bỏ kết quả stale; LoD render | Không thay đổi tensor/height/mask khi zoom; không tính chính xác từ uint8 |
+| Python/offline study | Analytic/grid/dt study, đối chiếu trên miền vật lý chung | Không so trực tiếp cùng chỉ số ở hai grid khác nhau |
+
+**Phân biệt hiện tại và mục tiêu:** profile/slice/region/comparison, CSV vùng và vệt
+gió theo solver và transect A9.3 đã có. Ảnh export có legend và LoD render giảm geometry
+chưa có. Hiện facade dựng chi tiết và đổi opacity theo zoom; không được ghi là đã culling.
+Giữ cửa sổ thủ tục, không thêm texture ảnh thật hoặc mái giả như dữ liệu khảo sát.
+
+**Contract địa lý:** baseline dùng EPSG:32648 cho mét/diện tích, web WGS84 lon/lat;
+không tuyên bố hỗ trợ mọi CRS chỉ vì schema có trường SRID. Z là trên mặt đất phẳng.
+Ví dụ yêu cầu z=1,5 m ở baseline ánh xạ tầng k=0, tâm 1 m; z=2 m thuộc k=1,
+z=100 m nằm ngoài miền nửa kín. Cần trả tâm ô thực, không đổi label thành dữ liệu 1,5 m.
+
+**Chất lượng và chuẩn:** LoD1 geometry và LoD render là hai hợp đồng độc lập. LoD2 nếu
+đủ dữ liệu mái phải có source/license/quality và version scene. Dùng mái vào solver cần
+mask/run mới; API comparison A8 tiếp tục chặn mask/grid không khớp. CityJSON/CityGML
+và 3D Tiles chưa là dependency hiện hành; không thêm máy chủ tile hay migration chỉ
+để có tên chuẩn. Kiểm metadata NetCDF không tự chứng nhận tuân thủ CF.
+
+**Kiểm thử:** TC-CUT ở repository/API/UI; TC-LOD đo render và bất biến query; TC-GRID
+ở Python/offline study; TC-EXP kiểm artifact/data/legend. Cấu trúc module giữ
+`dto/`, `schemas/`, `controllers/`, `services/`, `repositories/`, adapter ở
+`infrastructure/`; không tạo một file service gom mọi phép phân tích.
 
 ### Cổng đóng gói cuối
 
@@ -345,6 +409,6 @@ docker compose up
 → web mở cảnh GIS 3D và mặc định hiển thị FV
 ```
 
-Release phải kèm evidence index: `run_id`, commit/model version, input hash, manifest/checksum,
+Release phải truy vết được từ báo cáo/artifacts: `run_id`, commit/model version, input hash, manifest/checksum,
 verification report, query plans, sensitivity table, external cross-check và các hình/bảng dùng
 trong báo cáo. Thiếu một mắt xích thì đó là prototype hoặc plan, chưa phải sản phẩm hoàn thành.

@@ -4,6 +4,23 @@
 tĩnh tại `/`. Python solver **không** phải service; `SimulationModule` spawn nó như một tiến
 trình con (BR-18), mỗi lúc một tiến trình (BR-19).
 
+## Contract hiện hành và hướng mở rộng — 27/10/2026
+
+Spec §4 (BR-44–45) mô tả yêu cầu và comparison/region hiện có. Profile dùng chỉ số `i,j`,
+không phải query `x,y`. Các truy vấn đọc kết quả gốc đã lưu; volume uint8 chỉ dùng render.
+Baseline projected CRS hiện là EPSG:32648, không tuyên bố API đã hỗ trợ mọi CRS.
+
+Transect (spec BR-46–48) đã có `POST /api/runs/:id/transect` và `/transect/csv`, đều trả 200,
+chỉ đọc DB. Body gồm `line` WGS84 LineString, `z_min_m`, `z_max_m`, `step_m` tùy chọn.
+Tối đa 100 đỉnh/20.000 mẫu vị trí × tầng, bước mặc định min(dx,dy), không nội suy.
+Export ảnh (H), LoD render (F) vẫn là thiết kế chưa triển khai.
+Transect nằm trong Results module theo cấu trúc dưới đây; không tách Python
+HTTP service. Vẽ tuyến không tạo simulation run. Giữ guard run readiness/grid/mask,
+giới hạn tải và validation phía server; lỗi UI hiển thị tiếng Việt, không đẩy SQL/JSON
+kỹ thuật cho người sử dụng. LoD render ở client không sửa DB/tensor/mask.
+Test tham chiếu và tình trạng coverage ở [spec §5–6](../docs/spec.md); không coi
+route đề xuất trong tài liệu là route có trong OpenAPI đang chạy.
+
 ## Cấu trúc module
 
 Mỗi feature dùng cùng một quy ước để tránh trộn HTTP, nghiệp vụ và SQL:
@@ -159,4 +176,4 @@ migrate và seed, không reset dữ liệu. `/api/runs/:id/artifacts` trả
 `size_bytes` dạng JSON number dù PostgreSQL lưu bigint.
 
 Required regression và clean-room nằm ở `scripts/week7-checks.mjs` và
-`scripts/rehearse.mjs`. Hướng dẫn đầy đủ: [WEEK7_RUNBOOK.md](../docs/WEEK7_RUNBOOK.md).
+`scripts/rehearse.mjs`. Hướng dẫn đầy đủ: [README – demo và kiểm thử](../README.md).
