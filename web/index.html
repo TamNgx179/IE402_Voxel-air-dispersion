@@ -21,6 +21,11 @@
     <button id="toggle-3d" type="button" aria-pressed="true" aria-label="Chuyển giữa góc nhìn 2D và 3D">3D</button>
   </nav>
 
+  <div class="map-interaction" role="group" aria-label="Thao tác bản đồ">
+    <button id="map-pan-mode" type="button" aria-pressed="true"><i class="bi bi-arrows-move" aria-hidden="true"></i> Di chuyển</button>
+    <button id="map-cell-mode" type="button" aria-pressed="false"><i class="bi bi-cursor-fill" aria-hidden="true"></i> Chọn ô</button>
+  </div>
+
   <aside id="wind-hud" class="wind-hud" aria-live="polite">
     <span id="wind-arrow" class="wind-arrow" aria-hidden="true"><i class="bi bi-arrow-up"></i></span>
     <span><strong id="wind-summary">Đang tải gió…</strong><small id="wind-caption">Gió đầu vào của kịch bản</small></span>
@@ -29,7 +34,6 @@
 
   <aside id="basemap-notice" class="basemap-notice" hidden role="status"><span id="basemap-message"></span><button id="basemap-retry" type="button">Tải lại nền</button></aside>
 
-  <p class="map-hint">Chuột phải hoặc Ctrl + kéo để xoay/nghiêng</p>
 
   <section class="panel" id="panel" aria-label="Điều khiển">
     <header class="panel-head">
@@ -42,7 +46,7 @@
 
     <div id="panel-body">
       <section class="control-card" aria-labelledby="view-title">
-        <h2 id="view-title" class="card-title">Kết quả mô phỏng</h2>
+        <div class="section-heading"><h2 id="view-title" class="card-title">Kết quả mô phỏng</h2><button type="button" class="help-trigger" aria-label="Giải thích kết quả mô phỏng" data-help="Chọn kết quả đã chạy, rồi đổi cao độ để xem nồng độ ở từng tầng."><i class="bi bi-info-circle" aria-hidden="true"></i></button></div>
       <fieldset class="group">
         <legend class="sr-only">Kết quả</legend>
         <label for="scenario-list" class="sr-only">Chọn kết quả mô phỏng</label>
@@ -65,7 +69,6 @@
         <div class="legend-title" id="legend-title">Nồng độ (µg/m³, thang log)</div>
         <div class="legend" id="legend"></div>
         <div class="legend-labels" id="legend-labels"></div>
-        <p class="note" id="legend-note">Nồng độ mô hình · không phải AQI</p>
         <label class="check"><input id="show-grid" type="checkbox" checked /> Ranh giới từng ô</label>
       </div>
       </section>
@@ -88,11 +91,21 @@
       <section class="tool-panel" id="spatial-analysis" aria-label="Phân tích nâng cao" hidden>
         <div class="analysis-switch" role="group" aria-label="Loại phân tích">
           <button id="analysis-region-mode" type="button" aria-pressed="true" aria-controls="region-panel">Theo vùng</button>
+          <button id="analysis-transect-mode" type="button" aria-pressed="false" aria-controls="transect-panel">Mặt cắt đứng</button>
           <button id="analysis-compare-mode" type="button" aria-pressed="false" aria-controls="compare-panel">So sánh kết quả</button>
         </div>
+        <section class="analysis-section" id="transect-panel" aria-labelledby="transect-heading" hidden>
+          <div class="section-heading"><h2 id="transect-heading">Mặt cắt đứng</h2><button type="button" class="help-trigger" aria-label="Cách vẽ tuyến mặt cắt" data-help="Bấm từ 2 điểm trên bản đồ, rồi Hoàn tất tuyến để xem nồng độ theo khoảng cách và độ cao."><i class="bi bi-info-circle" aria-hidden="true"></i></button></div>
+          <div class="analysis-actions"><button id="transect-draw" type="button">Vẽ tuyến</button><button id="transect-finish" type="button" class="action-primary" hidden disabled>Hoàn tất tuyến</button><button id="transect-cancel" type="button" hidden>Hủy tuyến</button><button id="transect-clear" type="button" hidden>Xóa tuyến</button></div>
+          <p id="transect-note" class="note" role="status"></p>
+          <div id="transect-settings" hidden>
+            <div class="analysis-height"><label for="transect-min">Cao độ bắt đầu (m)<input id="transect-min" type="number" min="0" step="any" value="0" /></label><label for="transect-max">Cao độ kết thúc (m)<input id="transect-max" type="number" min="0" step="any" value="50" /></label></div>
+            <div class="analysis-actions"><button id="transect-query" type="button" class="action-primary" disabled>Xem mặt cắt</button></div>
+          </div>
+          <p id="transect-feedback" class="note analysis-feedback" role="status"></p>
+        </section>
         <section class="analysis-section" id="compare-panel" aria-labelledby="compare-heading" hidden>
-          <h2 id="compare-heading">So sánh hai kết quả</h2>
-          <p class="note">Chọn kết quả thứ hai và lớp hiển thị. Số liệu tự cập nhật theo độ cao.</p>
+          <div class="section-heading"><h2 id="compare-heading">So sánh kết quả</h2><button type="button" class="help-trigger" aria-label="Cách so sánh kết quả" data-help="Chọn kết quả thứ hai để xem chênh lệch cùng cao độ. Gió và thống kê ngoài mục này vẫn thuộc kết quả gốc."><i class="bi bi-info-circle" aria-hidden="true"></i></button></div>
           <p class="note" id="analysis-baseline"></p>
           <label for="compare-run">Kết quả so sánh</label>
           <select id="compare-run"><option value="">Chọn kết quả so sánh</option></select>
@@ -103,20 +116,18 @@
           <button type="button" id="comparison-retry" hidden>Cập nhật so sánh</button>
         </section>
         <section class="analysis-section" id="region-panel" aria-labelledby="region-heading">
-          <h2 id="region-heading">Phân tích vùng</h2>
-          <p class="instruction">Vẽ một vùng trên bản đồ để xem nồng độ ô nhiễm bên trong.</p>
+          <div class="section-heading"><h2 id="region-heading">Phân tích vùng</h2><button type="button" class="help-trigger" aria-label="Cách vẽ vùng phân tích" data-help="Bấm ít nhất 3 điểm trên bản đồ rồi Hoàn tất. Chọn khoảng cao độ để tính nồng độ trong vùng."><i class="bi bi-info-circle" aria-hidden="true"></i></button></div>
           <div class="analysis-actions"><button type="button" id="region-draw">Vẽ vùng</button><button type="button" id="region-finish" class="action-primary" disabled hidden>Hoàn tất</button><button type="button" id="region-cancel" hidden>Hủy vẽ</button><button type="button" id="region-clear" hidden>Xóa vùng</button></div>
           <p class="note" id="region-note" role="status"></p>
           <div id="region-settings" hidden>
-          <h3 class="step-title">Khoảng độ cao cần kiểm tra</h3>
+          <h3 class="step-title">Khoảng cao độ</h3>
           <div class="analysis-height"><label for="region-min">Độ cao từ (m)<input id="region-min" type="number" min="0" step="any" value="0" /></label><label for="region-max">Đến độ cao (m)<input id="region-max" type="number" min="0" step="any" value="15" /></label></div>
-          <label for="region-threshold">Ngưỡng tham chiếu (µg/m³)</label><input id="region-threshold" type="number" min="0" step="any" value="15" />
-          <p class="field-help">Dùng để tính phần thể tích khí vượt ngưỡng; không đánh giá chất lượng không khí thực tế.</p>
+          <div class="field-heading"><label for="region-threshold">Ngưỡng tham chiếu (µg/m³)</label><button type="button" class="help-trigger" aria-label="Giải thích ngưỡng tham chiếu" data-help="Tính phần thể tích khí vượt mức này. Chỉ tham khảo mô hình, không đánh giá chất lượng không khí thực tế."><i class="bi bi-info-circle" aria-hidden="true"></i></button></div><input id="region-threshold" type="number" min="0" step="any" value="15" />
           <div class="analysis-actions"><button type="button" id="region-query" class="action-primary" disabled>Phân tích vùng</button></div>
           </div>
           <p class="note analysis-feedback" id="region-feedback" role="status"></p>
           <section id="region-result" class="analysis-result" aria-label="Kết quả phân tích vùng" hidden>
-            <h3>Kết quả trong vùng</h3>
+            <div class="section-heading"><h3>Kết quả trong vùng</h3><button type="button" class="help-trigger" aria-label="Cách đọc kết quả vùng" data-help="Trung bình tính theo thể tích không khí, bỏ ô rắn và ô thiếu dữ liệu. Đây không phải số đo không khí thực tế."><i class="bi bi-info-circle" aria-hidden="true"></i></button></div>
             <div id="region-result-content"></div>
             <button type="button" id="region-export" disabled hidden>Tải CSV</button>
           </section>
@@ -125,7 +136,7 @@
 
       <section class="simulation-section" aria-labelledby="run-title">
         <div class="tool-panel" id="simulation-options" hidden>
-          <h2 id="run-title" class="tool-panel-title">Chạy mô phỏng</h2>
+          <div class="section-heading"><h2 id="run-title" class="tool-panel-title">Chạy mô phỏng</h2><button type="button" class="help-trigger" aria-label="Cách chạy mô phỏng" data-help="Chọn kịch bản rồi bấm Chạy. Kết quả mới tự xuất hiện khi mô phỏng hoàn tất."><i class="bi bi-info-circle" aria-hidden="true"></i></button></div>
           <label for="new-run-scenario">Kịch bản mô phỏng</label>
           <div class="run-form">
             <select id="new-run-scenario"></select>
@@ -139,61 +150,43 @@
       </section>
 
       <section class="tool-panel layer-options" id="map-options" aria-labelledby="map-options-title" hidden>
-        <h2 id="map-options-title" class="tool-panel-title">Lớp bản đồ</h2>
+        <div class="section-heading"><h2 id="map-options-title" class="tool-panel-title">Lớp bản đồ</h2><button type="button" class="help-trigger" aria-label="Giải thích lớp bản đồ" data-help="Bật hoặc tắt lớp hiển thị. Các lựa chọn này không thay đổi dữ liệu mô phỏng."><i class="bi bi-info-circle" aria-hidden="true"></i></button></div>
         <p id="grid-size" class="note"></p>
         <div class="row"><label for="basemap-style">Nền bản đồ</label><select id="basemap-style"><option value="vector">Nền sáng</option><option value="raster">Đường phố OSM</option></select></div>
         <label class="check"><input id="show-buildings" type="checkbox" checked /> Toà nhà</label>
-        <label class="check"><input id="show-facades" type="checkbox" checked /> Chi tiết mặt đứng</label>
-        <p id="building-appearance-note" class="note">Mặt đứng minh họa · hình học GIS</p>
+        <div class="option-help-row"><label class="check"><input id="show-facades" type="checkbox" checked /> Chi tiết mặt đứng</label><button type="button" class="help-trigger" aria-label="Giải thích chi tiết mặt đứng" data-help="Cửa sổ và vật liệu là minh họa. Hình khối và chiều cao tòa nhà lấy từ dữ liệu GIS."><i class="bi bi-info-circle" aria-hidden="true"></i></button></div>
+        <p id="building-appearance-note" class="note"></p>
         <label class="check"><input id="show-roads" type="checkbox" /> Đường</label>
-        <label class="check"><input id="show-wind" type="checkbox" checked /> Gió chuyển động <span class="wind-key" aria-hidden="true"></span></label>
+        <div class="option-help-row"><label class="check"><input id="show-wind" type="checkbox" checked /> Gió chuyển động <span class="wind-key" aria-hidden="true"></span></label><button type="button" class="help-trigger" aria-label="Giải thích gió chuyển động" data-help="Vệt đi theo trường gió mô phỏng, hiển thị nhanh gấp 6 lần để dễ quan sát; không phải khói ô nhiễm."><i class="bi bi-info-circle" aria-hidden="true"></i></button></div>
         <p id="wind-source-note" class="note wind-disclaimer">Đang tải trường gió của kết quả.</p>
         <button type="button" class="text-button" data-disclosure="result-info-content" aria-controls="result-info-content" aria-expanded="false">Thông tin kết quả</button>
         <div id="result-info-content" hidden><p id="model-note" class="note"></p><div id="run-evidence" aria-live="polite"></div></div>
       </section>
 
       <section class="tool-panel" id="analysis-details" aria-label="Thống kê và ô được chọn" hidden>
-      <section class="control-card selected-cell" aria-labelledby="profile-title">
-        <h2 id="profile-title" class="card-title">Ô được chọn</h2>
-        <p id="profile-hint" class="note">Bấm ô để xem theo độ cao.</p>
-        <div id="profile" class="profile"></div>
-        <div class="cell-picker"><button type="button" class="text-button" data-disclosure="cell-picker-content" aria-controls="cell-picker-content" aria-expanded="false">Chọn ô bằng chỉ số</button><div id="cell-picker-content" hidden>
-          <form id="cell-picker-form" class="cell-picker-form">
-            <label>Cột i<input id="cell-i" type="number" min="0" step="1" required value="0" disabled /></label>
-            <label>Hàng j<input id="cell-j" type="number" min="0" step="1" required value="0" disabled /></label>
-            <button id="cell-picker-submit" type="submit" disabled>Xem ô</button>
-          </form>
-          <p class="note">i hướng Đông · j hướng Bắc · bắt đầu từ 0</p>
-        </div></div>
-      </section>
-      <h2 id="analysis-title" class="tool-panel-title">Thống kê & ngưỡng</h2>
-
-      <section class="group" aria-labelledby="stats-title">
-        <h2 id="stats-title">Tầng đang xem <span class="unit">µg/m³</span></h2>
-        <p id="stats-context" class="note"></p>
-        <div class="stats">
-          <div class="stat"><span class="stat-label">Trung bình</span><span id="stat-mean" class="stat-value">–</span></div>
-          <div class="stat"><span class="stat-label">Cao nhất</span><span id="stat-max" class="stat-value">–</span></div>
-          <div class="stat"><span class="stat-label">Ô khí</span><span id="stat-cells" class="stat-value">–</span></div>
+      <section class="stats-block" aria-labelledby="analysis-title">
+      <div class="section-heading"><h2 id="analysis-title" class="tool-panel-title">Nồng độ tầng đang xem</h2><button type="button" class="help-trigger" aria-label="Cách đọc thống kê nồng độ" data-help="Số liệu thuộc tầng đang xem. Trung bình tính trên các ô không khí có dữ liệu; cao nhất là giá trị lớn nhất trong tầng."><i class="bi bi-info-circle" aria-hidden="true"></i></button></div>
+        <p id="stats-context" class="stats-context"></p>
+        <div class="stats concentration-stats">
+          <div class="stat"><span class="stat-label">Trung bình</span><span id="stat-mean" class="stat-value">–</span><span class="metric-unit">µg/m³</span></div>
+          <div class="stat"><span class="stat-label">Cao nhất</span><span id="stat-max" class="stat-value">–</span><span class="metric-unit">µg/m³</span></div>
         </div>
-        <fieldset class="group">
-          <legend>Hiện vùng vượt ngưỡng</legend>
-          <div id="threshold-list" class="choices"></div>
-        </fieldset>
-        <table class="exceed" aria-label="Vượt ngưỡng">
-          <thead><tr><th scope="col">Ngưỡng</th><th scope="col">Diện tích tầng</th><th scope="col">Thể tích cả miền</th></tr></thead>
-          <tbody id="exceed-body"></tbody>
-        </table>
+      </section>
+      <section class="stats-block" aria-labelledby="threshold-title">
+        <div class="section-heading"><h2 id="threshold-title">Tô vùng vượt ngưỡng</h2><button type="button" class="help-trigger" aria-label="Cách xem vùng vượt ngưỡng" data-help="Chọn ngưỡng để tô phần vượt trên bản đồ. Ngưỡng 24 giờ chỉ để tham khảo; số liệu mô phỏng không thay cho quan trắc."><i class="bi bi-info-circle" aria-hidden="true"></i></button></div>
+        <div id="threshold-list" class="threshold-cards"></div>
+      </section>
+      <section class="stats-block selected-cell" id="selected-cell-detail" aria-label="Xem từng ô" hidden>
+        <div class="section-heading"><h2 id="profile-title" class="card-title">Ô được chọn</h2><button type="button" class="help-trigger" aria-label="Cách xem một ô" data-help="Bấm một ô trên bản đồ để xem nồng độ tại các tầng cao độ của ô đó."><i class="bi bi-info-circle" aria-hidden="true"></i></button></div>
+        <div id="profile" class="profile"></div>
       </section>
       </section>
       <section class="tool-panel advanced" id="illustration-options" aria-labelledby="illustration-title" hidden>
-        <h2 id="illustration-title" class="tool-panel-title">Điều chỉnh minh họa</h2>
-        <p class="note">Chỉ đổi cách minh họa nồng độ trên bản đồ; không tạo kết quả mô phỏng mới.</p>
+        <div class="section-heading"><h2 id="illustration-title" class="tool-panel-title">Điều chỉnh minh họa</h2><button type="button" class="help-trigger" aria-label="Giải thích điều chỉnh minh họa" data-help="Chỉ thay đổi nồng độ minh họa trên bản đồ; không chạy lại solver hoặc đổi dữ liệu truy vấn gốc."><i class="bi bi-info-circle" aria-hidden="true"></i></button></div>
         <div class="row"><label for="multiplier">Hệ số nguồn</label>
           <select id="multiplier"><option value="1" selected>× 1 (EDGAR)</option><option value="10">× 10</option><option value="30">× 30</option><option value="100">× 100</option><option value="300">× 300</option></select>
         </div>
         <div class="row"><label for="background">Nồng độ nền (µg/m³)</label><input id="background" type="number" min="0" max="200" step="1" value="0" inputmode="decimal" /></div>
-        <p class="note">Chỉ minh họa, không chạy lại mô hình.</p>
         <button id="illustration-reset" class="text-button" type="button" hidden>Về dữ liệu gốc</button>
       </section>
 
@@ -202,6 +195,14 @@
 
   <div id="status-box" role="status" aria-live="polite"><span id="status">Đang tải thư viện…</span><button id="status-retry" type="button" hidden>Thử lại</button></div>
   <aside id="cell-info" class="cell-info" aria-live="polite" hidden></aside>
+  <section id="transect-result" class="transect-result-panel" aria-labelledby="transect-result-title" hidden>
+    <div class="transect-header"><div><div class="section-heading"><h2 id="transect-result-title">Mặt cắt nồng độ</h2><button type="button" class="help-trigger" aria-label="Cách đọc mặt cắt" data-help="Ngang: khoảng cách. Dọc: cao độ trên nền phẳng. Chọn ô hoặc dùng phím mũi tên để đọc giá trị tại tâm ô, không nội suy."><i class="bi bi-info-circle" aria-hidden="true"></i></button></div><p id="transect-context"></p></div><div class="analysis-actions"><button id="transect-export" type="button" disabled>Tải CSV</button><button id="transect-close" type="button" aria-label="Đóng mặt cắt"><i class="bi bi-x-lg" aria-hidden="true"></i></button></div></div>
+    <p id="transect-empty" class="instruction" hidden></p>
+    <canvas id="transect-chart" height="250" tabindex="0" role="img" aria-label="Mặt cắt đứng: trục ngang là khoảng cách, trục dọc là cao độ. Nhấn vào ô hoặc dùng các phím mũi tên để đọc giá trị." aria-describedby="transect-reading">Dữ liệu mặt cắt có thể tải dưới dạng CSV.</canvas>
+    <div class="transect-key"><span class="transect-color-ramp" aria-hidden="true"></span><span id="transect-scale"></span><span><i class="transect-solid" aria-hidden="true"></i>Tòa nhà</span><span><i class="transect-no-data" aria-hidden="true"></i>Thiếu dữ liệu</span></div>
+    <p id="transect-reading" class="transect-reading" role="status" aria-live="polite"></p>
+  </section>
+  <div id="viewer-help-tooltip" class="help-tooltip" role="tooltip" hidden></div>
 
   <script src="https://unpkg.com/maplibre-gl@5.24.0/dist/maplibre-gl.js"></script>
   <script src="https://unpkg.com/deck.gl@9.4.0/dist.min.js"></script>
@@ -210,7 +211,9 @@
   <script src="./viewer-evidence.js"></script>
   <script src="./viewer-grid.js"></script>
   <script src="./viewer-sidebar.js"></script>
+  <script src="./viewer-help.js"></script>
   <script src="./viewer-analysis.js"></script>
+  <script src="./viewer-transect.js"></script>
   <script src="./building-appearance.js"></script>
   <script src="./app.js"></script>
 </body>

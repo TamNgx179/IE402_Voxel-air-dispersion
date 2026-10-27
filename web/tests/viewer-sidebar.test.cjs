@@ -38,7 +38,7 @@ test('named tools open only one panel and a second click closes it',()=>{
 });
 test('secondary actions have real buttons and maintain aria-expanded',()=>{
   const {doc,elements,disclosures}=documentFixture();mount(doc);
-  for(const name of ['Thông tin kết quả','Chọn ô bằng chỉ số','Chi tiết lỗi']) {
+  for(const name of ['Thông tin kết quả','Chi tiết lỗi']) {
     const button=disclosures.find(b=>b.textContent===name);assert.ok(button,`button ${name}`);
     button.click();assert.equal(button.getAttribute('aria-expanded'),'true');assert.equal(elements[button.dataset.disclosure].hidden,false);
     button.click();assert.equal(button.getAttribute('aria-expanded'),'false');assert.equal(elements[button.dataset.disclosure].hidden,true);

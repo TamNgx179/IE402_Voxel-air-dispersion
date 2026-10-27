@@ -148,7 +148,7 @@ test('region results show metric values, units, interpretation and per-layer tab
   assert.equal(ui.els['region-query'].disabled,true);assert.equal(ui.els['region-export'].hidden,true);
   resolve(regionData);await tick();
   const text=content(ui.els['region-result-content']);
-  for(const value of ['Mùa khô','Nồng độ trung bình','0,12494','µg/m³','Nồng độ cao nhất','Thể tích vượt ngưỡng','Không ghi nhận','Nồng độ theo độ cao','Tâm tầng (m)']) assert.ok(text.includes(value),value);
+  for(const value of ['Mùa khô','Nồng độ trung bình','0,12494','µg/m³','Nồng độ cao nhất','Thể tích vượt ngưỡng','Không có phần không khí vượt','Nồng độ theo độ cao','Tâm tầng (m)']) assert.ok(text.includes(value),value);
   assert.equal(ui.els['region-result'].hidden,false);assert.equal(ui.els['region-export'].hidden,false);assert.equal(ui.els['region-query'].disabled,false);
   ui.namedLabel('Đến độ cao (m)').value='20';ui.namedLabel('Đến độ cao (m)').dispatchEvent(new Event('input'));
   assert.equal(ui.els['region-result'].hidden,true);assert.equal(ui.els['region-export'].hidden,true);

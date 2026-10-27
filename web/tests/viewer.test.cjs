@@ -119,11 +119,11 @@ test("compact sidebar keeps primary controls ahead of named tool buttons and hid
   const html = readFileSync(join(__dirname, "../index.html"), "utf8");
   const ids = Array.from(html.matchAll(/\bid="([^"]+)"/g), (m) => m[1]);
   assert.equal(ids.length, new Set(ids).size, "control IDs must remain unique");
-  for (const id of ["scenario-list", "height-slider", "legend", "show-grid", "profile", "cell-picker-form", "run-button", "query-retry", "threshold-list", "show-wind", "multiplier"]) {
+  for (const id of ["scenario-list", "height-slider", "legend", "show-grid", "profile", "run-button", "query-retry", "threshold-list", "show-wind", "multiplier"]) {
     assert.ok(ids.includes(id), `preserve ${id}`);
   }
   assert.ok(html.indexOf('id="height-slider"') < html.indexOf('id="run-button"'));
-  assert.ok(html.indexOf('id="profile"') < html.indexOf('id="threshold-list"'));
+  assert.ok(html.indexOf('id="threshold-list"') < html.indexOf('id="profile"'));
   const buttons=Array.from(html.matchAll(/<button\b[^>]*data-tool-panel="([^"]+)"[^>]*>/g));
   assert.equal(buttons.length,5);
   for(const [,id] of buttons) {
@@ -264,12 +264,29 @@ test("region selection only exposes drawing, not manual coordinate input",()=>{
   assert.doesNotMatch(app,/MODEL_NOTES\[entry\.model\][^\n]*warnings/);
 });
 
-test("sidebar action groups and standalone buttons align right without reversing interaction order",()=>{
+test("sidebar actions fill the row without reversing interaction order",()=>{
   const css=readFileSync(join(__dirname,'../styles.css'),'utf8');
   assert.match(css,/\.analysis-actions\s*\{[^}]*justify-content:flex-end/);
   assert.match(css,/\.sidebar-nav\s*\{[^}]*grid-template-columns:repeat\(2,minmax\(0,1fr\)\)/);
-  assert.match(css,/\.panel \.text-button,[^{]*#region-export[^{]*\{[^}]*margin-left:auto[^}]*margin-right:0/);
+  assert.match(css,/\.panel \.text-button,[^{]*#region-export[^{]*\{[^}]*margin-left:0[^}]*width:100%/);
+  assert.match(css,/\.tool-panel \.analysis-actions > button[^}]*\{[^}]*flex:1/);
   assert.doesNotMatch(css,/row-reverse|direction:\s*rtl/);
+});
+
+test("statistics group concentrations and thresholds without an empty selected-cell card",()=>{
+  const html=readFileSync(join(__dirname,'../index.html'),'utf8');
+  const css=readFileSync(join(__dirname,'../styles.css'),'utf8');
+  assert.match(html,/id="selected-cell-detail"[^>]*hidden/);
+  assert.doesNotMatch(html,/profile-hint|Chưa chọn ô\./);
+  assert.match(html,/Nồng độ tầng đang xem/);
+  assert.doesNotMatch(html,/legend-note|Nồng độ mô hình · không phải AQI|exceed-body/);
+  assert.match(html,/id="threshold-list" class="threshold-cards"/);
+  assert.match(css,/\.concentration-stats\s*\{[^}]*flex-direction:column/);
+  assert.match(css,/\.tool-panel button\.help-trigger[^}]*\{[^}]*font-size:13px/);
+  assert.doesNotMatch(html,/cell-picker|Chọn ô bằng chỉ số|map-mode-hint/);
+  assert.match(css,/\.map-interaction\s*\{[^}]*bottom:60px[^}]*right:16px/);
+  assert.match(html,/id="map-pan-mode"[^>]*>[\s\S]*?bi-arrows-move/);
+  assert.match(html,/id="map-cell-mode"[^>]*>[\s\S]*?bi-cursor-fill/);
 });
 
 test("tool navigation uses a balanced two-column grid with consistent single-line labels",()=>{

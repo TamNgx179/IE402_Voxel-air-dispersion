@@ -48,6 +48,7 @@ const state = {
   multiplier: 1,
   background: 0,
   selected: null,
+  mapMode: "pan",
   showBuildings: true,
   showFacades: true,
   showRoads: false,
@@ -94,6 +95,8 @@ main();
 // --------------------------------------------------------------------------
 
 async function main() {
+  // Trợ giúp hoạt động ngay cả khi API chưa tải xong hoặc đang mất kết nối.
+  if (typeof ViewerHelp !== 'undefined') ViewerHelp.mount(document);
   try {
     await loadBootstrap();
   } catch (error) {
@@ -115,6 +118,7 @@ async function main() {
 
   if (typeof ViewerSidebar !== 'undefined') sidebar=ViewerSidebar.mount(document,id=>{
     if(id!=='spatial-analysis' && spatialAnalysis?.isDrawing()) spatialAnalysis.cancelDrawing();
+    spatialAnalysis?.onToolChange(id);
   });
   buildControls();
   if (activeRunId) trackRun(activeRunId);
@@ -484,17 +488,16 @@ function createMap() {
   // can be slow or, offline, never arrive.
   const Overlay = deck.MapLibreOverlay || deck.MapboxOverlay;
   const kind = deck.MapLibreOverlay ? "MapLibreOverlay" : "MapboxOverlay";
-  overlay = new Overlay({ interleaved: false, layers: [],effects:[BuildingAppearance.lighting(deck)],getTooltip:info=>{
-    if(info.layer?.id?.startsWith('analysis-comparison') && info.object) return spatialAnalysis?.tooltip(info.object);
-    if(info.layer?.id==='concentration' && info.object) {
-      const {i,j}=info.object, k=state.layer, v=value(k,j,i);
-      return `Ô i=${i}, j=${j} · k=${k}\nĐộ cao ${fmt(GRID.z_centres_m[k])} m\n${Number.isFinite(v)?`${fmt(v)} µg/m³ · ước tính hiển thị`:'Ô công trình — không có nồng độ khí'}\nBấm để xem dữ liệu theo độ cao`;
-    }
+  overlay = new Overlay({ interleaved: false, layers: [],getCursor:()=>spatialAnalysis?.isDrawing()?'crosshair':state.mapMode==='cell'?'default':'grab',effects:[BuildingAppearance.lighting(deck)],getTooltip:info=>{
+    // Chỉ xem thông tin ô sau khi bấm chọn, không bật bảng nổi khi rê chuột.
+    if(info.layer?.id==='concentration' || info.layer?.id?.startsWith('analysis-comparison')) return null;
     const id=info.object?.properties?.source_feature_id || info.object?.id;
     const building=buildingAppearance?.features.get(id);
     return building ? `${id}\n${fmt(building.height)} m · Mặt đứng minh họa` : null;
   }});
   map.addControl(overlay);
+  $('map-pan-mode').addEventListener('click',()=>setMapMode('pan'));
+  $('map-cell-mode').addEventListener('click',()=>setMapMode('cell'));
   refresh();
 
   resetView(0);
@@ -554,7 +557,7 @@ function concentrationLayer() {
     id: "concentration",
     data: cells,
     extruded: false,
-    pickable: !spatialAnalysis?.isDrawing(),
+    pickable: state.mapMode === 'cell' && !spatialAnalysis?.isDrawing(),
     getPolygon: (cell) => [
       [...node(cell.i, cell.j), z],
       [...node(cell.i + 1, cell.j), z],
@@ -564,7 +567,7 @@ function concentrationLayer() {
     getFillColor: (cell) => cellColour(cell, scale, thresholds),
     updateTriggers: { getPolygon: [z], getFillColor: key },
     onClick: (info) => {
-      if (spatialAnalysis?.isDrawing()) return;
+      if (state.mapMode !== 'cell' || spatialAnalysis?.isDrawing()) return;
       if (info.object) {
         selectCell(info.object.i,info.object.j);
       }
@@ -586,7 +589,7 @@ function buildingLayer() {
     getFillColor: BuildingAppearance.material,
     getLineColor: [199, 207, 206],
     material: BuildingAppearance.WALL_MATERIAL,
-    pickable:!spatialAnalysis?.isDrawing(),
+    pickable:state.mapMode === 'pan' && !spatialAnalysis?.isDrawing(),
     onClick:(info)=>{if(info.object) showBuildingAppearance(info.object.properties.source_feature_id);},
   });
 }
@@ -595,7 +598,7 @@ function showBuildingAppearance(id) {
   if(spatialAnalysis?.isDrawing()) return;
   const info=buildingAppearance.features.get(id);
   if(!info) return;
-  $('building-appearance-note').textContent=`${id} · ${fmt(info.height)} m · Vật liệu và cửa sổ minh họa; footprint/chiều cao từ GIS.`;
+  $('building-appearance-note').textContent=`Tòa nhà đã chọn · ${fmt(info.height)} m`;
   sidebar?.open('map-options');
 }
 
@@ -607,7 +610,7 @@ function facadeLayers() {
     visible,opacity:detailOpacity*.65,_full3d:true,getPolygon:d=>d.polygon,getFillColor:d=>d.color,material:false}),
     new deck.SolidPolygonLayer({id:'facade-windows',data:buildingAppearance.windows,
     visible,opacity:detailOpacity,_full3d:true,getPolygon:d=>d.polygon,getFillColor:d=>d.color,
-    material:false,pickable:!spatialAnalysis?.isDrawing(),onClick:info=>{if(info.object) showBuildingAppearance(info.object.id);}})];
+    material:false,pickable:state.mapMode === 'pan' && !spatialAnalysis?.isDrawing(),onClick:info=>{if(info.object) showBuildingAppearance(info.object.id);}})];
 }
 
 function roadLayer() {
@@ -723,7 +726,6 @@ function selectCell(i,j) {
   if(!current() || !ViewerGrid.validCell(GRID,i,j)) return false;
   state.selected={i,j};
   sidebar?.open('analysis-details');
-  $('cell-i').value=String(i); $('cell-j').value=String(j);
   refresh();
   return true;
 }
@@ -752,6 +754,7 @@ function compass(deg) {
 
 function renderLayers(timeMs = performance.now()) {
   if (!overlay) return;
+  syncMapMode();
   ensureWindFlow();
   sceneLayers = [
       waterLayer(),
@@ -765,6 +768,25 @@ function renderLayers(timeMs = performance.now()) {
       selectionLayer(),
     ].filter(Boolean);
   renderWindFrame(timeMs);
+}
+
+// Chế độ chọn ô tắt kéo bằng nút trái; thao tác vẽ vùng/tuyến được ưu tiên riêng.
+// Đồng bộ khi redraw để kết thúc vẽ trở về đúng chế độ trước đó.
+function setMapMode(mode) {
+  if (spatialAnalysis?.isDrawing()) return;
+  state.mapMode = mode;
+  renderLayers();
+}
+
+function syncMapMode() {
+  const drawing = Boolean(spatialAnalysis?.isDrawing());
+  const picking = state.mapMode === 'cell';
+  $('map-pan-mode').setAttribute('aria-pressed',String(!picking));
+  $('map-cell-mode').setAttribute('aria-pressed',String(picking));
+  $('map-pan-mode').disabled = drawing;
+  $('map-cell-mode').disabled = drawing;
+  if (picking || drawing) map.dragPan.disable(); else map.dragPan.enable();
+  map.getCanvas().style.cursor = drawing ? 'crosshair' : picking ? 'default' : '';
 }
 
 function renderWindFrame(timeMs) {
@@ -802,12 +824,12 @@ function updateWindHud() {
   const hud = $("wind-hud");
   if (!entry || !state.showWind || !entry.windField) {
     hud.hidden = true;
-    $('wind-source-note').textContent = 'Kết quả này chưa có trường gió solver; không vẽ gió minh hoạ thay thế.';
+    $('wind-source-note').textContent = 'Chưa có dữ liệu gió cho kết quả này.';
     return;
   }
   hud.hidden = false;
   const paused=state.windPaused || reducedMotion.matches;
-  $('wind-source-note').textContent = 'Vệt gió theo trường solver, không phải khói ô nhiễm. Chuyển động hiển thị ×6.';
+  $('wind-source-note').textContent = '';
   $('wind-caption').textContent = `Gió solver · ${paused ? 'đã dừng' : 'chuyển động ×6'}`;
   $('wind-motion').setAttribute('aria-pressed',String(paused));
   $('wind-motion').setAttribute('aria-label',paused ? 'Tiếp tục chuyển động gió' : 'Dừng chuyển động gió');
@@ -834,9 +856,7 @@ function scenarioLabel(entry) {
 
 function buildControls() {
   $('grid-size').textContent=`Ô ${fmt(GRID.dx_m)} × ${fmt(GRID.dy_m)} m · lưới ${GRID.nx} × ${GRID.ny}`;
-  $('cell-i').max=String(GRID.nx-1); $('cell-j').max=String(GRID.ny-1);
   $('show-grid').addEventListener('change',event=>{state.showGrid=event.target.checked;renderLayers();});
-  $('cell-picker-form').addEventListener('submit',event=>{event.preventDefault();selectCell(Number($('cell-i').value),Number($('cell-j').value));});
   $('status-retry').onclick=()=>retryAction?.();
   $('query-retry').onclick=()=>scheduleExactQueries();
   $('run-retry').onclick=()=>{if(activeRunId) trackRun(activeRunId);};
@@ -867,17 +887,30 @@ function buildControls() {
 
   const thresholds = $("threshold-list");
   Object.entries(M.thresholds).forEach(([key, t]) => {
+    // Một thẻ chứa cả thao tác tô bản đồ và hai số liệu của cùng ngưỡng.
+    // Không dựng lại checkbox khi đổi tầng để giữ focus và trạng thái bàn phím.
+    const card = document.createElement("section");
+    card.className = "threshold-card";
     const label = document.createElement("label");
+    label.className = "threshold-choice";
     const colour = THRESHOLD_COLOURS[key] || [103, 114, 106];
-    label.innerHTML = `<input type="checkbox" value="${key}"/> <span class="swatch" style="background: rgb(${colour.join(",")})"></span> <span></span>`;
-    label.querySelector("span:last-child").textContent = `${key.startsWith("qcvn") ? "QCVN" : key.startsWith("who") ? "WHO" : t.label} · ${fmt(t.value)} µg/m³`;
+    label.innerHTML = `<input type="checkbox"/> <span class="swatch" style="background: rgb(${colour.join(",")})"></span><span class="threshold-name"></span><span class="threshold-limit"></span>`;
+    label.querySelector("input").value = key;
+    label.querySelector(".threshold-name").textContent = key.startsWith("qcvn") ? "QCVN" : key.startsWith("who") ? "WHO" : t.label;
+    label.querySelector(".threshold-limit").textContent = `${fmt(t.value)} µg/m³`;
     label.title = t.label;
-    label.querySelector("input").setAttribute("aria-label", `${t.label}: ${fmt(t.value)} µg/m³`);
+    label.querySelector("input").setAttribute("aria-label", `Tô vùng vượt ${t.label}: ${fmt(t.value)} µg/m³`);
     label.querySelector("input").addEventListener("change", (event) => {
       state.thresholds[key] = event.target.checked;
       refresh();
     });
-    thresholds.appendChild(label);
+    card.appendChild(label);
+    const reading = document.createElement("p");
+    reading.className = "threshold-outcome";
+    reading.id = `threshold-outcome-${key}`;
+    reading.textContent = "Đang tải số liệu…";
+    card.appendChild(reading);
+    thresholds.appendChild(card);
   });
 
   const slider = $("height-slider");
@@ -1109,13 +1142,13 @@ function fmtVolume(v) {
 function refresh() {
   $('height-slider').disabled=!current();
   heightMarkControl?.sync();
-  for(const id of ['cell-i','cell-j','cell-picker-submit','show-grid']) $(id).disabled=!current();
+  for(const id of ['show-grid']) $(id).disabled=!current();
   const entry = scenarioEntry(state.scenario);
   const z = GRID.z_centres_m[state.layer];
   const half = GRID.dz_m / 2;
   $('illustration-reset').hidden=exactMode();
   $('show-facades').disabled=!state.showBuildings;
-  $('stats-context').textContent=`Độ cao ${fmt(z-half)}–${fmt(z+half)} m · ${exactMode()?'kết quả gốc':'đang dùng hệ số/nền minh họa'}`;
+  $('stats-context').textContent=`Tầng ${fmt(z-half)}–${fmt(z+half)} m${exactMode()?'':' · Minh họa'}`;
 
   $("height-value").textContent = `${fmt(z)} m`;
   $("height-slider").setAttribute("aria-valuetext", `tầng ${state.layer + 1}: ${fmt(z - half)}–${fmt(z + half)} m`);
@@ -1169,42 +1202,37 @@ function updateStats() {
   if (!current()) {
     $("stat-mean").textContent = "–";
     $("stat-max").textContent = "–";
-    $("stat-cells").textContent = "–";
-    $("exceed-body").innerHTML = "";
+    Object.keys(M.thresholds).forEach((key) => {
+      $(`threshold-outcome-${key}`).textContent = "Chưa có số liệu.";
+    });
     return;
   }
   const s = layerStats();
   $("stat-mean").textContent = fmt(s.mean);
   $("stat-max").textContent = fmt(s.max);
-  $("stat-cells").textContent = s.air.toLocaleString("vi-VN");
 
-  const volume = domainExceedance();
-  const body = $("exceed-body");
-  body.innerHTML = "";
-
-  Object.entries(M.thresholds).forEach(([key, t]) => {
-    const row = document.createElement("tr");
-    const cellsText = [`${key === "qcvn_24h" ? "QCVN" : key === "who_24h" ? "WHO" : t.label} ${fmt(t.value)}`, s.area[key] === undefined ? "–" : `${fmtVolume(s.area[key])} m²`, `${fmtVolume(volume[key] || 0)} m³`];
-    cellsText.forEach((text) => {
-      const td = document.createElement("td");
-      td.textContent = text;
-      row.appendChild(td);
-    });
-    body.appendChild(row);
+  Object.keys(M.thresholds).forEach((key) => {
+    // Diện tích vượt phải xét đúng tầng đang xem. Số 0 là kết quả hợp lệ,
+    // còn thiếu phản hồi được báo riêng, không suy thành không vượt ngưỡng.
+    const area = s.area[key];
+    $(`threshold-outcome-${key}`).textContent = !Number.isFinite(area)
+      ? "Đang tải số liệu…"
+      : area === 0 ? `Không có ô nào có nồng độ lớn hơn ${fmt(M.thresholds[key].value)} µg/m³ ở tầng này.`
+      : `${fmtVolume(area)} m² vượt ngưỡng ở tầng này.`;
   });
 }
 
 function updateProfile() {
   updateCellInfo();
   const box = $("profile");
+  // Chỉ hiển thị biểu đồ sau khi người dùng bấm chọn ô trên bản đồ.
+  $('selected-cell-detail').hidden = !state.selected || !current();
 
   if (!state.selected || !current()) {
     box.innerHTML = "";
-    $("profile-hint").hidden = false;
     return;
   }
 
-  $("profile-hint").hidden = true;
   const { i, j } = state.selected;
   const z = GRID.z_centres_m;
   const exactProfile = queryCache.get(`profile:${state.scenario}:${i}:${j}`);
@@ -1216,9 +1244,10 @@ function updateProfile() {
     : z.map((_, k) => value(k, j, i));
   const finite = values.filter((v) => Number.isFinite(v) && v > 0);
 
-  const W = 340;
-  const H = 230;
-  const pad = { l: 44, r: 12, t: 12, b: 34 };
+  const W = 320;
+  const H = 280;
+  // Chừa chỗ cho tên trục và số lớn hơn, tránh dính nhãn khi SVG co theo sidebar.
+  const pad = { l: 60, r: 24, t: 20, b: 58 };
   const scale = colourScale();
   const thresholds = Object.entries(M.thresholds).map(([key, t]) => ({ key, ...t }));
   const hi = Math.max(scale.hi, ...finite, ...thresholds.map((t) => t.value)) * 1.2;
@@ -1258,14 +1287,15 @@ function updateProfile() {
 
   box.innerHTML = `
     <svg viewBox="0 0 ${W} ${H}" role="img" aria-label="Profile nồng độ theo độ cao tại ô ${i}, ${j}">
-      <g fill="#67726a" font-size="10">
+      <g fill="#253039" font-size="14" font-family="system-ui, sans-serif">
         ${ticks.join("")}
         <text x="${pad.l - 6}" y="${Y(0) + 3}" text-anchor="end">0</text>
         <text x="${pad.l - 6}" y="${Y(height / 2) + 3}" text-anchor="end">${fmt(height / 2)}</text>
-        <text x="${pad.l - 6}" y="${Y(height) + 3}" text-anchor="end">${fmt(height)} m</text>
-        <text x="${(W + pad.l) / 2}" y="${H - 4}" text-anchor="middle">µg/m³ (log)</text>
+        <text x="${pad.l - 6}" y="${Y(height) + 3}" text-anchor="end">${fmt(height)}</text>
+        <text x="${(pad.l + W - pad.r) / 2}" y="${H - 9}" text-anchor="middle" font-weight="600">Nồng độ (µg/m³, log)</text>
+        <text transform="translate(16 ${(pad.t + H - pad.b) / 2}) rotate(-90)" text-anchor="middle" font-weight="600">Độ cao (m)</text>
       </g>
-      <rect x="${pad.l}" y="${pad.t}" width="${W - pad.l - pad.r}" height="${H - pad.t - pad.b}" fill="none" stroke="#dde2db"/>
+      <rect x="${pad.l}" y="${pad.t}" width="${W - pad.l - pad.r}" height="${H - pad.t - pad.b}" fill="none" stroke="#879ba7"/>
       ${solid}
       ${lines}
       <line x1="${pad.l}" x2="${W - pad.r}" y1="${currentY}" y2="${currentY}" stroke="rgba(79,107,93,0.5)"/>

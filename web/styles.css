@@ -29,6 +29,21 @@
   --disabled-text: #50616c;
 }
 
+/* Nhãn vẫn đọc được ngay; chỉ phần giải thích phụ nằm trong tooltip. */
+.section-heading, .field-heading, .option-help-row { display:flex; align-items:center; gap:8px; }
+.section-heading { margin-bottom:10px; }
+.section-heading > h2, .section-heading > h3 { margin:0 !important; }
+.option-help-row { justify-content:space-between; }
+.option-help-row .check { flex:1; }
+.field-heading { margin:12px 0 6px; }
+body .tool-panel .field-heading > label { margin:0; }
+/* Ghi đè style nút tác vụ: icon trợ giúp có vùng bấm riêng nhưng không thành một nút lớn. */
+body button.help-trigger { display:inline-flex; align-items:center; justify-content:center; flex:0 0 24px; width:24px; height:24px; min-height:24px; padding:0; margin:0; border:0; border-radius:50%; color:var(--accent); background:transparent; cursor:help; font-size:13px; line-height:1; }
+body button.help-trigger:hover, body button.help-trigger:focus-visible { color:var(--tool-active); background:var(--tool-bg); border-color:var(--action-border); }
+body button.help-trigger:focus-visible { outline:2px solid var(--accent); outline-offset:2px; }
+.help-tooltip { position:fixed; z-index:100; padding:10px 12px; border:1px solid #476477; border-radius:8px; background:#243c4c; color:#ffffff; font:12px/1.6 system-ui,sans-serif; box-shadow:0 4px 16px #25303925; overflow-wrap:anywhere; }
+#building-appearance-note:empty, #wind-source-note:empty, #transect-note:empty, #transect-feedback:empty { display:none; }
+
 /* Advanced analysis follows the same neutral disclosure and form language. */
 .analysis-section { margin:12px 0; padding:4px 0 12px; }
 .analysis-section + .analysis-section { border-top:1px solid var(--section-border); padding-top:18px; }
@@ -42,7 +57,7 @@
 .analysis-height label { flex:1; min-width:0; font-size:12px; }
 .analysis-height input { margin-top:5px; }
 .region-result { white-space:pre-line; overflow-wrap:anywhere; }
-.analysis-switch { display:flex; gap:6px; margin-bottom:16px; }
+.analysis-switch { display:flex; gap:6px; margin-bottom:16px; flex-wrap:wrap; }
 .analysis-switch button { flex:1; min-height:40px; font:inherit; font-size:12px; font-weight:600; padding:8px; border:1px solid var(--action-border); border-radius:6px; cursor:pointer; }
 #spatial-analysis .analysis-switch button[aria-pressed="true"] { background:var(--tool-active); color:#ffffff; border-color:var(--tool-active); }
 #spatial-analysis .analysis-switch button[aria-pressed="true"]:hover { background:var(--action-active-hover); color:#ffffff; }
@@ -73,6 +88,23 @@
 .result-table th:first-child, .result-table td:first-child { text-align:left; }
 #region-result-content > .note { margin:10px 0; }
 .analysis-ramp { height:10px; border-radius:4px; margin-top:12px; }
+.transect-result-panel { position:absolute; z-index:22; bottom:18px; left:430px; right:18px; max-width:1000px; max-height:80vh; overflow:auto; padding:16px; border:1px solid var(--section-border); border-radius:12px; background:#fff; box-shadow:0 8px 30px #25303920; color:var(--text); }
+.transect-header { display:flex; justify-content:space-between; gap:12px; align-items:flex-start; }
+.transect-header h2 { font-size:15px; margin:0 0 4px; }
+.transect-header p { font-size:12px; margin:0; line-height:1.5; }
+.transect-header button { min-height:36px; padding:7px 12px; border:1px solid var(--action-border); border-radius:6px; background:var(--action-bg); color:var(--action-text); font:inherit; font-size:12px; cursor:pointer; }
+.transect-header button:hover { background:var(--action-hover); }
+#transect-chart { display:block; width:100%; height:250px; margin-top:12px; cursor:crosshair; }
+#transect-chart:focus-visible { outline:2px solid var(--accent); outline-offset:3px; }
+.transect-key { display:flex; align-items:center; gap:8px 12px; flex-wrap:wrap; font-size:11px; }
+.transect-key span { display:inline-flex; align-items:center; gap:5px; }
+.transect-color-ramp { width:70px; height:9px; border-radius:3px; background:linear-gradient(90deg,#f8eed3,#703541); }
+.transect-solid,.transect-no-data { display:inline-block; width:12px; height:12px; border:1px solid #7a8f9c; background:#929fa9; }
+.transect-no-data { background:#fff; border-style:dashed; }
+.transect-reading { font-size:12px; font-weight:600; line-height:1.6; margin:10px 0 3px; padding:8px 10px; background:var(--section-bg); border-radius:5px; }
+.transect-result-panel .field-help { font-size:11px; margin:5px 0 0; }
+@media(max-width:1000px) { .transect-result-panel { left:18px; } }
+@media(max-width:600px) { .transect-result-panel { left:8px; right:8px; bottom:8px; padding:12px; } .transect-header { flex-wrap:wrap; } .transect-header .analysis-actions { margin-left:auto; } }
 .comparison-bars { display:grid; gap:5px; margin:8px 0 12px; }
 .comparison-bar { min-width:3em; padding:4px 7px; background:var(--action-bg); color:var(--action-text); border-radius:3px; font-size:11px; }
 
@@ -294,20 +326,6 @@ input[type="number"] {
 .wind-hud strong { color: var(--text); font-size: 12px; }
 .wind-hud small { margin-top: 2px; color: var(--muted); font-size: 10px; line-height: 1.35; }
 
-.map-hint {
-  position: absolute;
-  z-index: 19;
-  right: 16px;
-  bottom: 78px;
-  margin: 0;
-  padding: 6px 9px;
-  border-radius: 7px;
-  background: var(--panel);
-  color: var(--muted);
-  font-size: 11px;
-  pointer-events: none;
-}
-
 .wind-key { display: inline-block; width: 24px; height: 3px; margin-left: 2px; border-radius: 999px; background: linear-gradient(90deg, transparent, #82a9b7 65%, transparent); }
 .wind-disclaimer { margin-top: 7px; padding-left: 22px; }
 
@@ -493,8 +511,7 @@ input[type="number"] {
   .camera-toolbar { top: 8px; right: 8px; }
   .camera-toolbar button { min-width: 38px; min-height: 38px; padding: 0 8px; }
   .wind-hud { top: 54px; right: 8px; max-width: calc(100vw - 16px); }
-  .map-hint { display: none; }
-}
+  }
 
 @media (prefers-reduced-motion: reduce) {
   .wind-arrow { transition: none; }
@@ -544,15 +561,10 @@ progress { width: 100%; height: 5px; margin-top: 9px; accent-color: var(--accent
 .run-error { margin-top: 8px; font-size: 11px; color: var(--error); }
 .run-error p { white-space: pre-wrap; overflow-wrap: anywhere; }
 .sr-only { position: absolute; width: 1px; height: 1px; margin: -1px; overflow: hidden; clip: rect(0,0,0,0); white-space: nowrap; }
-.cell-picker-form { display:flex; gap:8px; align-items:end; margin-top:8px; }
-.cell-picker-form label { flex:1; min-width:0; font-size:11px; }
-.cell-picker-form input { width:100%; min-height:40px; box-sizing:border-box; }
-.cell-picker-form button { min-height:40px; padding:6px 10px; border:1px solid var(--action-border); border-radius:6px; background:var(--action-bg); color:var(--action-text); }
 .cell-info { position:absolute; right:16px; bottom:120px; z-index:20; max-width:280px; padding:12px 14px; border:1px solid #d2dce2; border-left:3px solid #426a85; border-radius:9px; background:rgba(250,252,251,.97); box-shadow:0 4px 18px #263a4510; font-size:12px; line-height:1.6; white-space:pre-line; pointer-events:none; }
 @media (max-width:640px) { .cell-info { top:154px; bottom:auto; right:12px; max-width:calc(100vw - 56px); } }
 :focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; }
 .simulation-section > .note { font-size:10px; }
-.selected-cell .cell-picker { margin-top:8px; }
 .query-feedback:has(.query-note:empty):has(button[hidden]) { display:none; }
 .query-feedback { margin-top:10px; }
 .control-card { background:transparent; padding:0; margin-top:18px; border-radius:0; }
@@ -585,8 +597,6 @@ progress { width: 100%; height: 5px; margin-top: 9px; accent-color: var(--accent
 .tool-panel input[type="checkbox"] { accent-color:var(--action-active); }
 .tool-panel .check:has(input:disabled) { color:var(--muted); cursor:not-allowed; }
 .tool-panel .analysis-height { margin:4px 0 12px; }
-.tool-panel .analysis-height label, .tool-panel .cell-picker-form label { margin:0; }
-.tool-panel .analysis-height input, .tool-panel .cell-picker-form input { display:block; margin-top:6px; }
 .tool-panel .analysis-actions { margin-top:12px; }
 .tool-panel button:not(:disabled):hover { border-color:var(--action-active); }
 .tool-panel .analysis-section button:not(:disabled):hover { background:var(--action-hover); }
@@ -602,10 +612,10 @@ progress { width: 100%; height: 5px; margin-top: 9px; accent-color: var(--accent
 .text-button, .analysis-section .text-button { min-height:40px; padding:7px 10px; margin:8px 0; border:1px solid var(--section-border); border-radius:6px; background:var(--tool-bg); color:var(--tool-text); font:inherit; font-size:12px; font-weight:600; cursor:pointer; }
 .text-button[aria-expanded="true"] { background:var(--action-hover); border-color:var(--action-border); }
 .text-button:hover { background:var(--tool-hover); border-color:var(--action-border); }
-/* Standalone sidebar actions align right; grouped actions retain their DOM order. */
-.panel .text-button, #comparison-retry, #region-export, #query-retry, #run-retry { display:block; margin-left:auto; margin-right:0; width:fit-content; max-width:100%; }
+/* Một thao tác dùng hết hàng; nhiều thao tác chia đều theo đúng thứ tự đọc. */
+.panel .text-button, #comparison-retry, #region-export, #query-retry, #run-retry { display:block; margin-left:0; margin-right:0; width:100%; max-width:100%; }
+.tool-panel .analysis-actions > button:not(.help-trigger):not([hidden]) { flex:1; }
 .run-form { justify-content:flex-end; flex-wrap:wrap; }
-.cell-picker-form { flex-wrap:wrap; justify-content:flex-end; }
 /* One blue-gray family for actions; neutral surfaces separate the content. */
 .tool-panel button:not(.primary-button):not(.action-primary) { border-color:var(--action-border); background:var(--action-bg); color:var(--action-text); }
 .tool-panel button:not(.primary-button):not(.action-primary):not(:disabled):hover,
@@ -614,6 +624,37 @@ progress { width: 100%; height: 5px; margin-top: 9px; accent-color: var(--accent
 #run-note:empty, #region-result:empty { display:none; }
 #analysis-baseline { overflow-wrap:anywhere; }
 #model-note, #wind-source-note { overflow-wrap:anywhere; }
+
+/* Chỉ glyph nhỏ, không kế thừa mặt nút lớn từ các nút tác vụ trong panel. */
+body .tool-panel button.help-trigger:not(.action-primary), body .transect-header button.help-trigger { width:24px; height:24px; min-height:24px; padding:0; border:0; background:transparent; color:var(--accent); font-size:13px; }
+body .tool-panel button.help-trigger:not(.action-primary):not(:disabled):hover, body .transect-header button.help-trigger:hover { background:var(--tool-bg); color:var(--tool-active); }
+#analysis-details .stats-block { border:0; padding:0; margin:0; }
+#analysis-details .stats-block + .stats-block { margin-top:24px; }
+#analysis-details .section-heading h2 { font-size:16px; line-height:1.4; }
+/* Thống kê là hai hàng đọc nhanh, không dùng ô KPI lớn chiếm hết sidebar. */
+#analysis-details .concentration-stats { display:flex; flex-direction:column; gap:0; background:transparent; }
+#analysis-details .stat { display:grid; grid-template-columns:minmax(0,1fr) auto auto; align-items:baseline; column-gap:6px; padding:10px 0; border:0; border-radius:0; background:transparent; }
+#analysis-details .stat-label { font-size:14px; color:var(--text); }
+#analysis-details .stat-value { margin:0; font-size:20px; line-height:1.4; font-weight:650; color:var(--tool-active); font-variant-numeric:tabular-nums; overflow-wrap:anywhere; }
+#analysis-details .metric-unit { margin:0; font-size:12px; color:var(--helper); }
+.stats-context { margin:0 0 6px; color:var(--helper); font-size:13px; }
+.threshold-cards { display:grid; gap:12px; }
+.threshold-card { border:1px solid var(--line); border-radius:10px; background:var(--panel); overflow:hidden; }
+/* Cả hàng nhãn đều bấm được; vẫn giữ checkbox gốc để dùng tốt với bàn phím. */
+#analysis-details .threshold-choice { display:grid; grid-template-columns:18px 8px minmax(0,1fr) auto; align-items:center; gap:8px; min-height:48px; margin:0; padding:10px 12px; cursor:pointer; font-size:14px; color:var(--text); }
+.threshold-choice input { width:17px; height:17px; margin:0; }
+.threshold-choice .swatch { width:7px; height:7px; margin:0; }
+.threshold-name { font-weight:650; overflow-wrap:anywhere; }
+.threshold-limit { font-size:13px; font-weight:600; font-variant-numeric:tabular-nums; white-space:nowrap; }
+.threshold-choice:hover, .threshold-choice:has(input:checked) { background:var(--tool-bg); }
+.threshold-choice:focus-within { outline:2px solid var(--accent); outline-offset:-2px; border-radius:9px; }
+.threshold-outcome { margin:0; padding:0 12px 12px; font-size:13px; line-height:1.5; color:var(--text); }
+.map-interaction { position:absolute; z-index:8; bottom:60px; right:16px; display:flex; gap:4px; padding:4px; border:1px solid var(--line); border-radius:10px; background:#fff; box-shadow:0 2px 10px #25303915; }
+.map-interaction button { display:flex; align-items:center; gap:7px; min-height:40px; padding:8px 12px; border:0; border-radius:7px; background:#fff; color:var(--tool-text); font:600 13px system-ui,sans-serif; cursor:pointer; white-space:nowrap; }
+.map-interaction button[aria-pressed="true"] { background:var(--tool-active); color:#fff; }
+.map-interaction button:focus-visible { outline:2px solid var(--accent); outline-offset:2px; }
+.map-interaction button:disabled { opacity:.5; cursor:default; }
+@media (max-width:640px) { .map-interaction { bottom:48px; right:10px; } .map-interaction button { padding:8px 10px; } }
 .height-control { position:relative; margin-top:4px; }
 #height-slider { display:block; height:28px; min-height:28px; margin:0; padding:0; appearance:none; -webkit-appearance:none; border:0; background:transparent; cursor:pointer; }
 #height-slider::-webkit-slider-runnable-track { height:4px; border-radius:4px; background:linear-gradient(to right,var(--accent) var(--height-progress,0%),var(--line) var(--height-progress,0%)); }
@@ -650,3 +691,6 @@ progress { width: 100%; height: 5px; margin-top: 9px; accent-color: var(--accent
 .evidence-warnings { margin: 6px 0; padding-left: 18px; font-size: 11px; line-height: 1.5; overflow-wrap: anywhere; }
 .evidence-links { display: flex; flex-wrap: wrap; gap: 10px; font-size: 11px; }
 #run-evidence h3 { font-size: 12px; margin: 12px 0 6px; }
+
+.tool-panel .analysis-height label { margin:0; }
+.tool-panel .analysis-height input { display:block; margin-top:6px; }

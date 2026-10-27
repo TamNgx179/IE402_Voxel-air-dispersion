@@ -42,6 +42,48 @@ async function setup() {
   await new Promise((resolve) => setImmediate(resolve));
   return { context, element };
 }
+
+test("statistics show units and distinguish a measured zero from missing threshold data", async () => {
+  const { context, element } = await setup();
+  vm.runInContext(`
+    M = { thresholds: { qcvn_24h: { value:45 }, who_24h: { value:15 } } };
+    current = () => ({});
+    layerStats = () => ({ mean:.2, max:.89, air:7683, area:{qcvn_24h:0} });
+    domainExceedance = () => ({qcvn_24h:0});
+    updateStats();
+  `, context);
+  assert.equal(element("stat-mean").textContent, "0,2");
+  assert.equal(element("stat-max").textContent, "0,89");
+  assert.equal(element("threshold-outcome-qcvn_24h").textContent, "Không có ô nào có nồng độ lớn hơn 45 µg/m³ ở tầng này.");
+  assert.equal(element("threshold-outcome-who_24h").textContent, "Đang tải số liệu…");
+  vm.runInContext("layerStats=()=>({mean:20,max:60,air:100,area:{qcvn_24h:25,who_24h:50}});updateStats()",context);
+  assert.equal(element("threshold-outcome-qcvn_24h").textContent, "25 m² vượt ngưỡng ở tầng này.");
+  vm.runInContext("current = () => null; updateStats()", context);
+  assert.equal(element("stat-mean").textContent, "–");
+  assert.equal(element("threshold-outcome-qcvn_24h").textContent, "Chưa có số liệu.");
+});
+
+test("pan and cell selection are separate modes and drawing keeps priority", async () => {
+  const { context, element } = await setup();
+  vm.runInContext(`
+    let panEnabled = true;
+    let drawing = false;
+    const canvas = {style:{}};
+    map = {dragPan:{enable(){panEnabled=true},disable(){panEnabled=false}},getCanvas:()=>canvas};
+    spatialAnalysis = {isDrawing:()=>drawing};
+    renderLayers = () => syncMapMode();
+    setMapMode('cell');
+  `, context);
+  assert.equal(vm.runInContext('panEnabled', context), false);
+  assert.equal(vm.runInContext('canvas.style.cursor', context), 'default');
+  vm.runInContext("drawing=true; setMapMode('pan'); syncMapMode()", context);
+  assert.equal(vm.runInContext('state.mapMode', context), 'cell');
+  assert.equal(element('map-pan-mode').disabled, true);
+  vm.runInContext("drawing=false; setMapMode('pan')", context);
+  assert.equal(vm.runInContext('panEnabled', context), true);
+  assert.equal(vm.runInContext('canvas.style.cursor', context), '');
+  assert.equal(element('map-cell-mode').disabled, false);
+});
 test("bootstrap error exposes retry and disables unavailable controls", async () => {
   const { element } = await setup();
   assert.equal(element("status-retry").hidden, false);
