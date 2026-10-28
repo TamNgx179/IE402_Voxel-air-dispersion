@@ -1,0 +1,58 @@
+<!doctype html>
+<html lang="vi">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Đo render LoD</title>
+    <link
+      rel="stylesheet"
+      href="https://unpkg.com/maplibre-gl@5.24.0/dist/maplibre-gl.css"
+    />
+    <style>
+      body {
+        margin: 0;
+        font: 14px system-ui;
+        color: #243c4c;
+        background: #f1f4f6;
+      }
+      header {
+        padding: 16px;
+      }
+      button {
+        padding: 10px;
+        margin-right: 8px;
+      }
+      #map {
+        height: 60vh;
+      }
+      pre {
+        white-space: pre-wrap;
+        margin: 16px;
+      }
+      p {
+        max-width: 900px;
+      }
+    </style>
+  </head>
+  <body>
+    <header>
+      <h1>Đo render LoD</h1>
+      <p>
+        Cùng cảnh, camera và đường xoay; tắt gió. Mỗi cấu hình có 5 khung làm
+        nóng và 40 khung đo. Số đo là thời gian hoàn thành khung render trong
+        trình duyệt, không phải thời gian GPU riêng.
+      </p>
+      <button id="start" disabled>Chạy phép đo</button
+      ><button id="save" disabled>Tải kết quả JSON</button>
+      <p id="status" role="status">Đang tải cảnh…</p>
+    </header>
+    <div id="map"></div>
+    <pre id="result"></pre>
+    <script src="https://unpkg.com/maplibre-gl@5.24.0/dist/maplibre-gl.js"></script>
+    <script src="https://unpkg.com/deck.gl@9.4.0/dist.min.js"></script>
+    <script src="building-appearance.js"></script>
+    <script src="viewer-lod.js"></script>
+    <script src="viewer-export.js"></script>
+    <script src="lod-benchmark.js"></script>
+  </body>
+</html>

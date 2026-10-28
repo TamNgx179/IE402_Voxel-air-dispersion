@@ -169,6 +169,7 @@ async function loadBootstrap() {
   window.VOXEL_WATER = scene.water;
   window.VOXEL_GREEN = scene.green;
   buildingAppearance=BuildingAppearance.build(scene.buildings);
+  facadeLod=ViewerLod.controller(ViewerLod.prepare(scene.buildings,buildingAppearance));
   AVAILABLE_SCENARIOS = scenarios;
   const [west, south, east, north] = area.bounds;
   GRID = {
@@ -514,7 +515,7 @@ function createMap() {
   });
   map.on("rotate", updateCameraControls);
   map.on("pitch", updateCameraControls);
-  map.on("zoomend", () => renderLayers());
+  map.on("moveend", () => renderLayers());
   updateCameraControls();
   startWindAnimation();
 }
@@ -610,13 +611,14 @@ function showBuildingAppearance(id) {
 }
 
 function facadeLayers() {
-  if(!buildingAppearance) return [];
-  const visible=state.showBuildings && state.showFacades;
+  if(!buildingAppearance || !state.showBuildings || !state.showFacades) return [];
+  const plan=facadeLod(map);
+  if(!plan.polygons) return [];
   const detailOpacity=BuildingAppearance.detailOpacity(map?.getZoom());
-  return [new deck.SolidPolygonLayer({id:'facade-sills',data:buildingAppearance.frames,
-    visible,opacity:detailOpacity*.65,_full3d:true,getPolygon:d=>d.polygon,getFillColor:d=>d.color,material:false}),
-    new deck.SolidPolygonLayer({id:'facade-windows',data:buildingAppearance.windows,
-    visible,opacity:detailOpacity,_full3d:true,getPolygon:d=>d.polygon,getFillColor:d=>d.color,
+  return [plan.frames.length ? new deck.SolidPolygonLayer({id:'facade-sills',data:plan.frames,
+    opacity:detailOpacity*.65,_full3d:true,getPolygon:d=>d.polygon,getFillColor:d=>d.color,material:false}) : null,
+    new deck.SolidPolygonLayer({id:'facade-windows',data:plan.windows,
+    opacity:detailOpacity,_full3d:true,getPolygon:d=>d.polygon,getFillColor:d=>d.color,
     material:false,pickable:state.mapMode === 'pan' && !spatialAnalysis?.isDrawing(),onClick:info=>{if(info.object) showBuildingAppearance(info.object.id);}})];
 }
 
