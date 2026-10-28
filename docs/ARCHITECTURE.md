@@ -9,8 +9,7 @@
 
 ## 1 · Thành phần
 
-**Cập nhật 27/10/2026:** sơ đồ tổng quan dưới đây mô tả monolith hiện có; mục “Luồng
-nâng cấp mục tiêu” tách A9.3 đã có và LoD/export ảnh còn dự kiến. Đối chiếu yêu cầu giảng viên và trạng thái qua
+**Cập nhật 28/10/2026:** sơ đồ tổng quan dưới đây mô tả monolith hiện có; mục luồng phân tích/xuất kết quả ghi nhận A9.2–A9.4 đã triển khai. Đối chiếu yêu cầu giảng viên và trạng thái qua
 spec §4–6, không suy ra tính năng đã có từ một node trên sơ đồ.
 
 ![Kiến trúc modular monolith GIS 3D](img/architecture-monolith.svg)
@@ -335,14 +334,14 @@ hiển thị tăng tốc ×6 và chặn solid/domain; không phải transport pa
 Pause/reduced-motion giữ hình tĩnh. Hai baseline thật và một run tạo bằng nút Chạy đã thành công;
 [README – chạy và kiểm thử](../README.md) ghi cách kiểm tra và tái lập. Nghiệm thu release cuối vẫn thuộc A10/B10.
 
-## Luồng nâng cấp mục tiêu — A9.3 đã triển khai, phần còn lại dự kiến
+## Luồng phân tích, xuất kết quả và LoD — A9.2–A9.4 đã triển khai
 
 ```mermaid
 flowchart LR
   subgraph CLIENT["Web GIS 3D — cùng origin"]
     MAP["MapLibre / deck.gl hiện có"]
     CUT["Mặt cắt khoảng cách–z + CSV · A9.3 đã có"]
-    LOD["LoD render / culling · dự kiến A9.4"]
+    LOD["LoD render / culling · A9.4"]
     EXPORT["Ảnh + CSV có metadata · A9.2"]
   end
   subgraph APP["Một NestJS monolith"]
@@ -363,7 +362,7 @@ flowchart LR
   EXEC --> PG
 ```
 
-Các node ghi “dự kiến” thuộc mã nguồn deploy chung, không tạo Python HTTP service,
+Các mô-đun trên thuộc mã nguồn deploy chung, không tạo Python HTTP service,
 broker hoặc dịch vụ transect riêng. API vùng/comparison/transect hiện hành ở spec BR-44–50.
 
 | Lớp | Trách nhiệm | Điều không được làm |
@@ -375,8 +374,11 @@ broker hoặc dịch vụ transect riêng. API vùng/comparison/transect hiện 
 | Python/offline study | Analytic/grid/dt study, đối chiếu trên miền vật lý chung | Không so trực tiếp cùng chỉ số ở hai grid khác nhau |
 
 **Phân biệt hiện tại và mục tiêu:** profile/slice/region/comparison, CSV vùng và vệt
-gió theo solver và transect A9.3 đã có. Ảnh export có legend và LoD render giảm geometry
-chưa có. Hiện facade dựng chi tiết và đổi opacity theo zoom; không được ghi là đã culling.
+gió theo solver và transect A9.3 đã có. A9.2/A9.4 đã bổ sung PNG có legend, CSV/JSON và LoD giảm geometry ngày 28/10.
+`viewer-export.js` ghép canvas MapLibre/deck sau render, giữ snapshot và từ chối nếu đổi camera/run.
+`viewer-lod.js` chọn ba mức, culling theo bounds có padding cho mái và cache theo tập nhà nhìn thấy.
+Thân nhà giữ nguyên GIS LoD1; mức xa bỏ chi tiết mặt đứng, giữa giữ khoảng 1/4 cửa sổ, gần giữ đầy đủ.
+Script `benchmark-lod.cjs` đo CPU/count và kiểm raw profile/CSV; `lod-benchmark.html` đo wall time renderer, không gọi là thời gian GPU riêng.
 Giữ cửa sổ thủ tục, không thêm texture ảnh thật hoặc mái giả như dữ liệu khảo sát.
 
 **Contract địa lý:** baseline dùng EPSG:32648 cho mét/diện tích, web WGS84 lon/lat;

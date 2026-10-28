@@ -12,17 +12,18 @@ key/fill được cấu hình riêng để không trắng chói hay tối xám; 
 Cửa sổ thưa hơn, ít biến thiên màu; chi tiết mờ khi zoom xa và rõ dần khi zoom gần.
 Ánh sáng cố định chỉ phục vụ đọc bản đồ, không phải mô hình ánh sáng mặt trời.
 Nguồn và lập luận tham khảo Esri/Cesium/MapLibre/CityOnStats/VoxCity ở
-[RESEARCH.md](../../../docs/RESEARCH.md#tham-khảo-cách-dựng-và-hiển-thị-công-trình-gis-3d--12102026).
+[RESEARCH.md §9](../../../docs/RESEARCH.md).
 Màu/cửa sổ sinh ổn định theo building ID, chỉ là minh họa ngoại hình, **không phải**
 ảnh khảo sát, số tầng thật hay mô hình LoD2/LoD3. Footprint/chiều cao GIS, solid mask,
 DB và kết quả solver không đổi. Mặt đứng lệch ra ngoài 8 cm chỉ để tránh z-fighting.
 Có thể tắt Chi tiết mặt đứng để so sánh.
 
-### Ranh giới LoD — rà soát 27/10/2026
+### LoD hiển thị — cập nhật 28/10/2026
 
-Code hiện dựng facade và đổi opacity theo zoom; chưa loại geometry/vertices khỏi
-render data. Vì vậy chưa được gọi là LoD render đã tối ưu. A9.4 sẽ tách ba mức
-tổng quan/trung gian/chi tiết và culling, đo trước/sau theo spec BR-52/AC-40.
+`viewer-lod.js` đã giảm geometry thực sự: xa không có mặt đứng phụ; giữa giữ khoảng
+1/4 cửa sổ và không có khung; gần giữ chi tiết trong bounds đã nới theo pitch/height.
+Cache dựa trên mức LoD và ID nhà nhìn thấy để tránh nạp lại buffer khi chỉ xoay nhẹ.
+Số đo trước/sau và cách tái lập ở README; kiểm spec BR-52/AC-40.
 Các mức này không là CityGML LoD0/1/2. Footprint/height/mask/query phải bất biến.
 
 LoD2 hình học cần dữ liệu mái có nguồn và kiểm chất lượng (spec BR-53 và roadmap B9.5), không được

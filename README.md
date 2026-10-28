@@ -79,8 +79,8 @@ Profile/lát ngang, phân tích vùng, comparison và mặt cắt đứng A9.3 �
 mũi tên để đọc giá trị, bấm Tải CSV để lấy số liệu gốc. Đóng mặt cắt để chỉnh cao độ/vẽ lại.
 Icon thông tin cạnh từng mục mở giải thích ngắn khi hover, focus bằng Tab hoặc bấm;
 Esc đóng trợ giúp. Nhãn, đơn vị, kết quả và lỗi vẫn hiển thị trực tiếp.
-Việc tiếp theo là review khoa học của B, nghiên cứu lưới/dt, export ảnh có chú giải và LoD
-hiển thị giảm geometry thật; các phần đó chưa được nghiệm thu chỉ nhờ hoàn tất A9.3.
+A9.2/A9.4 đã có xuất ảnh có chú giải và LoD giảm geometry (28/10). Việc tiếp theo là
+review khoa học của B, nghiên cứu lưới/dt, chốt UX/chất lượng dữ liệu và bàn giao tuần 10.
 LoD2 chỉ xem xét khi có nguồn mái kiểm chứng; không mặc định làm đẹp sẽ tăng độ chính xác.
 Điểm số do giảng viên đánh giá, không được bảo đảm bằng số tính năng hoặc mức LoD.
 
@@ -90,3 +90,21 @@ LoD2 chỉ xem xét khi có nguồn mái kiểm chứng; không mặc định l�
   diagnostic wind + finite-volume advection–diffusion.
 - Verification không được viết thành validation thực địa.
 - Mỗi kết quả phải lưu tham số, nguồn dữ liệu, phiên bản code và hạn chế của mô hình.
+
+## Xuất kết quả và LoD hiển thị (A9.2/A9.4)
+
+- Vào **Bản đồ → Tải ảnh bản đồ** để lấy PNG của góc nhìn hiện tại, kèm legend, cao độ, run/hash, attribution và trạng thái minh họa. Chờ nền tải xong và dừng camera trước khi xuất. Khi tô ngưỡng, ảnh dùng chú giải màu ngưỡng; khi so sánh, dùng đúng thang màu/chênh lệch hiện tại.
+- **Tải số liệu CSV** xuất thống kê gốc của tất cả tầng. Trong chế độ so sánh đã tải xong, nút này xuất từng ô của hai run và ΔC, kèm hai version/hash. Hệ số/nền minh họa không sửa số liệu CSV. CSV vùng và mặt cắt vẫn nằm tại kết quả phân tích tương ứng.
+- **Tải thông tin kết quả JSON** lưu snapshot: đơn vị, grid, nguồn, camera, layer, điều chỉnh minh họa và dữ liệu comparison khi có. Ảnh là minh họa; CSV/JSON dùng số khoa học gốc, không giải mã ngược màu uint8.
+- LoD tự đổi theo zoom: tổng quan bỏ cửa sổ/khung; trung gian giữ khoảng 1/4 cửa sổ; gần giữ đầy đủ chi tiết trong vùng nhìn. Mốc danh định 16,5/17,5, hysteresis ±0,15; culling có padding theo chiều cao/pitch. LoD này không phải hình học mái LoD2 và không đổi voxel/DB. Geometry chi tiết vẫn được giữ trong RAM để tái sử dụng; không tuyên bố giảm bộ nhớ CPU.
+
+Đo lại CPU và kiểm bất biến số liệu khi app/DB đã chạy:
+
+```powershell
+node scripts/benchmark-lod.cjs
+node --test web/tests/*.test.cjs
+```
+
+Mở `/lod-benchmark.html`, bấm **Chạy phép đo**, chờ xong rồi **Tải kết quả JSON** để đo 6 cấu hình trước/sau trên cùng camera và viewport. Mỗi cấu hình làm nóng 5 khung, đo 40 khung; tắt gió ở viewer khi đo. Đây là thời gian wall từ cập nhật camera đến `onAfterRender` trong cảnh nhà độc lập, không phải FPS toàn ứng dụng hay thời gian GPU riêng. Ghi lại môi trường/viewport và không suy rộng sang máy khác.
+
+Lượt đo 28/10: 62 nhà, 99.280 đỉnh mặt đứng ban đầu; mức tổng quan 0, trung gian 12.468 (giảm 87,44%), chi tiết tối đa 99.280 trước culling. Miền một phần trong benchmark CPU còn 18.328 đỉnh. Browser 1280×720, DPR 1,5: p95 trước/sau lần lượt 10,4/8,5 ms (xa), 13/8,4 ms (giữa), 10,6/8 ms (gần). Kết quả từng lượt nằm local tại `artifacts/a9/lod-cpu.json` và `lod-render.json`; không coi đây là cam kết hiệu năng. Trong lượt kiểm cuối, PostgreSQL AVG có dao động round-off tối đa 5,55e-17 giữa request; raw profile và CSV lấy lại trực tiếp từ API khớp tuyệt đối. CSV từ snapshot cũng giữ nguyên.

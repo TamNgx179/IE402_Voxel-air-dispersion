@@ -533,9 +533,9 @@ PASS cho nghiên cứu chưa hoàn thành.
 | ID | Công việc | Đầu ra | Tiêu chí đạt |
 |---|---|---|---|
 | `A9.1` | ⬜ Tích hợp kịch bản giảm nguồn (có điều kiện) | Form tối giản, config snapshot, run thật và comparison | Tạo run_id mới, spawn Python qua executor hiện tại; units/provenance/gates đầy đủ; không nhân màu phía client để giả mô phỏng |
-| `A9.2` | 🟡 Hoàn thiện xuất kết quả dùng cho báo cáo | CSV vùng/comparison/transect đã có; còn hoàn thiện export chung và ảnh bản đồ có chú giải | Có run IDs, cao độ yêu cầu/tâm ô hoặc khoảng z, units, legend, nguồn/attribution và trạng thái minh họa; ảnh không được ngầm coi là số liệu chính xác |
+| `A9.2` | ✅ Xuất kết quả dùng cho báo cáo | PNG bản đồ + legend/provenance; CSV các tầng/comparison; CSV vùng/transect và JSON snapshot | 28/10: PNG run FV thật đã tải và kiểm ảnh; CSV dùng số gốc, đơn vị/hash/version, z thực; chặn stale/capture lỗi, ảnh ghi rõ minh họa |
 | `A9.3` | ✅ Mặt cắt đứng theo đường vẽ | DTO/schema/service/repository/controller trong Results, biểu đồ khoảng cách–z và CSV | 27/10: PostGIS E2E, web regression, browser FV thật; CSV 1.700 mẫu khớp JSON và DB. Chi tiết spec BR-46–48; review phương pháp độc lập vẫn thuộc B9.4 |
-| `A9.4` | ⬜ LoD hiển thị có giảm geometry thật | Ba mức render, culling chi tiết, đo trước/sau | Spec F; TC-LOD; giảm vertices/layer data chứ không chỉ opacity; query/CSV không đổi |
+| `A9.4` | ✅ LoD hiển thị giảm geometry thật | Ba mức render, culling có padding theo pitch/height, cache theo tập nhà nhìn thấy | 28/10: cảnh 62 nhà, 99.280 → 0/12.468/99.280 đỉnh mặt đứng; benchmark CPU và 6 cấu hình browser; nguồn/profile/CSV bất biến. Không nâng hình học thành LoD2 |
 | `A9.5` | ⬜ Hoàn thiện UX và thông tin chất lượng | Kết quả dễ đọc, chất lượng chiều cao/nguồn qua bảng thông tin gọn và export | TC-UX/TC-GEO; không thêm sidebar dài, không phục hồi nhập tọa độ hay bảng kỹ thuật đã bỏ; lỗi tiếng Việt, retry và stale response đúng |
 
 **Người B**
