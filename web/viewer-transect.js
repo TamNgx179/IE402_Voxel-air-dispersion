@@ -470,6 +470,7 @@
       layers,
       click,
       isDrawing: () => drawing,
+      exportState: () => visible && saved ? {run:saved.run,request:saved.body} : null,
       cancelDrawing,
       setVisible(value) {
         visible = value;

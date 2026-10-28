@@ -161,6 +161,12 @@
         <p id="wind-source-note" class="note wind-disclaimer">Đang tải trường gió của kết quả.</p>
         <button type="button" class="text-button" data-disclosure="result-info-content" aria-controls="result-info-content" aria-expanded="false">Thông tin kết quả</button>
         <div id="result-info-content" hidden><p id="model-note" class="note"></p><div id="run-evidence" aria-live="polite"></div></div>
+        <div class="report-export" aria-label="Xuất kết quả">
+          <button id="export-map" type="button"><i class="bi bi-image" aria-hidden="true"></i> Tải ảnh bản đồ</button>
+          <button id="export-data" type="button"><i class="bi bi-download" aria-hidden="true"></i> Tải số liệu CSV</button>
+          <button id="export-metadata" type="button">Tải thông tin kết quả JSON</button>
+          <p id="export-note" role="status" aria-live="polite"></p>
+        </div>
       </section>
 
       <section class="tool-panel" id="analysis-details" aria-label="Thống kê và ô được chọn" hidden>
@@ -215,6 +221,7 @@
   <script src="./viewer-analysis.js"></script>
   <script src="./viewer-transect.js"></script>
   <script src="./building-appearance.js"></script>
+  <script src="./viewer-export.js"></script>
   <script src="./app.js"></script>
 </body>
 </html>

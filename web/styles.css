@@ -694,3 +694,11 @@ body .tool-panel button.help-trigger:not(.action-primary):not(:disabled):hover, 
 
 .tool-panel .analysis-height label { margin:0; }
 .tool-panel .analysis-height input { display:block; margin-top:6px; }
+.report-export { display:grid; gap:8px; margin-top:14px; }
+.report-export > button { display:flex; align-items:center; justify-content:center; gap:6px; width:100%; min-height:40px; padding:8px 12px; border:1px solid var(--action-border); border-radius:7px; font:600 12px system-ui,sans-serif; cursor:pointer; }
+.report-export > button:disabled { cursor:not-allowed; }
+body .tool-panel #export-map { background:var(--action-active); color:#fff; border-color:var(--action-active); }
+body .tool-panel #export-map:hover:not(:disabled) { background:var(--action-active-hover); color:#fff; }
+.report-export .bi { margin-right:6px; }
+#export-note { margin:0; font-size:12px; line-height:1.5; color:var(--text); }
+#export-note:empty { display:none; }

@@ -77,6 +77,9 @@ let windParticles = [];
 let windFlowKey = null;
 let sceneLayers = [];
 let buildingAppearance = null;
+let facadeLod = null;
+let exportBusy = false;
+let afterRenderCapture = null;
 let windAnimationFrame = null;
 let lastWindFrame = 0;
 let basemapFallback = false;
@@ -463,6 +466,7 @@ function createMap() {
     bearing: -25,
     maxPitch: 80,
     attributionControl: { compact: true },
+    canvasContextAttributes: { preserveDrawingBuffer: true },
   });
 
   map.dragRotate.enable();
@@ -488,7 +492,7 @@ function createMap() {
   // can be slow or, offline, never arrive.
   const Overlay = deck.MapLibreOverlay || deck.MapboxOverlay;
   const kind = deck.MapLibreOverlay ? "MapLibreOverlay" : "MapboxOverlay";
-  overlay = new Overlay({ interleaved: false, layers: [],getCursor:()=>spatialAnalysis?.isDrawing()?'crosshair':state.mapMode==='cell'?'default':'grab',effects:[BuildingAppearance.lighting(deck)],getTooltip:info=>{
+  overlay = new Overlay({ interleaved: false, layers: [],onAfterRender:()=>afterRenderCapture?.(),getCursor:()=>spatialAnalysis?.isDrawing()?'crosshair':state.mapMode==='cell'?'default':'grab',effects:[BuildingAppearance.lighting(deck)],getTooltip:info=>{
     // Chỉ xem thông tin ô sau khi bấm chọn, không bật bảng nổi khi rê chuột.
     if(info.layer?.id==='concentration' || info.layer?.id?.startsWith('analysis-comparison')) return null;
     const id=info.object?.properties?.source_feature_id || info.object?.id;
@@ -498,6 +502,9 @@ function createMap() {
   map.addControl(overlay);
   $('map-pan-mode').addEventListener('click',()=>setMapMode('pan'));
   $('map-cell-mode').addEventListener('click',()=>setMapMode('cell'));
+  $('export-map').addEventListener('click',()=>exportResult('png'));
+  $('export-data').addEventListener('click',()=>exportResult('csv'));
+  $('export-metadata').addEventListener('click',()=>exportResult('json'));
   refresh();
 
   resetView(0);
@@ -785,6 +792,7 @@ function syncMapMode() {
   $('map-cell-mode').setAttribute('aria-pressed',String(picking));
   $('map-pan-mode').disabled = drawing;
   $('map-cell-mode').disabled = drawing;
+  for(const id of ['export-map','export-data','export-metadata']) $(id).disabled=exportBusy||drawing||!current();
   if (picking || drawing) map.dragPan.disable(); else map.dragPan.enable();
   map.getCanvas().style.cursor = drawing ? 'crosshair' : picking ? 'default' : '';
 }
@@ -807,6 +815,221 @@ function startWindAnimation() {
     windAnimationFrame=requestAnimationFrame(frame);
   }
   windAnimationFrame=requestAnimationFrame(frame);
+}
+
+function reportSnapshot() {
+  if (!current()) throw new Error("Chọn một kết quả đã tải xong.");
+  if (spatialAnalysis?.isDrawing())
+    throw new Error("Hoàn tất hoặc hủy vẽ trước khi xuất.");
+  const extra = spatialAnalysis?.exportState(),
+    comparison = spatialAnalysis?.active() ? extra?.comparison : null;
+  if (spatialAnalysis?.active() && !comparison)
+    throw new Error("Chờ kết quả so sánh tải xong rồi thử lại.");
+  const entry = scenarioEntry(state.scenario),
+    z = GRID.z_centres_m[state.layer],
+    centre = map.getCenter();
+  const report = {
+    title: scenarioLabel(entry),
+    summary: entry.summary,
+    comparison,
+    mode: comparison
+      ? {
+          baseline: "Kết quả gốc",
+          comparison: "Kết quả đối chiếu",
+          delta: "Chênh lệch: so sánh − gốc",
+        }[extra.view]
+      : exactMode()
+        ? "Kết quả gốc"
+        : "Minh họa đã điều chỉnh",
+    metadata: {
+      run_id: entry.id,
+      model_version: entry.summary.model_version || entry.model_version,
+      input_hash: entry.summary.input_hash,
+      comparison_run_id: comparison?.comparison_run_id,
+      z_requested_m: z,
+      z_center_m: z,
+      z_min_m: z - GRID.dz_m / 2,
+      z_max_m: z + GRID.dz_m / 2,
+      units: "µg/m³",
+      exported_at: new Date().toISOString(),
+      grid: { ...GRID },
+      provenance: M.provenance,
+      camera: {
+        longitude: centre.lng,
+        latitude: centre.lat,
+        zoom: map.getZoom(),
+        pitch: map.getPitch(),
+        bearing: map.getBearing(),
+      },
+      illustration: {
+        multiplier: state.multiplier,
+        background_ug_m3: state.background,
+      },
+      thresholds: activeThresholds(),
+      basemap: $("basemap-style").value,
+      selected_cell: state.selected ? { ...state.selected } : null,
+      region: extra?.region || null,
+      transect: extra?.transect || null,
+      render_lod: facadeLod
+        ? {
+            level: facadeLod(map).level,
+            facade_vertices:
+              state.showBuildings && state.showFacades
+                ? facadeLod(map).vertices
+                : 0,
+          }
+        : null,
+      layers: {
+        buildings: state.showBuildings,
+        facades: state.showFacades,
+        roads: state.showRoads,
+        wind: state.showWind,
+        wind_paused: state.windPaused,
+        grid: state.showGrid,
+      },
+    },
+    attribution:
+      Array.from(document.querySelectorAll(".maplibregl-ctrl-attrib-inner"))
+        .map((el) => el.textContent.trim())
+        .join(" | ") || "OpenStreetMap contributors; OpenFreeMap/OpenMapTiles",
+    notice: `Ảnh minh họa từ mô hình; không thay thế số liệu gốc CSV hoặc quan trắc. ${!state.showWind ? "Đã ẩn gió." : state.windPaused || reducedMotion.matches ? "Gió đang dừng." : "Gió hiển thị ×6."} Cửa sổ minh họa.`,
+  };
+  const scale = colourScale();
+  report.legend = {
+    title: "Nồng độ (µg/m³, thang log)",
+    stops: RAMP.map(([t, c]) => [t, `rgb(${c.join(",")})`]),
+    labels: [0, 0.25, 0.5, 0.75, 1].map((t) =>
+      fmt(
+        10 **
+          (Math.log10(scale.lo) +
+            t * (Math.log10(scale.hi) - Math.log10(scale.lo))),
+      ),
+    ),
+  };
+  if (comparison)
+    report.legend = ViewerExport.comparisonLegend(comparison, extra.view, fmt);
+  if (activeThresholds().length && !comparison) {
+    report.legend = {
+      title: "Vùng vượt ngưỡng (µg/m³)",
+      categories: activeThresholds().map((t) => ({
+        label: `${t.label}: > ${t.value}`,
+        color: `rgb(${(THRESHOLD_COLOURS[t.key] || [103, 114, 106]).join(",")})`,
+      })),
+      labels: [],
+    };
+    report.notice += " Màu vùng theo ngưỡng; nơi không vượt được làm nhạt.";
+  }
+  if (comparison) report.notice += " Gió và khối nhà thuộc run gốc.";
+  return report;
+}
+
+function exportKey(report) {
+  // Thời điểm xuất thay đổi không làm snapshot mất hiệu lực; camera/run/lớp thì có.
+  const { exported_at, ...stable } = report.metadata;
+  return JSON.stringify([stable, report.mode]);
+}
+
+async function captureReport(report) {
+  if (!map.loaded() || map.isMoving())
+    throw new Error("Chờ bản đồ tải xong và dừng di chuyển rồi thử lại.");
+  const key = exportKey(report);
+  return new Promise((resolve, reject) => {
+    let base,
+      done = false;
+    const finish = (error, result) => {
+      if (done) return;
+      done = true;
+      clearTimeout(timer);
+      map.off("render", captureBase);
+      afterRenderCapture = null;
+      error ? reject(error) : resolve(result);
+    };
+    const timer = setTimeout(
+      () => finish(new Error("Chưa lấy được khung hình. Hãy thử lại.")),
+      8000,
+    );
+    // Chụp từng canvas ngay sau render, không đọc framebuffer đã bị xóa.
+    const captureBase = () => {
+      try {
+        base = ViewerExport.copyCanvas(document, map.getCanvas());
+        afterRenderCapture = () => {
+          try {
+            if (exportKey(reportSnapshot()) !== key)
+              throw new Error("Lựa chọn đã thay đổi. Hãy xuất lại.");
+            finish(
+              null,
+              ViewerExport.compose(
+                document,
+                base,
+                ViewerExport.copyCanvas(document, overlay.getCanvas()),
+                report,
+              ),
+            );
+          } catch (e) {
+            finish(e);
+          }
+        };
+        renderLayers();
+      } catch (e) {
+        finish(e);
+      }
+    };
+    map.once("render", captureBase);
+    map.triggerRepaint();
+  });
+}
+
+async function exportResult(kind) {
+  if (exportBusy) return;
+  exportBusy = true;
+  const buttons = ["export-map", "export-data", "export-metadata"];
+  buttons.forEach((id) => ($(id).disabled = true));
+  $("export-note").textContent = "Đang chuẩn bị tệp…";
+  try {
+    const report = reportSnapshot(),
+      base = `pm25-${report.metadata.run_id}`,
+      pair = report.comparison
+        ? `-vs-${report.comparison.comparison_run_id}`
+        : "",
+      name =
+        kind === "csv" && !report.comparison
+          ? `${base}-layers`
+          : `${base}${pair}-${report.metadata.z_center_m}m${report.comparison ? "-" + spatialAnalysis.view() : ""}`;
+    if (kind === "png")
+      ViewerExport.download(
+        document,
+        await ViewerExport.png(await captureReport(report)),
+        name + ".png",
+      );
+    else if (kind === "csv")
+      ViewerExport.download(
+        document,
+        new Blob(
+          [
+            "\uFEFF" +
+              (report.comparison
+                ? ViewerExport.comparisonCsv(report.comparison)
+                : ViewerExport.layerCsv(report)),
+          ],
+          { type: "text/csv;charset=utf-8" },
+        ),
+        name + ".csv",
+      );
+    else
+      ViewerExport.download(
+        document,
+        new Blob([JSON.stringify(report, null, 2)], {
+          type: "application/json",
+        }),
+        name + ".json",
+      );
+    $("export-note").textContent = "Đã tải tệp.";
+  } catch (e) {
+    $("export-note").textContent = `Chưa xuất được: ${e.message}`;
+  } finally {
+    exportBusy = false;
+    syncMapMode();
+  }
 }
 
 function updateCameraControls() {

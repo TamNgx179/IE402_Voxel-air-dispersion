@@ -84,6 +84,16 @@ test("pan and cell selection are separate modes and drawing keeps priority", asy
   assert.equal(vm.runInContext('canvas.style.cursor', context), '');
   assert.equal(element('map-cell-mode').disabled, false);
 });
+
+test("export snapshot invalidates when camera or run changes, not just export timestamp",async()=>{
+  const {context}=await setup();
+  const key=report=>vm.runInContext(`exportKey(${JSON.stringify(report)})`,context);
+  const a={metadata:{run_id:'a',camera:{zoom:16},z_center_m:1,exported_at:'now'},mode:'gốc'};
+  assert.equal(key(a),key({...a,metadata:{...a.metadata,exported_at:'later'}}));
+  assert.notEqual(key(a),key({...a,metadata:{...a.metadata,run_id:'b'}}));
+  assert.notEqual(key(a),key({...a,metadata:{...a.metadata,camera:{zoom:17}}}));
+  assert.notEqual(key(a),key({...a,mode:'chênh lệch'}));
+});
 test("bootstrap error exposes retry and disables unavailable controls", async () => {
   const { element } = await setup();
   assert.equal(element("status-retry").hidden, false);

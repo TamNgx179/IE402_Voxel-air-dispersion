@@ -817,6 +817,13 @@
       layers,
       active,
       view,
+      // Chỉ xuất dữ liệu đang hợp lệ; không lấy payload cũ khi đang đổi run/tầng.
+      exportState: () => ({
+        comparison: active() && payload && payload.baseline_run_id === context().id && payload.z_center_m === context().z && payload.comparison_run_id === $("compare-run").value ? payload : null,
+        view: view(),
+        region: regionResult ? {run:regionResult.run,request:regionResult.request} : null,
+        transect: transect?.exportState?.() || null,
+      }),
       cancelDrawing,
       isDrawing: () => drawing || Boolean(transect?.isDrawing()),
       onToolChange: (id) =>
