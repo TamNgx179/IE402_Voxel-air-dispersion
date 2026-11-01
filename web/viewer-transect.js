@@ -384,10 +384,12 @@
             : best,
         0,
       );
-      layer = Math.max(
-        0,
-        r.layers.findIndex((l) => z >= l.overlap_min_m && z <= l.overlap_max_m),
-      );
+      // Internal faces follow the same half-open z intervals as the API/voxel grid.
+      // The plot's outer top pixel reads its last visible row, not an out-of-domain voxel.
+      const picked = z === r.z_max_m ? r.layers.length - 1
+        : r.layers.findIndex((l) => z >= l.overlap_min_m && z < l.overlap_max_m);
+      if (picked < 0) return;
+      layer = picked;
       paint();
     });
     canvas.addEventListener("keydown", (event) => {

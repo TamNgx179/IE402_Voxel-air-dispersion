@@ -99,3 +99,15 @@ test('CSV reuses the successful request and stale downloads never produce a link
   assert.equal(calls[1][0],'/runs/base/transect/csv');assert.deepEqual(calls[0][1],calls[1][1]);
   ui.ctx.id='other';ui.instance.sync();resolve('run_id,value\nbase,0\n');await tick();assert.equal(ui.els['transect-result'].hidden,true);
 });
+
+test('a plotted internal height face selects the upper layer, while the top border reads the last visible layer',async()=>{
+ const boundary={...result,z_max_m:4,layers:[result.layers[0],{...result.layers[1],overlap_max_m:4}]};
+ const ui=setup(async()=>boundary);ui.els['transect-max'].value='4';
+ ui.choose();ui.button('Xem mặt cắt').click();await tick();
+ // Plot y=[18,212], z=[4,0]: y=115 is exactly the z=2 internal face.
+ for(const y of [115,18]) {
+  const event=new Event('click');Object.defineProperties(event,{clientX:{value:60},clientY:{value:y}});
+  ui.els['transect-chart'].dispatchEvent(event);
+  assert.match(ui.els['transect-reading'].textContent,/Không có dữ liệu/);
+ }
+});
