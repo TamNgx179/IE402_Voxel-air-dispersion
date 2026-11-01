@@ -1,0 +1,30 @@
+{
+  "description": "B8.1: inputs and expected values transcribed from app/test/spatial-analysis.e2e-spec.ts and app/test/fixtures/scene (A8.4). Columns are indexed n=0..3 -> (i,j)=(n%2, floor(n/2)); null = SQL NULL.",
+  "grid": {"origin_x_m": 686000, "origin_y_m": 1191300, "dx_m": 5, "dy_m": 5, "dz_m": 2, "nx": 2, "ny": 2, "nz": 4},
+  "scene_solid_ranges_inclusive": {
+    "source": "app/test/fixtures/scene/grid_cells.csv:2-5",
+    "0,0": [0, 2],
+    "1,0": null,
+    "0,1": null,
+    "1,1": [0, 3]
+  },
+  "runs": {
+    "baseline": {"source": "app/test/spatial-analysis.e2e-spec.ts:49-54", "columns": [[null, null, 5, 2], [10, 5, 3, 1], [20, 10, 5, 2], [30, 15, 8, 4]]},
+    "comparison": {"source": "app/test/spatial-analysis.e2e-spec.ts:55-60", "columns": [[null, null, 5, 2], [12, 6, 4, 2], [18, 9, 4, 1], [33, 16, 9, 5]]},
+    "zero": {"source": "app/test/spatial-analysis.e2e-spec.ts:93,222", "columns": [[0, 0, 0, 0], [0, 0, 0, 0], [0, 0, 0, 0], [0, 0, 0, 0]]},
+    "solid_k0": {"source": "app/test/spatial-analysis.e2e-spec.ts:110", "columns": [[null, 0, 0, 0], [null, 0, 0, 0], [null, 0, 0, 0], [null, 0, 0, 0]]}
+  },
+  "a_expected": {
+    "comparison_z1": {"source": "app/test/spatial-analysis.e2e-spec.ts:67-80", "k": 0, "z_center_m": 1, "deltas": [2, -2, 3], "delta_mean": 1},
+    "comparison_z2_1": {"source": "app/test/spatial-analysis.e2e-spec.ts:81-84", "k": 1, "z_center_m": 3},
+    "self_comparison": {"source": "app/test/spatial-analysis.e2e-spec.ts:87-92", "delta": {"mean": 0, "min": 0, "max": 0}},
+    "zero_comparison": {"source": "app/test/spatial-analysis.e2e-spec.ts:94-98", "air_cells": 4, "baseline_mean": 0},
+    "float32_exact": {"source": "app/test/spatial-analysis.e2e-spec.ts:100-108", "baseline": 0.0230344, "comparison": 0.0485567},
+    "all_solid_layer": {"source": "app/test/spatial-analysis.e2e-spec.ts:109-116", "air_cells": 0, "delta_mean": null},
+    "region_partial": {"source": "app/test/spatial-analysis.e2e-spec.ts:184-198", "polygon_utm": [686000.5, 1191300.5, 686007.5, 1191304.5], "z": [1, 3], "threshold": 15, "area_m2": 28, "air_volume_m3": 20, "mean": 7.5, "max": 10, "exceedance_volume_m3": 0, "n_layers": 2, "layer0_mean": 10},
+    "region_threshold7": {"source": "app/test/spatial-analysis.e2e-spec.ts:199-206", "threshold": 7, "exceedance_volume_m3": 10},
+    "region_no_air": {"source": "app/test/spatial-analysis.e2e-spec.ts:207-221", "polygon_utm": [686000.5, 1191300.5, 686004.5, 1191304.5], "air_volume_m3": 0, "mean": null, "max": null, "n_layers": 0},
+    "region_zero_air": {"source": "app/test/spatial-analysis.e2e-spec.ts:222-228", "mean": 0, "air_volume_m3": 32},
+    "region_hole": {"source": "app/test/spatial-analysis.e2e-spec.ts:230-248", "outer_utm": [686000.1, 1191300.1, 686009.9, 1191309.9], "hole_utm": [686006, 1191301, 686009, 1191304], "z": [0, 2], "air_volume_m3": 126.06}
+  }
+}

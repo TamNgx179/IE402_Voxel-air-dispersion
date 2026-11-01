@@ -10,6 +10,9 @@ CityGML mô tả mô hình đô thị có ngữ nghĩa và hình học. Hình h�
 
 Áp dụng: miền chuẩn 500 × 500 × 100 m, ô 5 × 5 × 2 m; mảng theo `[z,y,x]`. Đây là cấu hình thực nghiệm của nhóm, không phải độ phân giải được một tiêu chuẩn bảo đảm chính xác. z đo từ mặt đất phẳng, chưa biểu diễn địa hình khảo sát. Cần phân biệt solid, không khí thiếu số liệu và nồng độ bằng 0.
 
+Pipeline hiện không dùng DEM, kể cả Copernicus GLO-30, để dựng địa hình.
+Giả định đất phẳng z=0 là hạn chế mô hình, không phải kết luận từ đo đạc cao độ.
+
 ## 2. Trường gió chẩn đoán và vận chuyển chất
 
 URock 2023a là nghiên cứu về mô hình gió đô thị dựa trên GIS. Bài báo hữu ích để xem cách hình học đô thị tham gia mô hình gió và cách đánh giá mô hình. Không được lấy độ chính xác của URock làm độ chính xác cho chương trình khác. [Bernard và cộng sự, URock 2023a](https://gmd.copernicus.org/articles/16/5703/2023/).

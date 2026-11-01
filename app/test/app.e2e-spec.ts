@@ -76,7 +76,7 @@ describe('API (e2e)', () => {
       'height-slider',
       'run-button',
       'query-retry',
-      'cell-picker-form',
+      'map-cell-mode',
       'spatial-analysis',
       'compare-run',
       'region-draw',

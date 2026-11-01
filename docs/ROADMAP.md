@@ -516,9 +516,9 @@ mobile/performance release và máy vật lý thứ hai giữ ở tuần 10.
 
 | ID | Công việc | Đầu ra | Tiêu chí đạt |
 |---|---|---|---|
-| `B8.1` | ⬜ Chốt phép so sánh và thống kê vùng | Định nghĩa metrics, fixture tham chiếu cho A | Mean theo thể tích không khí; ô biên dùng diện tích giao × chiều dày giao khoảng z; loại solid; no-data khác 0; không trung bình các mean không cùng trọng số |
-| `B8.2` | ⬜ Thiết kế nghiên cứu ba mức lưới và bước thời gian | Cấu hình thí nghiệm, đại lượng đánh giá, ngân sách runtime | Dùng bài toán kiểm chứng phù hợp, tách khỏi scene baseline cố định; giữ miền vật lý/nguồn/điều kiện biên và thời điểm so sánh; kiểm soát sai số thời gian để không nhầm với sai số không gian |
-| `B8.3` | ⬜ Chạy pilot và kiểm tra kết quả lưới | Run manifests, sai số theo chuẩn đã chốt, runtime/memory | Mọi case qua verification; nếu dùng analytic reference phải ghi giả thiết; không thay lưới production chỉ để làm kết quả đẹp hơn |
+| `B8.1` | 🟡 Chốt phép so sánh và thống kê vùng | Định nghĩa metrics, fixture tham chiếu cho A | 01/11: Tham chiếu độc lập: 30 test, 17/17 kỳ vọng khớp; còn fixture solid và E2E PostGIS. Xem reviews/B8_1_REGION_COMPARISON.md |
+| `B8.2` | ✅ Thiết kế nghiên cứu ba mức lưới và bước thời gian | Cấu hình thí nghiệm, đại lượng đánh giá, ngân sách runtime | 01/11: Thiết kế ba lưới, dt chung/CFL và sweep dt có provenance. Xem reviews/B8_B9_GRID_STUDY.md |
+| `B8.3` | ✅ Chạy pilot và kiểm tra kết quả lưới | Run manifests, sai số theo chuẩn đã chốt, runtime/memory | 01/11: Pilot/full có manifest, sai số, runtime/memory; full 10/10 case pass verification; giữ lưới production |
 | `B8.4` | ⬜ Thiết kế kịch bản giảm phát thải thật (có điều kiện) | Contract baseline/giảm 20%/giảm 40%, fixture | Chỉ thay hệ số nguồn, giữ các yếu tố khác; định nghĩa snapshot/hash/version và mass ledger; khác hoàn toàn slider minh họa trên web |
 
 **Kết quả tuần 8 — M7:** so sánh cùng cao độ cho hai run và thống kê vùng chọn
@@ -542,11 +542,11 @@ PASS cho nghiên cứu chưa hoàn thành.
 
 | ID | Công việc | Đầu ra | Tiêu chí đạt |
 |---|---|---|---|
-| `B9.1` | ⬜ Hoàn tất nghiên cứu lưới/bước thời gian | Bảng sai số, đồ thị, observed order/GCI nếu phù hợp | Báo cáo cả kết quả không hội tụ; chỉ tính/diễn giải GCI khi thỏa giả thiết, không suy ra grid convergence của đô thị từ analytic case; ghi hạn chế geometry thay đổi khi raster hóa |
+| `B9.1` | ✅ Hoàn tất nghiên cứu lưới/bước thời gian | Bảng sai số, đồ thị, observed order/GCI nếu phù hợp | 01/11: Bảng và 4 hình đã có; nêu giới hạn GCI, không suy ra hội tụ đô thị. Xem reviews/B8_B9_GRID_STUDY.md |
 | `B9.2` | ⬜ Chạy baseline và giảm nguồn (có điều kiện) | Ba bundle cùng geometry/wind/K và báo cáo ΔC | Nguồn và mass ledger thay đổi đúng contract; phân biệt giả định tuyến tính với kết quả chạy; không gọi giảm emission proxy là dự báo chính sách hoặc cải thiện chất lượng không khí thực đo |
-| `B9.3` | ⬜ Chốt figure/table và nội dung khoa học | Hình có caption/units, sensitivity và limitations | Số liệu sinh từ artifacts cùng version; nếu bỏ kịch bản giảm nguồn thì dùng kết quả hai mùa và lưới, không để bảng placeholder |
-| `B9.4` | ⬜ Review mặt cắt, phân tích cao độ và chất lượng hình học | Fixture A9.3 đã có C=2+3z và tuyến gấp khúc; B còn review độc lập, bảng/hình theo tầng/cột và nguồn/fallback chiều cao | Không coi test của A là B ký duyệt; đối chiếu E/TC-CUT, 0/null/solid và tâm ô; kết luận theo dữ liệu kể cả khác biệt nhỏ, bàn giao phần khoa học cho A9.5/báo cáo |
-| `B9.5` | ⬜ Đánh giá khả thi LoD2, chỉ triển khai khi qua cổng | Nguồn mái, giấy phép, chất lượng, quyết định làm/không làm và phương pháp đối chiếu | Spec G; TC-ROOF; không có nguồn thì giữ LoD1. Nếu đổi physics: scene/mask/run mới, không bỏ guard comparison A8 |
+| `B9.3` | 🟡 Chốt figure/table và nội dung khoa học | Hình có caption/units, sensitivity và limitations | 01/11: Có bảng/hình lưới và cao độ; còn tổng hợp hai mùa và caption cho báo cáo cuối |
+| `B9.4` | 🟡 Review mặt cắt, phân tích cao độ và chất lượng hình học | Fixture A9.3 đã có C=2+3z và tuyến gấp khúc; B còn review độc lập, bảng/hình theo tầng/cột và nguồn/fallback chiều cao | 01/11: 19 test, đối chiếu 300 tuyến và phân tích run thật; PASS có ghi chú, E2E PostGIS chưa chạy. Xem reviews/B9_4_TRANSECT_HEIGHT.md |
+| `B9.5` | ✅ Đánh giá khả thi LoD2, chỉ triển khai khi qua cổng | Nguồn mái, giấy phép, chất lượng, quyết định làm/không làm và phương pháp đối chiếu | 01/11: Đánh giá hoàn tất: giữ LoD1 vì thiếu nguồn mái kiểm chứng. Xem reviews/B9_5_LOD2_FEASIBILITY.md |
 
 **Kết quả mốc tuần 9 — M8:** gói mở rộng có mặt cắt đứng, phân tích cao độ,
 export tái lập, nghiên cứu sai số và LoD hiển thị đo được. LoD2/giảm nguồn được ghi rõ
