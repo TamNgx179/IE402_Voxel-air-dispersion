@@ -1,6 +1,6 @@
 # Giả định phát thải
 
-> **File sinh tự động — không sửa tay.** Tạo bởi `src/emission/assumptions.py` lúc 2026-10-07 14:44 UTC. Chạy lại pipeline phát thải để cập nhật. Mọi số dưới đây đọc từ `config/project.yaml` hoặc đo từ file pipeline đã ghi; bước chưa chạy ghi `not-run`.
+> **File sinh tự động — không sửa tay.** Tạo bởi `src/emission/assumptions.py` lúc 2026-11-01 14:39 UTC. Chạy lại pipeline phát thải để cập nhật. Mọi số dưới đây đọc từ `config/project.yaml` hoặc đo từ file pipeline đã ghi; bước chưa chạy ghi `not-run`.
 
 ## 1. Bảng giả định
 
@@ -13,9 +13,9 @@
 | 5 | Nhãn chất ô nhiễm | proxy `PM` → đích `PM2.5` | config | EF là PM tổng, EDGAR là PM2.5: chỉ dùng tỉ lệ không gian của PM, không dùng trị tuyệt đối |
 | 6 | Chiều cao nguồn | 1.0 m → tầng voxel k = 0 (tâm 1 m) | ống xả xe máy | Không có rối do xe cộ (spec *Ngoài phạm vi*, AC-25) |
 | 7 | Đoạn đường nằm dưới voxel rắn bị loại, phần còn lại **chuẩn hoá lại trên toàn miền** | 0.0010 % proxy bị loại; 59/67 cạnh cắt miền | `emission/rasterizer.py` | Bảo toàn tổng; lượng bị loại phân bổ lên mọi đường chứ không lên ô khí gần nhất — với tỉ lệ này ảnh hưởng không đáng kể |
-| 8 | Tổng phát thải đặt bằng **EDGAR** | EDGAR v8.1 TRO 2022: flux 1.229e-11 kg m⁻² s⁻¹ → **3.073e-06 kg/s** cho miền 500 × 500 m | European Commission, Joint Research Centre (JRC), EDGAR v8.1 Global Air Pollutant Emissions | EDGAR là **trung bình ô 0,1° (~11 km)**, gồm cả vùng ít xe; áp cho lõi Quận 1 nhiều khả năng **thấp hơn thực tế** — xem §2 |
-| 9 | Lệch năm | EDGAR 2022 ↔ khí tượng 2025-01-01 – 2025-12-31 | config | Chấp nhận được cho phân bố không gian; không dùng để so trị tuyệt đối theo năm |
-| 10 | **Flux trung bình năm** áp cho **một giờ gió tựa dừng** | không có hệ số theo giờ trong ngày | thiết kế mô hình | Nồng độ là mức **đại diện trung bình**, không phải giờ cao điểm |
+| 8 | Tổng phát thải đặt bằng **EDGAR** | EDGAR v8.1 TRO 2022: flux 1.229e-11 kg m⁻² s⁻¹ → **3.073e-06 kg/s** cho miền 500 × 500 m | European Commission, Joint Research Centre (JRC), EDGAR v8.1 Global Air Pollutant Emissions | EDGAR là **trung bình ô 0,1° (~11 km)**; nguồn tại từng phố chưa được đo, mức và hướng sai lệch cần đánh giá — xem §2 |
+| 9 | Lệch năm | EDGAR 2022 ↔ khí tượng 2025-01-01 – 2025-12-31 | config | Khác năm dữ liệu là một bất định; không dùng để đối chiếu nồng độ thực đo cùng năm |
+| 10 | **Flux trung bình năm** áp cho **một giờ gió tựa dừng** | không có hệ số theo giờ trong ngày | thiết kế mô hình | Kịch bản dùng nguồn trung bình năm; kết quả không phải nồng độ trung bình năm hoặc 24 giờ |
 | 11 | Nồng độ nền (background) | 0 | thiết kế mô hình | Chỉ là **phần đóng góp của giao thông trong miền**; không so thẳng được với trạm quan trắc |
 
 ## 2. Đối chiếu độc lập: EDGAR ngụ ý bao nhiêu xe?
@@ -34,9 +34,9 @@
 - Nút giao Hàng Xanh: cao điểm ~22.000 xe/h (tổng mọi hướng), 85–90 % xe máy — Nguyen H.K. (2026), Mathematical Modelling of Engineering Problems 13(5):889-896, doi:10.18280/mmep.130509. *Giới hạn:* tổng một nút giao lớn, số 'reported' từ Sở GTVT, không phải một đoạn đường; nút nằm ngoài miền mô hình.
 - Xe máy chiếm 80 % số xe đếm trên 70 tuyến phố TP.HCM (06:00-19:00, 2021) — Ho et al. (2022), International Journal of Environmental Research and Public Health, doi:10.3390/ijerph192316156. *Giới hạn:* tỉ lệ thành phần, không có lưu lượng theo từng tuyến.
 
-**Đọc:** lưu lượng EDGAR ngụ ý (hàng chục tới ~100 xe/h mỗi tuyến) thấp hơn **rất nhiều** so với bậc lưu lượng xe máy ở lõi TP.HCM. Nhất quán với việc EDGAR là trung bình ô ~11 km. Kết luận: nồng độ tuyệt đối là **cận dưới**; phân bố không gian và so sánh giữa kịch bản không bị ảnh hưởng, vì mô hình tuyến tính theo nguồn. Web có hệ số nhân phát thải để khảo sát độ nhạy này.
+**Diễn giải:** lưu lượng EDGAR ngụ ý chỉ là đối chiếu bậc độ lớn với bối cảnh giao thông, không phải số đếm trong miền. Với dữ liệu hiện có, chưa đủ cơ sở để khẳng định nồng độ mô phỏng là cận dưới của nồng độ thực tế. Trong bài toán tuyến tính, khi nhân đồng đều nguồn và giữ nguyên gió, hình học, hệ số khuếch tán, điều kiện đầu/biên đồng nhất và nền bằng 0, nghiệm lý tưởng biến đổi cùng hệ số. Tính chất này không bảo đảm phân bố vẫn đúng khi thay trọng số đường, vị trí nguồn hoặc hình học; kết quả chạy còn chịu sai số số trị và điều kiện dừng. Hệ số minh họa trên web không phải một run giảm nguồn đã được solver kiểm tra.
 
 ## 3. Dùng kết quả thế nào
 
-- **Dùng được:** phân bố không gian, gradient theo độ cao, so sánh giữa kịch bản gió, tỉ lệ vượt ngưỡng tương đối.
+- **Dùng được:** nghiên cứu phân bố theo vị trí/cao độ và đối chiếu kịch bản trong các giả thiết đã nêu; kết luận kèm sai số và độ nhạy. Phần vượt ngưỡng chỉ là thống kê mô hình, không đánh giá đạt chuẩn 24 giờ.
 - **Không dùng được như số đo:** nồng độ µg/m³ tuyệt đối. Báo cáo phải gọi là *nồng độ mô phỏng chuẩn hoá theo EDGAR*, không gọi là dự báo chất lượng không khí.

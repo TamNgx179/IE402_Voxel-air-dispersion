@@ -176,8 +176,8 @@ def build_assumptions_markdown(config: dict[str, Any]) -> str:
         target = float(transport["edgar_target_total_kg_s"])
         flux = float(transport["edgar_area_weighted_flux_kg_m2_s"])
         lines += [
-            f"| 8 | Tổng phát thải đặt bằng **EDGAR** | {transport.get('edgar_release')} {transport.get('edgar_sector_code')} {int(transport.get('edgar_year'))}: flux {_fmt(flux)} kg m⁻² s⁻¹ → **{_fmt(target)} kg/s** cho miền 500 × 500 m | {transport.get('attribution')} | EDGAR là **trung bình ô 0,1° (~11 km)**, gồm cả vùng ít xe; áp cho lõi Quận 1 nhiều khả năng **thấp hơn thực tế** — xem §2 |",
-            f"| 9 | Lệch năm | EDGAR {int(transport.get('edgar_year'))} ↔ khí tượng {meteo_period['start_date']} – {meteo_period['end_date']} | config | Chấp nhận được cho phân bố không gian; không dùng để so trị tuyệt đối theo năm |",
+            f"| 8 | Tổng phát thải đặt bằng **EDGAR** | {transport.get('edgar_release')} {transport.get('edgar_sector_code')} {int(transport.get('edgar_year'))}: flux {_fmt(flux)} kg m⁻² s⁻¹ → **{_fmt(target)} kg/s** cho miền 500 × 500 m | {transport.get('attribution')} | EDGAR là **trung bình ô 0,1° (~11 km)**; nguồn tại từng phố chưa được đo, mức và hướng sai lệch cần đánh giá — xem §2 |",
+            f"| 9 | Lệch năm | EDGAR {int(transport.get('edgar_year'))} ↔ khí tượng {meteo_period['start_date']} – {meteo_period['end_date']} | config | Khác năm dữ liệu là một bất định; không dùng để đối chiếu nồng độ thực đo cùng năm |",
         ]
     else:
         target = None
@@ -187,7 +187,7 @@ def build_assumptions_markdown(config: dict[str, Any]) -> str:
         ]
 
     lines += [
-        "| 10 | **Flux trung bình năm** áp cho **một giờ gió tựa dừng** | không có hệ số theo giờ trong ngày | thiết kế mô hình | Nồng độ là mức **đại diện trung bình**, không phải giờ cao điểm |",
+        "| 10 | **Flux trung bình năm** áp cho **một giờ gió tựa dừng** | không có hệ số theo giờ trong ngày | thiết kế mô hình | Kịch bản dùng nguồn trung bình năm; kết quả không phải nồng độ trung bình năm hoặc 24 giờ |",
         "| 11 | Nồng độ nền (background) | 0 | thiết kế mô hình | Chỉ là **phần đóng góp của giao thông trong miền**; không so thẳng được với trạm quan trắc |",
         "",
         "## 2. Đối chiếu độc lập: EDGAR ngụ ý bao nhiêu xe?",
@@ -223,11 +223,13 @@ def build_assumptions_markdown(config: dict[str, Any]) -> str:
         ] or ["- (chưa có số liệu đối chiếu trong config)"]
         lines += [
             "",
-            "**Đọc:** lưu lượng EDGAR ngụ ý (hàng chục tới ~100 xe/h mỗi tuyến) thấp hơn **rất nhiều** "
-            "so với bậc lưu lượng xe máy ở lõi TP.HCM. Nhất quán với việc EDGAR là trung bình ô "
-            "~11 km. Kết luận: nồng độ tuyệt đối là **cận dưới**; phân bố không gian và so sánh "
-            "giữa kịch bản không bị ảnh hưởng, vì mô hình tuyến tính theo nguồn. Web có hệ số "
-            "nhân phát thải để khảo sát độ nhạy này.",
+            "**Diễn giải:** lưu lượng EDGAR ngụ ý chỉ là đối chiếu bậc độ lớn với bối cảnh "
+            "giao thông, không phải số đếm trong miền. Với dữ liệu hiện có, chưa đủ cơ sở để khẳng định "
+            "nồng độ mô phỏng là cận dưới của nồng độ thực tế. Trong bài toán tuyến tính, khi nhân đồng đều "
+            "nguồn và giữ nguyên gió, hình học, hệ số khuếch tán, điều kiện đầu/biên đồng nhất và nền bằng 0, "
+            "nghiệm lý tưởng biến đổi cùng hệ số. Tính chất này không bảo đảm phân bố vẫn đúng khi thay "
+            "trọng số đường, vị trí nguồn hoặc hình học; kết quả chạy còn chịu sai số số trị và điều kiện dừng. "
+            "Hệ số minh họa trên web không phải một run giảm nguồn đã được solver kiểm tra.",
         ]
     else:
         lines.append("**Trạng thái: `not-run`** — cần chạy A3.3 và A3.4 (`src/edgar_normalizer.py`).")
@@ -236,8 +238,8 @@ def build_assumptions_markdown(config: dict[str, Any]) -> str:
         "",
         "## 3. Dùng kết quả thế nào",
         "",
-        "- **Dùng được:** phân bố không gian, gradient theo độ cao, so sánh giữa kịch bản gió, "
-        "tỉ lệ vượt ngưỡng tương đối.",
+        "- **Dùng được:** nghiên cứu phân bố theo vị trí/cao độ và đối chiếu kịch bản trong các giả thiết đã nêu; "
+        "kết luận kèm sai số và độ nhạy. Phần vượt ngưỡng chỉ là thống kê mô hình, không đánh giá đạt chuẩn 24 giờ.",
         "- **Không dùng được như số đo:** nồng độ µg/m³ tuyệt đối. Báo cáo phải gọi là "
         "*nồng độ mô phỏng chuẩn hoá theo EDGAR*, không gọi là dự báo chất lượng không khí.",
         "",

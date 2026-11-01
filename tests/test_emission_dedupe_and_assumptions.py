@@ -99,3 +99,19 @@ def test_ac6_assumptions_record_names_every_required_assumption():
     ):
         assert required in text, required
     assert ("`computed`" in text) or ("`not-run`" in text)
+
+
+def test_computed_assumptions_do_not_promise_a_lower_bound_or_unchanged_spatial_patterns(monkeypatch):
+    import emission.assumptions as module
+    # Supply consistent source metadata even on machines without cached production inputs.
+    monkeypatch.setattr(module, "_attrs", lambda path: {
+        "proxy_retained": 1.0, "edgar_target_total_kg_s": 3e-6,
+        "edgar_area_weighted_flux_kg_m2_s": 1.2e-11,
+        "edgar_release": "v8.1", "edgar_sector_code": "TRO", "edgar_year": 2022,
+    })
+    text = build_assumptions_markdown(load_project_config(CONFIG_PATH))
+    assert "nồng độ tuyệt đối là **cận dưới**" not in text
+    assert "giữa kịch bản không bị ảnh hưởng" not in text
+    assert "chưa đủ cơ sở để khẳng định" in text
+    assert "nhân đồng đều" in text
+    assert "giữ nguyên gió, hình học" in text
