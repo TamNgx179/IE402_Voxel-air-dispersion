@@ -13,6 +13,17 @@ describe.skipIf(!db.ok)('Spatial analysis with actual PostGIS', () => {
   const pair = (a = baseline, b = comparison, z = 1) =>
     `/api/runs/${a}/comparison?compare_run_id=${b}&z_m=${z}`;
   async function run(values: string[], model = 'fv') {
+    // Align every synthetic column with the committed scene's inclusive solid ranges.
+    const masked = values.map((literal, n) => {
+      const parts = literal.slice(1, -1).split(',');
+      return (
+        '{' +
+        parts
+          .map((v, k) => ((n === 0 && k <= 2) || n === 3 ? 'NULL' : v))
+          .join(',') +
+        '}'
+      );
+    });
     const id = randomUUID();
     await pool.query(
       `INSERT INTO simulation_runs(id,scenario_id,model,status,model_version,input_hash,finished_at)
@@ -22,7 +33,7 @@ describe.skipIf(!db.ok)('Spatial analysis with actual PostGIS', () => {
     for (let n = 0; n < 4; n++)
       await pool.query(
         'INSERT INTO concentration_columns(run_id,i,j,c_ug_m3) VALUES($1,$2,$3,$4)',
-        [id, n % 2, Math.floor(n / 2), values[n]],
+        [id, n % 2, Math.floor(n / 2), masked[n]],
       );
     return id;
   }
@@ -47,16 +58,16 @@ describe.skipIf(!db.ok)('Spatial analysis with actual PostGIS', () => {
     });
     area = (await pool.query('SELECT id FROM study_areas LIMIT 1')).rows[0].id;
     baseline = await run([
-      '{NULL,NULL,5,2}',
+      '{NULL,NULL,NULL,2}',
       '{10,5,3,1}',
       '{20,10,5,2}',
-      '{30,15,8,4}',
+      '{NULL,NULL,NULL,NULL}',
     ]);
     comparison = await run([
-      '{NULL,NULL,5,2}',
+      '{NULL,NULL,NULL,2}',
       '{12,6,4,2}',
       '{18,9,4,1}',
-      '{33,16,9,5}',
+      '{NULL,NULL,NULL,NULL}',
     ]);
   });
   afterAll(async () => {
@@ -76,8 +87,8 @@ describe.skipIf(!db.ok)('Spatial analysis with actual PostGIS', () => {
     });
     expect(
       r.feature_collection.features.map((f: any) => f.properties.delta_ug_m3),
-    ).toEqual([2, -2, 3]);
-    expect(r.stats.delta.mean_ug_m3).toBeCloseTo(1, 10);
+    ).toEqual([2, -2]);
+    expect(r.stats.delta.mean_ug_m3).toBeCloseTo(0, 10);
     const top = await http()
       .get(pair(baseline, comparison, 2.1))
       .expect(200);
@@ -93,7 +104,7 @@ describe.skipIf(!db.ok)('Spatial analysis with actual PostGIS', () => {
     const zero = await run(Array(4).fill('{0,0,0,0}'));
     const response = await http().get(pair(zero, zero)).expect(200);
     expect(response.body.stats).toMatchObject({
-      air_cells: 4,
+      air_cells: 2,
       baseline: { mean_ug_m3: 0 },
     });
   });
@@ -156,6 +167,10 @@ describe.skipIf(!db.ok)('Spatial analysis with actual PostGIS', () => {
     await pool.query("UPDATE simulation_runs SET model='fv' WHERE id=$1", [
       other,
     ]);
+    await pool.query(
+      'UPDATE concentration_columns SET c_ug_m3[1]=NULL WHERE run_id=$1 AND i=1 AND j=0',
+      [other],
+    );
     await http().get(pair(baseline, other)).expect(409);
     await pool.query(
       'DELETE FROM concentration_columns WHERE run_id=$1 AND i=0 AND j=0',
@@ -222,10 +237,39 @@ describe.skipIf(!db.ok)('Spatial analysis with actual PostGIS', () => {
     const zero = await run(Array(4).fill('{0,0,0,0}'));
     const { body: z } = await http()
       .post(`/api/runs/${zero}/region`)
-      .send(q)
+      .send({
+        ...q,
+        polygon: await polygon(686005.5, 1191300.5, 686009.5, 1191304.5),
+      })
       .expect(201);
     expect(z.mean_ug_m3).toBe(0);
     expect(z.air_volume_m3).toBeCloseTo(32, 5);
+  });
+  it('excludes scene solids even if legacy/imported columns contain values there', async () => {
+    const dirty = await run(Array(4).fill('{100,100,100,100}'));
+    // Deliberately violate the artifact contract to exercise the SQL safety guard.
+    await pool.query(
+      'UPDATE concentration_columns SET c_ug_m3=ARRAY[100,100,100,100]::real[] WHERE run_id=$1',
+      [dirty],
+    );
+    const r = await http().get(pair(dirty, dirty)).expect(200);
+    expect(r.body.stats.air_cells).toBe(2);
+    const region = await http()
+      .post(`/api/runs/${dirty}/region`)
+      .send({
+        ...(await body()),
+        polygon: await polygon(686000.5, 1191300.5, 686004.5, 1191304.5),
+      })
+      .expect(201);
+    expect(region.body.air_volume_m3).toBe(0);
+    expect(region.body.mean_ug_m3).toBeNull();
+  });
+  it('threshold equality is not exceedance', async () => {
+    const r = await http()
+      .post(`/api/runs/${baseline}/region`)
+      .send({ ...(await body()), threshold_ug_m3: 10 })
+      .expect(201);
+    expect(r.body.exceedance_volume_m3).toBe(0);
   });
   it('supports holes and ignores pure boundary contact', async () => {
     const outer = await polygon(686000.1, 1191300.1, 686009.9, 1191309.9);
@@ -243,8 +287,8 @@ describe.skipIf(!db.ok)('Spatial analysis with actual PostGIS', () => {
       .post(`/api/runs/${baseline}/region`)
       .send(q)
       .expect(201);
-    // 3 air cells, each 4.9² m², minus a 3x3 hole in one air cell.
-    expect(r.air_volume_m3).toBeCloseTo((3 * 4.9 * 4.9 - 9) * 2, 4);
+    // 2 air cells, each 4.9² m², minus a 3x3 hole in one air cell.
+    expect(r.air_volume_m3).toBeCloseTo((2 * 4.9 * 4.9 - 9) * 2, 4);
   });
   it('rejects self intersections, outside domain, shape/coordinate limits and unknown keys', async () => {
     const q = await body();

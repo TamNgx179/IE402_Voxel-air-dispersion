@@ -11,7 +11,8 @@ import type {
   VerticalProfileRow,
 } from '../schemas/simulation-result.schema.js';
 
-/** PostGIS/SQL access for simulation results. Response shaping stays in the service. */
+/** Float8 casts preserve stored float32 values through PostgreSQL text/JSON transport.
+ * PostGIS/SQL access for simulation results. Response shaping stays in the service. */
 @Injectable()
 export class SimulationResultsRepository {
   constructor(private readonly db: DatabaseService) {}
@@ -23,7 +24,7 @@ export class SimulationResultsRepository {
     scenarioId: string,
   ): Promise<ConcentrationCellRow[]> {
     const { rows } = await this.db.query<ConcentrationCellRow>(
-      `SELECT c.i, c.j, c.c_ug_m3[$2] AS concentration,
+      `SELECT c.i, c.j, c.c_ug_m3[$2]::double precision AS concentration,
               ST_AsGeoJSON(ST_Transform(g.geom, 4326), 7)::json AS geometry
        FROM concentration_columns c
        JOIN scenarios s ON s.id = $7
@@ -47,7 +48,7 @@ export class SimulationResultsRepository {
     scenarioId: string,
   ): Promise<ConcentrationCellRow[]> {
     const { rows } = await this.db.query<ConcentrationCellRow>(
-      `SELECT c.i, c.j, c.c_ug_m3[$2] AS concentration,
+      `SELECT c.i, c.j, c.c_ug_m3[$2]::double precision AS concentration,
               ST_AsGeoJSON(ST_Transform(g.geom, 4326), 7)::json AS geometry
        FROM concentration_columns c
        JOIN scenarios s ON s.id = $4
@@ -66,7 +67,7 @@ export class SimulationResultsRepository {
     scenarioId: string,
   ): Promise<VerticalProfileRow | null> {
     const { rows } = await this.db.query<VerticalProfileRow>(
-      `SELECT c.c_ug_m3,
+      `SELECT c.c_ug_m3::double precision[] AS c_ug_m3,
               ST_AsGeoJSON(ST_Transform(ST_Centroid(g.geom), 4326), 7)::json AS centre
        FROM concentration_columns c
        JOIN scenarios s ON s.id = $4
@@ -81,8 +82,8 @@ export class SimulationResultsRepository {
     const { rows } = await this.db.query<LayerSummaryRow>(
       `SELECT u.ordinality - 1 AS k,
               count(u.value)::int AS air_cells,
-              avg(u.value)::double precision AS mean_ug_m3,
-              max(u.value)::double precision AS max_ug_m3
+              avg(u.value::double precision) AS mean_ug_m3,
+              max(u.value::double precision) AS max_ug_m3
        FROM concentration_columns c
        CROSS JOIN LATERAL unnest(c.c_ug_m3) WITH ORDINALITY AS u(value, ordinality)
        WHERE c.run_id = $1
@@ -133,7 +134,7 @@ export class SimulationResultsRepository {
 
   async columns(runId: string): Promise<ConcentrationColumnRow[]> {
     const { rows } = await this.db.query<ConcentrationColumnRow>(
-      'SELECT i, j, c_ug_m3 FROM concentration_columns WHERE run_id = $1 ORDER BY j, i',
+      'SELECT i, j, c_ug_m3::double precision[] AS c_ug_m3 FROM concentration_columns WHERE run_id = $1 ORDER BY j, i',
       [runId],
     );
     return rows;
@@ -149,7 +150,10 @@ export class SimulationResultsRepository {
     return rows;
   }
 
-  async artifact(runId: string, kind: string): Promise<ArtifactFileSchema | null> {
+  async artifact(
+    runId: string,
+    kind: string,
+  ): Promise<ArtifactFileSchema | null> {
     const { rows } = await this.db.query<ArtifactFileSchema>(
       'SELECT path, size_bytes FROM artifacts WHERE run_id = $1 AND kind = $2',
       [runId, kind],

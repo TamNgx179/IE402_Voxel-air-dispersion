@@ -123,8 +123,38 @@ describe.skipIf(!db.ok)('SimulationExecutor (e2e, real Python solver)', () => {
       });
       const summary = await http().get(`/api/runs/${id}/summary`).expect(200);
       expect(summary.body.verification.status).toBe('pass');
+      // Independent read of the saved float32 NetCDF: do not use rounded DB text as the oracle.
+      const reference = spawnSync(
+        python,
+        [
+          '-c',
+          'import sys,json,numpy as np,xarray as xr; d=xr.open_dataset(sys.argv[1]); a=d["C"].values.astype(np.float64); print(json.dumps(np.where(np.isfinite(a),a,None).tolist()))',
+          join(temporary, 'artifacts', id, 'concentration.nc'),
+        ],
+        { cwd: REPO_ROOT, encoding: 'utf8' },
+      );
+      expect(reference.status, reference.stderr).toBe(0);
+      const exact = JSON.parse(reference.stdout);
+      for (let j = 0; j < 2; j++)
+        for (let i = 0; i < 2; i++) {
+          const profile = await http()
+            .get(`/api/runs/${id}/profile?i=${i}&j=${j}`)
+            .expect(200);
+          expect(
+            profile.body.levels.map((l: any) => l.concentration_ug_m3),
+          ).toEqual(exact.map((layer: any) => layer[j][i]));
+        }
+      for (let k = 0; k < 4; k++) {
+        const slice = await http()
+          .get(`/api/runs/${id}/slices?z_m=${2 * k + 1}`)
+          .expect(200);
+        for (const feature of slice.body.feature_collection.features) {
+          const p = feature.properties;
+          expect(p.concentration_ug_m3).toBe(exact[k][p.j][p.i]);
+        }
+      }
       const persisted = await pool.query(
-        'SELECT c_ug_m3 FROM concentration_columns WHERE run_id = $1 AND i = 1 AND j = 0',
+        'SELECT c_ug_m3::double precision[] AS c_ug_m3 FROM concentration_columns WHERE run_id = $1 AND i = 1 AND j = 0',
         [id],
       );
       const profile = await http()

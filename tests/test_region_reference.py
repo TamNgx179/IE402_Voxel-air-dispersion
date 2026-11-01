@@ -336,7 +336,7 @@ def test_a_region_no_air_and_zero_air_match_reference():
     assert (r.air_volume_m3, r.mean_ug_m3, r.max_ug_m3, r.exceedance_volume_m3) == (0.0, None, None, 0.0)
     # A returns layers=[] for no air; the reference keeps the k rows with null mean.
     assert all(l.air_volume_m3 == 0 for l in r.layers)
-    r0 = region_stats(a_run("zero"), env(*e["polygon_utm"]), *z)
+    r0 = region_stats(a_run("zero"), env(*EXP["region_zero_air"]["polygon_utm"]), *z)
     assert r0.mean_ug_m3 == EXP["region_zero_air"]["mean"]
     assert r0.air_volume_m3 == pytest.approx(EXP["region_zero_air"]["air_volume_m3"], abs=1e-9)
 
@@ -367,24 +367,16 @@ def test_wgs84_round_trip_of_fixture_polygon_is_within_a_tolerance():
 # Part 2 - findings about the fixture itself (documented, not hidden)
 # --------------------------------------------------------------------------
 
-def test_finding_a_fixture_values_contradict_scene_solid_mask():
-    """A's runs store values in voxels the scene marks solid.
-
-    grid_cells.csv says (0,0) is solid for k=0..2 and (1,1) for k=0..3, but the
-    baseline run has 5 at (0,0,k=2) and 30/15/8/4 in column (1,1). The API only
-    derives "solid" from NULL, so these are treated as air.
-    """
-    leaked = a_run("baseline", mask="scene").solid_with_value()
-    assert sorted(zip(*np.nonzero(leaked))) == [(0, 1, 1), (1, 1, 1), (2, 0, 0), (2, 1, 1), (3, 1, 1)]
+def test_all_reference_fixtures_respect_scene_solid_mask():
+    """Regression for B8.1 R1: no fixture may silently treat buildings as air."""
+    for name in FIXTURE["runs"]:
+        assert not a_run(name, mask="scene").solid_with_value().any(), name
 
 
-def test_finding_scene_mask_changes_two_a_expectations():
+def test_scene_and_null_masks_agree_on_baseline_statistics():
     base_scene, cmp_scene = a_run("baseline", "scene"), a_run("comparison", "scene")
     res = compare_layer(base_scene, cmp_scene, 1.0)
-    assert [c.delta_ug_m3 for c in res.cells] == [2, -2]  # A expects [2, -2, 3]
+    assert [c.delta_ug_m3 for c in res.cells] == EXP["comparison_z1"]["deltas"]
     e = EXP["region_hole"]
     hole = region_stats(base_scene, [rect(*e["outer_utm"]), rect(*e["hole_utm"])], *e["z"])
-    assert hole.air_volume_m3 == pytest.approx((2 * 4.9 * 4.9 - 9) * 2)  # A expects 126.06
-    # The partial-cell case is unaffected because (0,0) k0..1 is solid in both views.
-    e = EXP["region_partial"]
-    assert region_stats(base_scene, env(*e["polygon_utm"]), *e["z"]).mean_ug_m3 == pytest.approx(7.5)
+    assert hole.air_volume_m3 == pytest.approx(e["air_volume_m3"])

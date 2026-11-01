@@ -292,11 +292,14 @@ def write_wind(path: Path, grid: dict, scenario: dict, solid: np.ndarray, crs: s
 def write_columns(path: Path, field: np.ndarray) -> None:
     """i,j,c_ug_m3 with c as a PostgreSQL array literal; NULL marks a solid voxel (spec D1)."""
 
+    # Match the saved NetCDF float32 BEFORE decimal formatting. Nine significant
+    # digits round-trip binary32; formatting float64 first could double-round.
+    field = np.asarray(field, dtype=np.float32)
     nz, ny, nx = field.shape
     lines = ["i,j,c_ug_m3"]
     for j in range(ny):
         for i in range(nx):
-            values = ",".join("NULL" if np.isnan(c) else f"{c:.6g}" for c in field[:, j, i])
+            values = ",".join("NULL" if np.isnan(c) else f"{c:.9g}" for c in field[:, j, i])
             lines.append(f'{i},{j},"{{{values}}}"')
     data = ("\n".join(lines) + "\n").encode("utf-8")
     with path.open("wb") as raw, gzip.GzipFile(fileobj=raw, mode="wb", mtime=0) as handle:

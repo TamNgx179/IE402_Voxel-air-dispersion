@@ -96,12 +96,14 @@ FROM concentration_columns a
 JOIN concentration_columns b ON b.run_id=$2 AND b.i=a.i AND b.j=a.j
 JOIN grid_cells g ON g.study_area_id=$3 AND g.i=a.i AND g.j=a.j
 WHERE a.run_id=$1 AND a.c_ug_m3[$4] IS NOT NULL AND b.c_ug_m3[$4] IS NOT NULL
+-- Scene ranges are zero-based and inclusive; SQL array indices start at one.
+AND (g.solid_from_k IS NULL OR $4-1 NOT BETWEEN g.solid_from_k AND g.solid_to_k)
 ORDER BY a.j,a.i`;
 
 export const REGION_SQL = `WITH p AS (
   SELECT ST_Transform(ST_SetSRID(ST_GeomFromGeoJSON($3),4326),32648) AS geom
 ), cells AS MATERIALIZED (
-  SELECT g.i,g.j,ST_Area(ST_Intersection(g.geom,p.geom)) AS area_m2
+  SELECT g.i,g.j,g.solid_from_k,g.solid_to_k,ST_Area(ST_Intersection(g.geom,p.geom)) AS area_m2
   FROM grid_cells g CROSS JOIN p
   WHERE g.study_area_id=$2 AND ST_Intersects(g.geom,p.geom)
 ), weighted AS (
@@ -111,6 +113,7 @@ export const REGION_SQL = `WITH p AS (
   FROM cells JOIN concentration_columns c ON c.run_id=$1 AND c.i=cells.i AND c.j=cells.j
   CROSS JOIN LATERAL unnest(c.c_ug_m3) WITH ORDINALITY u(value,ordinality)
   WHERE cells.area_m2>0 AND u.value IS NOT NULL
+    AND (cells.solid_from_k IS NULL OR u.ordinality-1 NOT BETWEEN cells.solid_from_k AND cells.solid_to_k)
 )
 SELECT k::int, count(*)::int AS air_voxels, sum(volume)::double precision AS air_volume_m3,
   (sum(concentration*volume)/sum(volume))::double precision AS mean_ug_m3,
