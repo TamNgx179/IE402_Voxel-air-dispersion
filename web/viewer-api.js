@@ -53,11 +53,17 @@
               : response.status >= 500
                 ? "server"
                 : "validation";
-      throw new ApiError(
-        message || `API lỗi ${response.status}`,
-        kind,
-        response.status,
-      );
+      // Raw server text is for known error classification only, never user-facing copy.
+      const labels = {
+        'not-found': 'Không tìm thấy dữ liệu. Hãy chọn lại kết quả.',
+        conflict: 'Dữ liệu chưa sẵn sàng hoặc không tương thích. Hãy chọn lại kết quả.',
+        permission: 'Bạn chưa có quyền truy cập dữ liệu này.',
+        server: 'Ứng dụng chưa xử lý được yêu cầu. Hãy thử lại sau.',
+        validation: 'Thông tin chưa hợp lệ. Kiểm tra lại lựa chọn của bạn.',
+      };
+      const error = new ApiError(labels[kind], kind, response.status);
+      error.detail = typeof message === 'string' ? message : '';
+      throw error;
     }
     return payload;
   }

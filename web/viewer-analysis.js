@@ -92,7 +92,7 @@
           maximumSignificantDigits: 5,
         });
   function analysisError(error) {
-    const message = String(error?.message || "");
+    const message = String(error?.detail || error?.message || "");
     if (
       error?.status === 400 &&
       /^(Tuyến|Hai điểm liên tiếp|Bước lấy mẫu|Mặt cắt vượt|Khoảng cao độ)/.test(

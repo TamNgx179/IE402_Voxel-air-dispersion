@@ -159,12 +159,19 @@
         <label class="check"><input id="show-roads" type="checkbox" /> Đường</label>
         <div class="option-help-row"><label class="check"><input id="show-wind" type="checkbox" checked /> Gió chuyển động <span class="wind-key" aria-hidden="true"></span></label><button type="button" class="help-trigger" aria-label="Giải thích gió chuyển động" data-help="Vệt đi theo trường gió mô phỏng, hiển thị nhanh gấp 6 lần để dễ quan sát; không phải khói ô nhiễm."><i class="bi bi-info-circle" aria-hidden="true"></i></button></div>
         <p id="wind-source-note" class="note wind-disclaimer">Đang tải trường gió của kết quả.</p>
-        <button type="button" class="text-button" data-disclosure="result-info-content" aria-controls="result-info-content" aria-expanded="false">Thông tin kết quả</button>
-        <div id="result-info-content" hidden><p id="model-note" class="note"></p><div id="run-evidence" aria-live="polite"></div></div>
+        <div class="result-info-toggle">
+          <button type="button" class="text-button" data-disclosure="result-info-content" aria-controls="result-info-content" aria-expanded="false">Thông tin kết quả</button>
+          <button type="button" class="help-trigger" aria-label="Giải thích mô hình và thời gian" data-help="Thời gian tính: thời gian máy chạy. Thời gian mô phỏng: thời gian diễn biến trong mô hình. Nhà mái phẳng, nền cao độ 0; cửa sổ minh họa."><i class="bi bi-info-circle" aria-hidden="true"></i></button>
+        </div>
+        <div id="result-info-content" hidden>
+          <p id="model-note" hidden></p>
+          <div id="run-evidence" aria-live="polite"></div>
+        </div>
         <div class="report-export" aria-label="Xuất kết quả">
-          <button id="export-map" type="button"><i class="bi bi-image" aria-hidden="true"></i> Tải ảnh bản đồ</button>
-          <button id="export-data" type="button"><i class="bi bi-download" aria-hidden="true"></i> Tải số liệu CSV</button>
-          <button id="export-metadata" type="button">Tải thông tin kết quả JSON</button>
+          <h3>Tải kết quả</h3>
+          <button id="export-map" type="button" aria-label="Tải ảnh bản đồ PNG"><i class="bi bi-image" aria-hidden="true"></i> Ảnh</button>
+          <button id="export-data" type="button" aria-label="Tải số liệu CSV"><i class="bi bi-file-earmark-spreadsheet" aria-hidden="true"></i> CSV</button>
+          <button id="export-metadata" type="button" aria-label="Tải thông tin kết quả JSON"><i class="bi bi-file-earmark-code" aria-hidden="true"></i> JSON</button>
           <p id="export-note" role="status" aria-live="polite"></p>
         </div>
       </section>

@@ -139,3 +139,14 @@ test("feature explanations use short accessible info icons and no persistent ins
   assert.doesNotMatch(html, /<p class="(?:instruction|field-help)">/);
   assert.match(html, /id="viewer-help-tooltip"[^>]*role="tooltip"[^>]*hidden/);
 });
+
+test('download controls use short visible labels and explicit accessible file descriptions',()=>{
+ const html=readFileSync(join(__dirname,'../index.html'),'utf8');
+ for(const [id,label,name] of [['export-map','Ảnh','Tải ảnh bản đồ PNG'],['export-data','CSV','Tải số liệu CSV'],['export-metadata','JSON','Tải thông tin kết quả JSON']]) {
+  const button=html.match(new RegExp('<button id="'+id+'"([^>]*)>([\\s\\S]*?)</button>'));
+  assert(button);assert(button[1].includes('aria-label="'+name+'"'));
+  assert(button[2].trim().endsWith(label));
+ }
+ assert.match(html,/aria-label="Giải thích mô hình và thời gian"/);
+ assert.doesNotMatch(html,/class="result-geometry"|<span>Mái và nền phẳng<\/span>/);
+});

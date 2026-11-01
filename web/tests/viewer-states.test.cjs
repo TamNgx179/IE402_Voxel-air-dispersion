@@ -209,3 +209,13 @@ test("late query responses after a run switch do not render stale profile or sta
   assert.equal(vm.runInContext("queryCache.has('area:new:0')", context), false);
   assert.equal(element('query-retry').hidden, true);
 });
+
+test('failed solver exposes a Vietnamese recovery message rather than raw diagnostics',async()=>{
+ const {context,element}=await setup();
+ vm.runInContext("api=async()=>({status:'failed',error:{kind:'model',message:'Internal solver stack trace C:/private/secret'}})",context);
+ await vm.runInContext("trackRun('failed-run')",context);
+ assert.match(element('run-error-detail').textContent,/kiểm tra tính toán/);
+ assert.doesNotMatch(element('run-error-detail').textContent,/Internal|stack|private/);
+ assert.equal(element('run-progress').hidden,true);
+ assert.equal(element('run-button').disabled,false);
+});

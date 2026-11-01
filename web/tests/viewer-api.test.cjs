@@ -63,3 +63,14 @@ test("request timeout is recoverable and caller abort is retained", async () => 
     (e) => e.kind === "timeout",
   );
 });
+
+test('server internals stay out of visible copy while known analysis errors retain classification',async()=>{
+  await assert.rejects(request(async()=>new Response(JSON.stringify({message:'Polygon must be valid with positive area (no self intersections)'}),{status:400}),'/api/runs/x/region'),e=>{
+    assert.match(e.message,/Thông tin chưa hợp lệ/);
+    assert.doesNotMatch(e.message,/Polygon|self intersections/);
+    const {analysisError}=require('../viewer-analysis.js');
+    assert.match(analysisError(e),/Vùng đã vẽ không hợp lệ/);
+    return true;
+  });
+  await assert.rejects(request(async()=>new Response(JSON.stringify({message:'SELECT secret FROM private_table'}),{status:500}),'/api/runs'),e=>!e.message.includes('SELECT')&&e.kind==='server');
+});

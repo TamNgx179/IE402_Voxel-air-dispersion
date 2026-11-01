@@ -141,7 +141,7 @@ async function main() {
   }
   if (state.scenario) {
     loadScenario(state.scenario).then(() => {
-      setStatus("Đã tải run từ API", "pass");
+      setStatus("Đã tải kết quả", "pass");
       refresh();
     }).catch((error) => setStatus(error.message, "error",()=>selectResult(state.scenario)));
   } else {
@@ -191,6 +191,7 @@ async function loadBootstrap() {
     })),
     thresholds: Object.fromEntries(thresholds.map((item) => [item.key, { value: item.value_ug_m3, label: item.label }])),
     provenance: area.provenance || {},
+    quality: ViewerEvidence.dataQuality(scene.buildings, area.provenance),
     units: "µg/m³",
     pollutant: "PM2.5 passive scalar",
   };
@@ -257,7 +258,7 @@ function loadScenario(id) {
 
   const entry = scenarioEntry(id);
   if (!entry) return Promise.reject(new Error(`Không tìm thấy run ${id}`));
-  setStatus(`Đang tải run ${id.slice(0, 8)} từ API…`);
+  setStatus("Đang tải kết quả…");
   return Promise.all([
     api(`/runs/${id}/volume`),
     api(`/runs/${id}/summary`),
@@ -856,6 +857,7 @@ function reportSnapshot() {
       exported_at: new Date().toISOString(),
       grid: { ...GRID },
       provenance: M.provenance,
+      scene_quality: M.quality,
       camera: {
         longitude: centre.lng,
         latitude: centre.lat,
@@ -1287,7 +1289,14 @@ async function trackRun(id) {
         $("run-button").disabled = false;
         $("run-progress").hidden = true;
         if (run.status !== "succeeded") {
-          showRunError(new Error(run.error?.message || label), `${label}. Bạn có thể chạy lại.`);
+          // Solver diagnostics remain in the run API/artifacts, not in sidebar copy.
+          const reason = {
+            input: 'Dữ liệu đầu vào chưa phù hợp. Kiểm tra kịch bản trước khi chạy lại.',
+            model: 'Kết quả chưa vượt qua kiểm tra tính toán. Cần kiểm tra mô hình trước khi chạy lại.',
+            timeout: 'Mô phỏng vượt thời gian cho phép. Hãy thử lại hoặc chọn kịch bản khác.',
+            system: 'Ứng dụng gặp lỗi khi tính toán. Hãy thử lại sau.',
+          }[run.error?.kind] || 'Mô phỏng bị gián đoạn. Bạn có thể thử lại.';
+          showRunError(new Error(reason), `${label}. Bạn có thể chạy lại.`);
           return;
         }
         const entry = { id, scenario_id: run.scenario.id, name: run.scenario.name,
@@ -1379,9 +1388,9 @@ function refresh() {
   $("height-slider").setAttribute("aria-valuetext", `tầng ${state.layer + 1}: ${fmt(z - half)}–${fmt(z + half)} m`);
   $("model-note").textContent = entry
     ? (MODEL_NOTES[entry.model] || 'Kết quả mô phỏng đang chọn.')
-    : "Chưa có run thành công để hiển thị nồng độ.";
+    : "Chưa có kết quả hoàn tất để xem nồng độ.";
   if (typeof ViewerEvidence !== 'undefined') {
-    ViewerEvidence.render($("run-evidence"), ViewerEvidence.viewModel(entry?.summary, state.scenario));
+    ViewerEvidence.render($("run-evidence"), {...ViewerEvidence.viewModel(entry?.summary, state.scenario), quality: M.quality});
   }
 
   updateLegend();

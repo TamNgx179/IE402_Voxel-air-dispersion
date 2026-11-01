@@ -41,7 +41,7 @@ test('read-only CSV preserves raw text while error responses retain structured s
   const text='run_id,mean\r\na,0\r\n';let calls=0;
   assert.equal(await request(async()=>{calls++;return new Response(text);},'/api/runs/a/region/csv',{method:'POST',responseType:'text'}),text);
   assert.equal(calls,1);
-  await assert.rejects(request(async()=>new Response('{"message":"invalid polygon"}',{status:400}),'/api/runs/a/region/csv',{responseType:'text'}),e=>e.kind==='validation'&&e.message==='invalid polygon');
+  await assert.rejects(request(async()=>new Response('{"message":"invalid polygon"}',{status:400}),'/api/runs/a/region/csv',{responseType:'text'}),e=>e.kind==='validation'&&e.detail==='invalid polygon'&&!e.message.includes('polygon'));
 });
 
 // Lightweight DOM boundary for state/event regression, not a browser/layout audit.
