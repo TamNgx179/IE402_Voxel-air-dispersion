@@ -129,3 +129,9 @@ Chi tiết đủ 50 tầng ở `layer_stats.csv`; hình `b9.4_vertical_quality.p
 
 - `src/analysis/transect_reference.py`, `tests/test_transect_reference.py`
 - `artifacts/b9.4-review/height_sources.csv`, `layer_stats.csv`, `height_1p5_vs_15m.csv`, `transect_reference_real_run.csv`, `b9.4_vertical_quality.png`, `REVIEW.md`
+
+## Tiếp nối đối chiếu rubric ngày 01/11/2026
+
+Review phía trên là kết quả ở thời điểm ghi nhận. Writer `.9g`/float32 và các cast float8 của API đã sửa trong đợt A8.1/B8.1; hai run executor thật được đối chiếu NetCDF với API. Phần chọn tầng trên biểu đồ tại mặt trong nay dùng khoảng nửa kín, có regression cho z=2 m và pixel biên trên của biểu đồ. Không đổi giá trị mặt cắt hoặc các run cũ.
+
+RESEARCH §3 đã tổng hợp bảng hai mùa từ report candidate có run_id, độ cao yêu cầu/tâm tầng và giới hạn kết luận. B9.3/B10.2 vẫn cần bộ số và hình cùng release để đưa vào báo cáo/slide cuối. Xung đột GOB/OSM, ảnh hưởng miền và giới hạn kiểm định vẫn mở; việc cập nhật tài liệu không thay xác nhận phương pháp của B.

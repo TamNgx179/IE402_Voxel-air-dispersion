@@ -1,6 +1,6 @@
 # Nghiên cứu cơ sở và công nghệ
 
-Tài liệu tổng hợp phương pháp, dữ liệu và công cụ phục vụ đề tài mô phỏng lan truyền ô nhiễm không khí đô thị bằng GIS 3D. Các nguồn dưới đây là bài báo và tài liệu chính thức; lựa chọn áp dụng vào dự án được nêu riêng với giới hạn của nó. Tài liệu không thay thế đặc tả nghiệm thu hoặc nhật ký triển khai. Rà soát ngày 27/10/2026.
+Tài liệu tổng hợp phương pháp, dữ liệu và công cụ phục vụ đề tài mô phỏng lan truyền ô nhiễm không khí đô thị bằng GIS 3D. Các nguồn dưới đây là bài báo và tài liệu chính thức; lựa chọn áp dụng vào dự án được nêu riêng với giới hạn của nó. Tài liệu không thay thế đặc tả nghiệm thu hoặc nhật ký triển khai. Rà soát phương pháp ngày 27/10/2026; bổ sung đối chiếu đề cương/rubric và giới hạn dữ liệu ngày 01/11/2026.
 
 ## 1. Mô hình không gian và mục tiêu nghiên cứu
 
@@ -12,6 +12,25 @@ CityGML mô tả mô hình đô thị có ngữ nghĩa và hình học. Hình h�
 
 Pipeline hiện không dùng DEM, kể cả Copernicus GLO-30, để dựng địa hình.
 Giả định đất phẳng z=0 là hạn chế mô hình, không phải kết luận từ đo đạc cao độ.
+
+### Phân loại và so sánh mô hình phục vụ IE402
+
+Đề cương trang 2, 4–5 yêu cầu hiểu/phân loại mô hình, ưu nhược điểm, mô hình lai, LoD, kiến trúc và phân tích không gian. Với đề tài này, lựa chọn phải giải thích được biểu diễn **thể tích nồng độ**, không chỉ chọn công cụ vẽ. Bảng sau là đối chiếu định tính; chưa cài các bộ giải B-rep/CSG để đo tốc độ nên không đưa ra benchmark giả.
+
+| Biểu diễn | Lưu được gì, quan hệ không gian | Phù hợp trong bài | Đánh đổi/giới hạn |
+|---|---|---|---|
+| Raster 2D | Một giá trị trên mỗi ô XY của một lớp | Basemap, lát cắt ngang, kiểm ảnh kết quả | Một lớp riêng không mô tả biến thiên theo z hoặc flux giữa các tầng |
+| Footprint + height (2.5D) | Polygon XY và một chiều cao; đùn thành khối LoD1 | Dựng vật cản và cảnh nhà từ GIS | Không mô tả được mái đua/hầm hoặc trường nồng độ có nhiều giá trị theo z; chiều cao nguồn không mặc nhiên là số đo |
+| B-rep | Hình học biên và quan hệ đỉnh–cạnh–mặt của vật thể | Mô tả mặt/mái/biên vật cản khi có dữ liệu phù hợp | Biên hình học không tự chứa trường nồng độ bên trong; cần ghép lưới/biểu diễn trường để giải vận chuyển |
+| CSG | Cây phép hợp/giao/hiệu của các khối cơ sở | Xây dựng khối bằng phép Boolean | Không tự tạo dữ liệu nồng độ hoặc adjacency FV; mô hình phố thực tế cần chuẩn hóa hình học |
+| 3D Array/voxel đều — lựa chọn chính | Hộp (i,j,k), occupancy B và trường C; sáu láng giềng qua mặt | Flux bảo toàn, solid/air/no-data, lát/profile, giao thể tích và mặt cắt | Chi phí tăng theo nx×ny×nz; biên nhà dạng bậc thang, mất chi tiết nhỏ, upwind có khuếch tán số |
+| Kết hợp vector + voxel + quan hệ/artifact — triển khai hiện tại | Vector có ID/CRS, voxel phục vụ số trị, bảng quan hệ liên kết run và artifact | Tách nguồn hình học, tính toán và truy vấn nhưng kiểm cùng scene/mask | Phải giữ version, transform, chỉ số và checksum nhất quán; không tự gọi đây là cài đặt mô hình V3D cụ thể trong giáo trình |
+
+B-rep và CSG là hai cách biểu diễn khối khác nhau; CSG dùng phép Boolean trên primitive, B-rep mô tả cấu trúc và hình học biên. Đề cương ghi “CGS”; báo cáo cần đối chiếu thuật ngữ dùng trên lớp, không coi đó là lý do đổi solver. [CGAL, solid representation schemes](https://doc.cgal.org/latest/Nef_3/index.html). CityGML là mô hình dữ liệu đô thị có ngữ nghĩa, không phải solver phát tán; dự án tham khảo khái niệm hình học/LoD nhưng chưa công bố export đạt chuẩn CityGML. [OGC CityGML](https://www.ogc.org/standards/citygml/).
+
+Lưới chuẩn có 500.000 voxel; một trường float32 cần 2.000.000 byte (khoảng 1,91 MiB) cho giá trị thuần, chưa gồm gió, mặt ô, mask, tensor trung gian, DB/index hoặc renderer. Đây là phép tính kích thước mảng, không phải số đo RAM toàn ứng dụng. Tinh đôi cả ba trục làm số voxel tăng 8 lần; runtime còn phụ thuộc dt và thuật toán, phải đo thay vì suy ra từ bộ nhớ.
+
+Quan hệ sáu láng giềng là (i±1,j,k), (i,j±1,k), (i,j,k±1), sau khi kiểm biên và solid. Mảng C-order có offset=((k×ny)+j)×nx+i; PG real[] ở cột (i,j) dùng chỉ số k+1. Đây là topology ngầm của lưới, không phải một bộ topology B-rep được cài riêng. Minh họa fixture 2×2×4 cùng ô biên/solid và PostgreSQL là ví dụ bảo vệ trực tiếp, ánh xạ nguồn ở ARCHITECTURE §3.
 
 ## 2. Trường gió chẩn đoán và vận chuyển chất
 
@@ -33,13 +52,32 @@ Nghiên cứu hội tụ lưới xét nghiệm trên các lưới tinh dần. Re
 
 Thí nghiệm lưới/thời bước phải giữ cùng miền vật lý, nguồn, điều kiện biên và đại lượng so sánh. Cần báo sai số và chi phí, kiểm tra có nằm trong miền hội tụ tiệm cận trước khi dùng Richardson/GCI. Chức năng so sánh hai run cùng lưới trên web không thay cho nghiên cứu này.
 
+### Đối chiếu định lượng đã có và phạm vi kết luận
+
+Các số dưới đây đọc từ `artifacts/production-study/analysis.json`, được tạo từ NetCDF của các production case cũ. Đây là bảng **candidate lịch sử**, làm cơ sở tổng hợp B9.3, không thay bộ release sạch B10.1. run_id trong bảng truy về input_hash, manifest/source hashes và metrics trong cùng report. Bảng làm tròn để trình bày; API/CSV không lấy số đã làm tròn trong Markdown.
+
+| Mùa | Độ cao yêu cầu / tâm tầng (m) | Mean (µg/m³) | Max (µg/m³) | run_id |
+|---|---|---:|---:|---|
+| Khô | 1.5 / 1 | 0.200461 | 0.890174 | `6c58daaf-7698-4cb9-8816-fd52568d56e7` |
+| Khô | 15 / 15 | 0.062825 | 0.322770 | `6c58daaf-7698-4cb9-8816-fd52568d56e7` |
+| Mưa | 1.5 / 1 | 0.197119 | 0.842739 | `9f723ca6-c80d-4ef8-8a68-a1adfc89b24c` |
+| Mưa | 15 / 15 | 0.063943 | 0.273014 | `9f723ca6-c80d-4ef8-8a68-a1adfc89b24c` |
+
+Ở tầng tâm 1 m, mean mùa mưa so mùa khô thay đổi -1.67%; ở tâm 15 m là 1.78%. Khác biệt nhỏ hoặc khác dấu giữa các tầng vẫn là kết quả cần báo cáo; không nhân nguồn minh họa để tạo khác biệt lớn. Đây là so sánh hai cấu hình gió đại diện, chưa chứng minh quan hệ khí hậu/quan trắc theo mùa.
+
+Mean theo tầng tính trên các ô khí có số liệu; tập ô có thể khác giữa các độ cao do nhà. Muốn kết luận biến thiên trên cùng vị trí phải đối chiếu các cột có dữ liệu ở cả hai tầng. Review B9.4 đã có đối chiếu cột cho một run; cần tổng hợp hai mùa vào báo cáo cuối. Độ cao yêu cầu 1,5 m đọc tầng [0,2) có tâm 1 m, không phải nghiệm nội suy tại 1,5 m.
+
+Báo cáo phải tách bốn phép đối chiếu: (1) voxel so với các mô hình dữ liệu là lập luận lựa chọn; (2) FV/Gaussian là khác biệt mô hình/giả thiết, không phải sai số so ground truth; (3) lưới/thời bước là nghiên cứu sai số trên bài toán đã định nghĩa; (4) LoD render là đánh đổi số geometry/thời gian vẽ, không thay độ phân giải solver. Mỗi hình/bảng cần câu hỏi, điều kiện giữ cố định, đơn vị, mã run/version và giới hạn kết luận.
+
+B8/B9 có nghiên cứu puff giải tích với ba lưới; artifacts/hình mới phải tái sinh/đóng gói theo `docs/reviews/B8_B9_GRID_STUDY.md` trước khi chốt release ở máy khác. Không suy ra hội tụ lưới của cảnh đô thị từ bài toán không nhà. Trong report production mùa khô, ước lượng K số p95 theo x khoảng 6,22 m²/s so K vật lý ngang 2 m²/s; đây là ước lượng modified-equation cục bộ 1D, không phải tensor sai số 3D chính xác. Cần trình bày tác động/độ nhạy trước các kết luận mạnh về độ loang.
+
 ## 4. Dữ liệu GIS, khí tượng và phát thải
 
 ### Footprint và chiều cao
 
 OpenStreetMap có các thuộc tính chiều cao và số tầng nhưng mức hoàn chỉnh thay đổi theo khu vực. Chiều cao từ số tầng là suy ra, không phải đo đạc. Giấy phép và ghi công phải được giữ khi phân phối sản phẩm dữ liệu. [OSM height](https://wiki.openstreetmap.org/wiki/Key:height), [OSM building:levels](https://wiki.openstreetmap.org/wiki/Key:building:levels), [OSM copyright](https://www.openstreetmap.org/copyright).
 
-Dự án có bước bổ sung chiều cao từ Google Open Buildings khi phù hợp. Phải kiểm tra sản phẩm, vùng phủ, năm dữ liệu và chất lượng ghép footprint, không mặc nhiên coi chiều cao là số đo từng tòa nhà. Mỗi feature cần lưu nguồn và chính sách fallback. [Google Open Buildings](https://sites.research.google/open-buildings/).
+Dự án có bước bổ sung chiều cao từ Google Open Buildings khi phù hợp. Phải kiểm tra sản phẩm, vùng phủ, năm dữ liệu và chất lượng ghép footprint, không mặc nhiên coi chiều cao là số đo từng tòa nhà. Mỗi feature cần lưu nguồn và chính sách fallback. FAQ chính thức của sản phẩm 2.5D Temporal nêu height bị giới hạn ở 100 m và có thể sai lớn với nhà cao tầng; dữ liệu kiểm định chiều cao chủ yếu ở Global North. Không chuyển sai số công bố thành bảo đảm chính xác tại TP.HCM. Khi GOB và tag OSM xung đột, cả hai cần kiểm nguồn/năm trước khi chọn; tag OSM không tự là ground truth. [Google Open Buildings 2.5D FAQ](https://sites.research.google/gr/open-buildings/temporal). [Google Open Buildings](https://sites.research.google/open-buildings/).
 
 Đường dùng làm proxy phân bố phát thải; mặt nước và cây xanh hiện phục vụ dựng cảnh. Không suy ra chúng đã tham gia mô hình lắng đọng hoặc trao đổi nhiệt nếu solver chưa có các quá trình đó.
 
@@ -53,7 +91,7 @@ Historical Weather API của Open-Meteo cung cấp dữ liệu tái phân tích/
 
 EDGAR v8.1 công bố phát thải chất ô nhiễm, có PM2.5 và các lưới theo ngành. Đây là kiểm kê phát thải, không phải ảnh nồng độ ngoài trời. [JRC, EDGAR v8.1](https://edgar.jrc.ec.europa.eu/dataset_ap81).
 
-Áp dụng: dự án dùng nguồn giao thông năm 2022 và phân bổ xuống đường trong miền. Chia nhỏ lưới bằng proxy không tạo thêm độ chính xác quan trắc. Phải giữ tổng lượng nguồn, đổi đơn vị theo metadata và ghi giả thiết thời gian. Nền bằng 0 mô tả đóng góp nguồn đang xét; không phải tổng PM2.5 thực tế. `emission_assumptions.md` là đầu ra ghi giả thiết của pipeline, không phải nguồn nghiên cứu độc lập.
+Áp dụng: dự án dùng nguồn giao thông năm 2022 và phân bổ xuống đường trong miền. Chia nhỏ lưới bằng proxy không tạo thêm độ chính xác quan trắc. Phải giữ tổng lượng nguồn, đổi đơn vị theo metadata và ghi giả thiết thời gian. Không có căn cứ mặc định xem nồng độ là cận dưới của thực tế; tuyến tính chỉ áp dụng cho thay đổi nguồn với điều kiện cố định phù hợp. Nền bằng 0 mô tả đóng góp nguồn đang xét; không phải tổng PM2.5 thực tế. `emission_assumptions.md` là đầu ra ghi giả thiết của pipeline, không phải nguồn nghiên cứu độc lập.
 
 ## 5. Python, NumPy và SciPy
 

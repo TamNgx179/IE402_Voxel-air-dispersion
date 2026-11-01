@@ -108,3 +108,17 @@ node --test web/tests/*.test.cjs
 Mở `/lod-benchmark.html`, bấm **Chạy phép đo**, chờ xong rồi **Tải kết quả JSON** để đo 6 cấu hình trước/sau trên cùng camera và viewport. Mỗi cấu hình làm nóng 5 khung, đo 40 khung; tắt gió ở viewer khi đo. Đây là thời gian wall từ cập nhật camera đến `onAfterRender` trong cảnh nhà độc lập, không phải FPS toàn ứng dụng hay thời gian GPU riêng. Ghi lại môi trường/viewport và không suy rộng sang máy khác.
 
 Lượt đo 28/10: 62 nhà, 99.280 đỉnh mặt đứng ban đầu; mức tổng quan 0, trung gian 12.468 (giảm 87,44%), chi tiết tối đa 99.280 trước culling. Miền một phần trong benchmark CPU còn 18.328 đỉnh. Browser 1280×720, DPR 1,5: p95 trước/sau lần lượt 10,4/8,5 ms (xa), 13/8,4 ms (giữa), 10,6/8 ms (gần). Kết quả từng lượt nằm local tại `artifacts/a9/lod-cpu.json` và `lod-render.json`; không coi đây là cam kết hiệu năng. Trong lượt kiểm cuối, PostgreSQL AVG có dao động round-off tối đa 5,55e-17 giữa request; raw profile và CSV lấy lại trực tiếp từ API khớp tuyệt đối. CSV từ snapshot cũng giữ nguyên.
+
+Thông tin nguồn và chiều cao nằm trong **Bản đồ → Thông tin kết quả**. Số nhà
+được tính từ thuộc tính scene; chiều cao vệ tinh/số tầng/thay thế không được coi
+là đo đạc thực địa. JSON xuất giữ nguồn đầy đủ và thống kê này trong `metadata.scene_quality`.
+
+Writer cột mới dùng cùng float32 như NetCDF và 9 chữ số có nghĩa; API đọc float8
+để giữ giá trị đã lưu. Các run cũ xuất `.6g` giữ nguyên artifact/hash và giới hạn
+làm tròn lịch sử; tạo run mới nếu cần bộ dữ liệu demo theo contract precision mới.
+
+Đối chiếu đề cương IE402 và rubric A4 (nội dung, so sánh/lập luận/số liệu; slide và báo cáo giấy)
+nằm trong [ROADMAP §2](docs/ROADMAP.md), yêu cầu nghiệm thu ở [spec §4–6](docs/spec.md).
+Bảng lựa chọn mô hình GIS ở [RESEARCH §1](docs/RESEARCH.md), ánh xạ điểm/đường/mặt/khối vào DB
+ở [ARCHITECTURE §3](docs/ARCHITECTURE.md). Báo cáo/slide cuối chưa hoàn thành chỉ bằng việc có web;
+A2/A3 được đánh giá riêng. Không khôi phục seminar hoặc các file nháp đã bỏ.

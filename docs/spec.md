@@ -8,6 +8,10 @@ PostgreSQL/PostGIS và truy vấn là yêu cầu bổ sung của nhóm. Kết qu
 
 Đây là yêu cầu nghiệm thu, không phải danh sách tính năng đã hoàn thành. Cơ sở phương pháp ở [RESEARCH.md](RESEARCH.md), thiết kế ở [ARCHITECTURE.md](ARCHITECTURE.md), tiến độ và phân công ở [ROADMAP.md](ROADMAP.md).
 
+Theo đề cương IE402 do nhóm cung cấp (ký 15/02/2023, trang 6–7), đồ án A4 chiếm 50% điểm môn; giữa kỳ A2 chiếm 20%, thực hành A3 chiếm 30%. A4 ở mức 9–10 yêu cầu nội dung đầy đủ/chính xác, so sánh đối chiếu, lập luận và số liệu rõ ràng; slide và báo cáo giấy có bố cục mạch lạc, minh họa đầy đủ/trực quan. Đề cương không cho trọng số riêng hai tiêu chí A4. Các gate dưới đây là quy tắc chất lượng của nhóm, không phải rubric phụ do giảng viên ban hành; không cam kết điểm số.
+
+Các chuẩn đầu ra cần thể hiện: G1.1 (khái niệm/vector-raster/2D-3D), G1.2 và G2.1 (phân loại/lựa chọn mô hình), G2.2 (phân tích hệ thống), G2.3 (mô hình hóa dữ liệu), G3.1 (ứng dụng). Slide bảo vệ cuối kỳ được giữ; không khôi phục seminar. Project không tự thay thế sáu bài thực hành A3 hoặc điểm A2.
+
 ## 2. Ràng buộc
 
 - Kiến trúc modular monolith NestJS: DTO, schema, controller, service và repository có trách nhiệm rõ; web cùng origin, Python là subprocess nội bộ, PostgreSQL/PostGIS lưu và truy vấn dữ liệu. Không thêm microservice hoặc hàng đợi phân tán.
@@ -83,19 +87,25 @@ PostgreSQL/PostGIS và truy vấn là yêu cầu bổ sung của nhóm. Kết qu
 | `BR-41` | Có sensitivity chiều cao và ít nhất một external benchmark/cross-check; mức tuyên bố phải khớp loại bằng chứng |
 | `BR-42` | Release phải chạy được trên môi trường sạch theo chuỗi Compose → migrate → seed → run → query → web |
 | `BR-43` | Mọi kết luận định lượng trong báo cáo truy được về `run_id`, model version, input hash, table/figure và limitation |
-| `BR-44` | Phân tích vùng dùng diện tích giao XY nhân chiều dày giao khoảng z; trung bình có trọng số thể tích không khí. Ô rắn và thiếu số liệu bị loại; số 0 hợp lệ. Không có ô khí: trung bình/cực đại null, thể tích vượt ngưỡng 0. |
+| `BR-44` | Phân tích vùng dùng diện tích giao XY nhân chiều dày giao khoảng z; trung bình có trọng số thể tích không khí. Ô rắn và thiếu số liệu bị loại; số 0 hợp lệ. Không có ô khí: trung bình/cực đại null, thể tích vượt ngưỡng 0. Vượt ngưỡng dùng dấu >, không bao gồm giá trị bằng ngưỡng; mặt nạ solid lấy từ scene dù cột nhập có giá trị. |
 | `BR-45` | So sánh lấy kết quả đối chiếu trừ kết quả gốc. Chỉ so sánh khi cùng khu vực, CRS, lưới, hình học, mô hình và mặt nạ; không dùng chức năng này cho nghiên cứu khác độ phân giải. |
 | `BR-46` | Mặt cắt nhận LineString WGS84 gồm 2–100 đỉnh, toàn tuyến trong miền. Khoảng lấy mẫu mặc định min(dx,dy), do người dùng nhập phải dương và không lớn hơn mức này. Lấy cả hai đầu tuyến với khoảng đều theo chiều dài chiếu; tối đa 20.000 mẫu vị trí–tầng. |
 | `BR-47` | Mặt cắt đọc ô hiện có, không nội suy nồng độ và không chạy lại solver. Đảo tuyến đảo thứ tự mẫu. Phân biệt ô khí, ô rắn và thiếu số liệu; CSV giữ cùng số liệu, đơn vị và metadata với JSON. |
 | `BR-48` | Chỉ số ô theo khoảng nửa kín; độ cao 2 m thuộc tầng bắt đầu ở 2 m, 100 m ngoài miền mặc định. Trả cả độ cao yêu cầu và tâm tầng. Đổi độ cao, vùng hoặc run phải vô hiệu hóa kết quả cũ. |
-| `BR-49` | Nồng độ trong NetCDF lưu float32; DB bảo toàn giá trị đã lưu khi chuyển float4 sang float8 trước xuất JSON. Dữ liệu màu uint8 chỉ để vẽ, không dùng thống kê hoặc CSV. |
+| `BR-49` | Nồng độ trong NetCDF lưu float32; writer cột ép cùng float32 trước khi ghi 9 chữ số có nghĩa. Import vào real[] không làm tròn thêm; DB chuyển float4 sang float8 trước xuất JSON. Quy tắc mới áp dụng cho run sinh mới, không tự khôi phục độ chính xác của artifact cũ. Dữ liệu màu uint8 chỉ để vẽ, không dùng thống kê hoặc CSV. |
 | `BR-50` | API dùng tiền tố /api. Input sai trả 400; run không tồn tại 404; kết quả chưa sẵn sàng hoặc dữ liệu không tương thích 409. Không trả SQL, stack trace hoặc đường dẫn nội bộ cho người dùng. |
 | `BR-51` | CSV xử lý dấu phẩy, dấu nháy, xuống dòng và nguy cơ công thức bảng tính; ảnh xuất phải có legend, độ cao, đơn vị và định danh kết quả. |
 | `BR-52` | LoD hiển thị được phép thay mức chi tiết và culling theo camera nhưng không thay dữ liệu GIS, mặt nạ solver hoặc kết quả truy vấn; đánh giá bằng đo trước/sau trên cùng cảnh và thiết bị. |
 | `BR-53` | LoD2 mái chỉ triển khai khi có nguồn hình học kiểm chứng, giấy phép và kiểm chất lượng. Thiếu nguồn tiếp tục LoD1, không tự bịa mái. LoD hiển thị, LoD hình học và độ phân giải solver là ba khái niệm riêng. |
 | `BR-54` | Nghiên cứu độ phân giải dùng nhiều lưới/thời bước với cùng bài toán vật lý; báo sai số, chi phí và khuếch tán số. Residual nhỏ không thay thế kiểm tra hội tụ lưới. |
-| `BR-55` | UI dùng tiếng Việt dễ hiểu, đơn vị rõ ràng, nhãn ngắn; giải thích phụ trong nút thông tin dùng được bằng chuột và bàn phím. Nút đơn chiếm cả hàng; chưa chọn ô không hiển thị thẻ kết quả trống. |
+| `BR-55` | UI dùng tiếng Việt dễ hiểu, đơn vị rõ ràng, nhãn ngắn; giải thích phụ trong nút thông tin dùng được bằng chuột và bàn phím. Nút đơn chiếm cả hàng; chưa chọn ô không hiển thị thẻ kết quả trống. Thông tin kết quả và JSON snapshot có nguồn mặt bằng/chiều cao, số nhà theo nhóm chiều cao suy ra/thay thế/chưa rõ; không gắn nhãn đo thực tế cho dữ liệu ước tính. |
 | `BR-56` | Loading, mất mạng, rỗng và lỗi phải có hướng xử lý; phản hồi bất đồng bộ cũ không được ghi đè kết quả mới. Không che lỗi bằng số 0 hoặc dữ liệu minh họa không có nhãn. |
+| `BR-57` | Báo cáo giải thích vì sao chọn 3D Array/voxel, so sánh định tính với raster 2D, footprint + height, B-rep và CSG theo biểu diễn thể tích, adjacency, rời rạc hóa, lưu trữ và truy vấn; không bịa benchmark cho mô hình chưa cài. |
+| `BR-58` | Trình bày ánh xạ điểm/đường/mặt/khối, chỉ số [z,y,x], tâm/biên ô, sáu láng giềng mặt và liên kết scene–voxel–DB. Cảnh đùn LoD1 không đồng nghĩa tensor nồng độ chỉ là 2.5D. PostGIS giao XY × overlap z không được gọi là phép giao solid 3D tổng quát. |
+| `BR-59` | Mỗi bảng/hình định lượng có câu hỏi, điều kiện so sánh, đơn vị, độ cao yêu cầu/tâm tầng, run_id/version/hash, cách tổng hợp và kết luận có giới hạn. So sánh hai mùa, theo cao độ, FV/Gaussian và lưới/thời bước; LoD là số đo renderer riêng. |
+| `BR-60` | Hồ sơ A4 gồm báo cáo in được và slide bảo vệ, có sơ đồ dữ liệu/kiến trúc, hình thực nghiệm và demo tái lập. Web đẹp hoặc nhiều test không thay thế các đầu ra trình bày. Định dạng nộp theo giảng viên; không tự đặt số trang/slide bắt buộc. |
+| `BR-61` | Xung đột chiều cao GOB/OSM, giới hạn 100 m của GOB, biên miền và khuếch tán số phải được kiểm tra/định lượng hoặc nêu rõ hạn chế. Không tự thay nguồn chiều cao bằng tag OSM chưa xác minh; đổi scene cần bundle/hash/run mới. |
+| `BR-62` | Nguồn EDGAR và nền 0 không đủ để khẳng định nghiệm là cận dưới ngoài thực tế. Tính tuyến tính theo hệ số nguồn chỉ diễn giải khi các điều kiện cố định phù hợp; không gọi multiplier minh họa là thí nghiệm solver hoặc công bố kiểm định thực đo khi chưa có. |
 
 ## 5. Trường hợp biên
 
@@ -130,6 +140,10 @@ PostgreSQL/PostGIS và truy vấn là yêu cầu bổ sung của nhóm. Kết qu
 | E-27 | Không có mái đủ tin cậy | Giữ LoD1 và ghi giới hạn; không công bố LoD2 từ texture. |
 | E-28 | Residual nhỏ nhưng kết quả đổi theo lưới | Báo riêng hội tụ lặp và hội tụ lưới; không gộp thành đạt. |
 | E-29 | Nồng độ dưới ngưỡng tham chiếu | Chỉ mô tả kết quả mô hình, không kết luận không khí an toàn hay đạt chuẩn 24 giờ. |
+| E-30 | Chênh hai mùa nhỏ hoặc cả hai không vượt ngưỡng | Báo số và giải thích theo đầu vào, không nhân nguồn để tạo khác biệt đẹp hoặc kết luận đạt chuẩn môi trường. |
+| E-31 | Số liệu candidate khác revision release hoặc thiếu artifact nghiên cứu | Giữ nhãn candidate; tái sinh/đóng gói bundle có hash trước khi chốt số báo cáo, không đổi trạng thái thành đạt theo ảnh. |
+| E-32 | Hai nguồn chiều cao xung đột hoặc chạm giới hạn sản phẩm | Ghi ID/nguồn/năm/chênh lệch; xác minh hoặc sensitivity trước kết luận, không chọn giá trị chỉ vì nhìn giống thật. |
+| E-33 | Click mặt trong giữa hai tầng của biểu đồ | Chọn tầng phía trên theo khoảng nửa kín; pixel biên trên biểu đồ đọc hàng cuối đang vẽ, không truy vấn thêm tầng ngoài miền. |
 
 ## 6. Tiêu chí nghiệm thu
 
@@ -182,3 +196,9 @@ PostgreSQL/PostGIS và truy vấn là yêu cầu bổ sung của nhóm. Kết qu
 | `AC-41` | Nghiên cứu lưới/thời bước báo cùng miền vật lý, sai số, chi phí, khuếch tán số và giới hạn kết luận. |
 | `AC-42` | UI không hiển thị chưa chọn ô; nút đơn đầy hàng, chú thích ngắn, tooltip mở bằng focus/hover và đóng bằng Escape; trạng thái lỗi tiếng Việt có hướng khắc phục. |
 | `AC-43` | Đổi run/lớp/vùng khi request đang chạy không làm kết quả cũ xuất hiện; mất mạng có thể thử lại mà không tạo run trùng. |
+| `AC-44` | Có bảng so sánh mô hình và ví dụ voxel 2×2×4 đối chiếu array, tâm/biên, adjacency và DB; giải thích được đánh đổi của cấu hình 5×5×2 m. |
+| `AC-45` | Có bảng truy vết G1.1…G3.1 → nội dung báo cáo/slide/demo, không coi phần lý thuyết là hoàn thành chỉ vì có code web. |
+| `AC-46` | Bảng/hình hai mùa, cao độ, FV/Gaussian, lưới/thời bước và LoD ghi đủ nguồn/version, kết luận đúng mức; không đồng nhất sai khác hai mô hình với sai số so thực đo. |
+| `AC-47` | Báo cáo in được và slide cuối đã rà bố cục, chữ/trục/đơn vị/caption, cùng một bộ số; demo có run và dữ liệu dự phòng. Không chốt A4 trình bày khi mới có screenshot UI. |
+| `AC-48` | Generator giả định phát thải không khẳng định cận dưới hoặc bất biến phân bố vô điều kiện; biểu đồ mặt cắt có test đúng mặt trong và biên trên. |
+| `AC-49` | Ma trận nghiệm thu phân biệt việc đã đo, báo cáo lịch sử, việc còn chờ A/B và gói bàn giao; A2/A3 và điểm môn không suy từ việc hoàn thành project. |

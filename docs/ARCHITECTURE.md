@@ -162,11 +162,39 @@ API, simulation orchestration, results và persistence; Python là child process
 là service. Prototype web tĩnh được giữ để tái sử dụng renderer, nhưng bản cuối dùng same-origin
 API của monolith và không đọc trực tiếp file nội bộ.
 
+### Mô hình dữ liệu không gian và ánh xạ lưu trữ
+
+Đây là hệ kết hợp **vector GIS + 3D Array/voxel + quan hệ/artifact**. Nhà nguồn dùng footprint và height để đùn LoD1; trường C(z,y,x) là trường thể tích 3D riêng. Không gán toàn bộ hệ là 2.5D chỉ vì nhà có mái phẳng, và không gọi mesh cửa sổ là mô hình dữ liệu B-rep đã được quản lý topology.
+
+| Dạng đối tượng | Biểu diễn trong ứng dụng | Lưu/tra ở đâu | Phân tích và giới hạn |
+|---|---|---|---|
+| Điểm | Vị trí chọn, tâm ô, vị trí mẫu trên tuyến | i/j/k và tọa độ tính từ grid; trả qua API | Điểm truy vấn là dữ liệu dẫn xuất, không có bảng điểm quan trắc giả |
+| Đường | Đường giao thông; tuyến mặt cắt WGS84 | roads trong PostGIS; tuyến truy vấn trong request | Chiếu sang CRS mét trước đo/đặt mẫu; tuyến không phải đường đi của hạt gió |
+| Mặt | Footprint, mặt nước/cây xanh, vùng chọn | geometry XY trong PostGIS và scene package | Giao/bao phủ/diện tích bằng PostGIS; không coi các phép XY tự tính được khối 3D bất kỳ |
+| Khối nhà | Footprint + height và mask voxel B | buildings, grid_cells.solid_from_k/solid_to_k; B trong NetCDF | Cột rắn LoD1 liên tục; không biểu diễn hầm hoặc mái đua bằng một khoảng k |
+| Thể tích không khí | Các voxel có C, solid/no-data phân biệt | NetCDF đầy đủ; concentration_columns.real[] theo z | Giao thể tích = diện tích giao XY × overlap z; C=0 hợp lệ, null không biến thành 0 |
+| Thời gian và provenance | Trạng thái run, thời gian vật lý, tham số, ID/hash/version | simulation_runs/metrics/artifacts và manifest | Hiện viewer xem kết quả cuối từng run; animation gió không phải chuỗi C(t) đã lưu |
+
+Một voxel là [x0+i·dx,x0+(i+1)·dx) × [y0+j·dy,y0+(j+1)·dy) × [k·dz,(k+1)·dz), tâm cộng nửa bước. Sáu ô kề qua mặt tạo adjacency ngầm cho FV; mặt chung dùng cùng flux. PG array k+1 ánh xạ về Python/JS k. Ví dụ fixture 2×2×4 dùng để giải thích và kiểm solid, zero, no-data, biên ô và giao một phần trước khi trình bày cảnh 500.000 voxel.
+
+Ví dụ đã có trong fixture PostGIS 2×2×4: origin=(686000,1191300) m, dx=dy=5 m, dz=2 m, CRS EPSG:32648; k bắt đầu từ 0.
+
+| k | Khoảng z / tâm (m) | C tại cột (0,0) | C tại cột (1,0), µg/m³ |
+|---:|---|---|---:|
+| 0 | [0,2) / 1 | NULL — solid | 10 |
+| 1 | [2,4) / 3 | NULL — solid | 5 |
+| 2 | [4,6) / 5 | NULL — solid | 3 |
+| 3 | [6,8) / 7 | 2 — air | 1 |
+
+Ô (i=1,j=0,k=1) có tâm (686007,5;1191302,5;3) m, offset mảng phẳng 5 và đọc PG `c_ug_m3[2]`. Độ cao yêu cầu 2 m thuộc chính tầng này. Với vùng fixture giao 10 m² của cột (1,0) và dải [1,3), hai tầng mỗi tầng giao dày 1 m: V=20 m³, mean=(10×10+5×10)/20=7,5 µg/m³. Cột (0,0) bị loại theo solid mask, không biến NULL thành không khí sạch. Đây là ví dụ tính tay/test tham chiếu, không phải nồng độ quan trắc hoặc số production.
+
+Báo cáo/slide A4 cần dẫn từ mô hình khái niệm (đối tượng/quan hệ) sang mô hình logic (ERD/keys/arrays) rồi mô hình vật lý (PostGIS/index/NetCDF), kèm truy vấn và kết quả cụ thể. Ma trận G1.1…G3.1 và tiêu chí trình bày ở ROADMAP §2; không thêm service hay đổi DB để có tên công nghệ.
+
 | Boundary | Source of truth | How the copies stay honest |
 | --- | --- | --- |
 | Grid geometry | file `PROJECT_CONFIG_PATH`, mặc định `config/project.yaml` | Mỗi run lưu snapshot bất biến trước khi queued; solver chỉ đọc snapshot đó. Nothing else defines domain or spacing |
 | Array order | the grid model's documented convention | `[z, y, x]` for 3D, `[y, x]` for 2D, asserted by a unit test |
-| On-disk field contract | the netCDF writer | CF conventions, `positive="up"` on `z`, so QGIS and Panoply open it unaided |
+| On-disk field contract | the netCDF writer | Writer ghi tọa độ/units, `positive="up"` trên z và nhãn CF; AC-3 vẫn cần mở bằng QGIS/Panoply và kiểm metadata, không suy đạt chuẩn từ nhãn Conventions |
 | Solver stability | the CFL helper | The time step is **computed from the velocity field**, never passed in as a constant, and the realised Courant number is reported back |
 | Web payload | API DTO + OpenAPI của monolith | Viewer lấy study area/scene/scenario/run/volume từ `/api`; `web/data/*.js` chỉ còn fixture cũ, không được nạp trong `index.html` |
 | Run state | `simulation_runs` trong PostgreSQL | monolith restart quét lại `queued/running`, đánh dấu run gián đoạn và cho phép chạy lại có kiểm soát |

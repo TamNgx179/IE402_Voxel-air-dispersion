@@ -131,3 +131,18 @@ Sát biên có thể lệch rất nhỏ. Ngoài ra không có kiểm `Σ diện 
 Chạy lại test của B:
 `python -m pytest tests/test_region_reference.py -q`. Nếu venv hỏng, dùng Python 3.12 bất kỳ với `PYTHONPATH=.venv\Lib\site-packages`.
 Kết quả: 30 passed; toàn bộ suite collect được 277 test, không lỗi.
+
+## Tiếp nối 01/11/2026 — đóng R1 và kiểm tra precision
+
+Phần review phía trên giữ nguyên làm lịch sử. Tiếp nối thực hiện theo yêu cầu A8.1/B8.1:
+
+- Fixture PostGIS và fixture tham chiếu B nay cùng mask scene: (0,0) k=0..2 và (1,1) k=0..3 là NULL. Test hồi quy bắt mọi fixture có giá trị trong solid.
+- Hai kỳ vọng được sửa theo dữ liệu đúng: delta [2, -2], mean delta 0; thể tích polygon có lỗ 78,04 m³. Ca số 0 hợp lệ dùng polygon trong ô không khí, vẫn V=32 m³. Không đổi scene/mask để hợp thức hóa fixture sai.
+- REGION_SQL/COMPARISON_SQL lọc thêm mask scene (cận k bao gồm); test cố ý đưa nồng độ vào solid chứng minh không tính nhầm vào không khí. Đây là lớp phòng vệ query, không phải xác nhận importer đã từ chối mọi bundle sai mask.
+- Đo lại query trên lưới production 100×100×50: comparison p50/p95 = 121,6/160,3 ms; region = 249,2/308,6 ms. Số đo tại máy ngày 01/11, không phải SLA; plan/log ở `artifacts/a8-spatial-benchmark.json`.
+- R4 chốt dấu > trong BR-44 và test bằng ngưỡng. Reference Python 30/30; spatial E2E 23/23; toàn bộ PostGIS E2E bắt buộc 98/98, 0 skip (`artifacts/a7-api-e2e.json`). R1 không còn chặn XG-2.
+- R3 đã sửa writer: ép cùng float32 như NetCDF trước `.9g`. Test 10.005 giá trị round-trip trùng bit; trước sửa 9.661 giá trị khác bit. Profile/slice/summary/volume repository chuyển float4 sang float8 trước trả API.
+- Hai run FV thật mùa khô/mưa được tạo trong DB test, đọc NetCDF độc lập bằng Python rồi đối chiếu toàn bộ profile và slice API. Không dùng số đã làm tròn từ DB làm giá trị tham chiếu.
+- Không tái sinh hoặc ghi đè production run/artifact cũ. Run cũ qua `.6g` giữ nguyên giới hạn lịch sử; muốn bộ kết quả precision mới cần tạo run mới, giữ ID/hash riêng.
+
+R5 (dz thập phân khác production), R6 (sát biên CRS/coverage) và R7 (tách thể tích solid/no-data trong báo cáo vùng) vẫn là giới hạn/đề xuất, không được diễn giải là đã triển khai. Nghiệm thu release toàn bộ thuộc A10/B10.

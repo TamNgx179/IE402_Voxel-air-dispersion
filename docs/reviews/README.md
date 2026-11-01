@@ -4,8 +4,7 @@ Các báo cáo dưới đây được giữ trong Git; bản gốc cùng dữ li
 `artifacts/` (bị Git bỏ qua). Các review gốc mô tả kết quả tại thời điểm review,
 không phải xác nhận mọi ghi chú đã được sửa.
 
-- [Vùng và comparison](B8_1_REGION_COMPARISON.md): PASS có ghi chú; R1 fixture
-  không khớp solid scene còn mở, chưa đóng XG-2.
+- [Vùng và comparison](B8_1_REGION_COMPARISON.md): review độc lập và phần tiếp nối đóng R1; fixture khớp scene, SQL bảo vệ mask và PostGIS đã chạy lại.
 - [Lưới và bước thời gian](B8_B9_GRID_STUDY.md): thiết kế, pilot/full, bảng số,
   giới hạn GCI và hướng tái lập; B8.2/B8.3/B9.1 đã có đầu ra.
 - [Mặt cắt và chiều cao](B9_4_TRANSECT_HEIGHT.md): PASS có ghi chú; cần E2E
@@ -45,15 +44,22 @@ với `PYTHON_BIN` trỏ Python 3.12.15, `PYTHONPATH` tuyệt đối tới
 23.79 s. Bao gồm 21 test spatial analysis, 16 test transect và 2 test solver
 thật dry/wet. Báo cáo máy đọc: `artifacts/a7-api-e2e.json`.
 Các ghi chú chưa chạy DB trong review gốc là lịch sử; lần chạy này bổ sung
-bằng chứng tích hợp. Fixture solid R1 vẫn còn mở dù suite hiện tại pass.
+bằng chứng tích hợp. Đây là lượt trước sửa R1; kết quả tiếp nối bên dưới thay thế trạng thái còn mở này.
+
+## Tiếp nối A8.1/B8.1/A9.5
+
+R1 đã đóng bằng fixture đúng scene, tham chiếu B và query PostGIS có mask guard.
+Required E2E sau sửa: **98/98 pass, không skip**; 23 spatial và 16 transect.
+Hai case real executor đối chiếu NetCDF → CSV writer → importer → DB → profile/slice API.
+Writer đã dùng float32 + `.9g`; các repository trả float8 trước JSON.
+Web **113/113 pass**; thông tin nguồn/chiều cao đã kiểm trên browser cảnh 62 nhà,
+và tải JSON snapshot có chất lượng dữ liệu. Chi tiết ở phần tiếp nối review B8.1.
 
 ## Còn mở
 
-1. Sửa fixture/mask B8.1 R1 rồi chạy lại E2E PostGIS trước khi đóng XG-2.
-2. Writer `src/solver.py` vẫn xuất `.6g`; review đề xuất `.9g` để giữ float32
-   khi round-trip. Chưa sửa writer hoặc tái sinh/import run cũ trong đợt này.
-3. B9.3: tổng hợp hai mùa và caption báo cáo cuối. B8.4/B9.2 giảm nguồn
-   chưa được triển khai, không gộp vào kết luận nghiên cứu Gaussian.
-4. `.venv` cần được tạo lại trước khi dùng trực tiếp executable trong đó.
+1. B9.3: tổng hợp hai mùa và caption báo cáo cuối. B8.4/B9.2 giảm nguồn chưa triển khai.
+2. R5/R6/R7 trong review B8.1 là giới hạn/đề xuất; không mở rộng kết luận sang lưới dz thập phân hoặc miền khác baseline.
+3. Run cũ xuất `.6g` không tự trở thành dữ liệu precision mới; tạo run mới khi chốt bộ demo/release.
+4. Kiểm môi trường trên máy vật lý thứ hai vẫn thuộc A10.2. `.venv` của máy tiếp nối hiện chạy được; không suy ra venv trên máy review trước đã được sửa.
 
-Chưa tạo commit. Giữ nguyên scene, mask, solver và các run production.
+Không thay scene, mask hoặc artifact production. Chưa chốt release/tag.

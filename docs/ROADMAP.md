@@ -126,7 +126,25 @@ Sơ đồ 8 tuần cũ không còn là lịch thực hiện hiện hành; bảng
 | `M8` | 9 (nhiều đợt) | Nghiên cứu lưới, mặt cắt đứng, export và LoD render ổn định | XG-3/6/7 và regression đạt, kết luận đúng mức; khóa phạm vi tính năng |
 | `M9` | 10 | Báo cáo cuối, demo máy thứ hai và release | QG/XG bắt buộc đạt; đủ bộ bàn giao và phương án dự phòng |
 
-### Cổng chất lượng mục tiêu 9+
+### Đối chiếu rubric IE402 — cập nhật 01/11/2026
+
+Nguồn: đề cương IE402 do nhóm cung cấp, ngày ký 15/02/2023, trang 2, 4–7. Trang 7 quy định hai tiêu chí A4: **Nội dung** và **Trình bày (slide và báo cáo giấy)**; không có trọng số riêng cho từng tiêu chí. Bảng dưới chia thành các đầu ra để tự kiểm, không tạo thêm thang điểm của giảng viên.
+
+| Tiêu chí A4 mức 9–10 | Hiện trạng | Phần cần chốt | Chủ sở hữu |
+|---|---|---|---|
+| Nội dung đầy đủ, chính xác | Có pipeline voxel, solver, DB/query và web; còn rủi ro chiều cao/miền/sai số đã biết | Giải thích mô hình GIS và ánh xạ CSDL; xử lý hoặc lượng hóa hạn chế trước khi chốt kết luận | A10.4 + B9.4/B10.3 |
+| Có so sánh, đối chiếu | Đã có FV/Gaussian, hai mùa, cao độ, lưới và LoD ở các đợt khác nhau | Tổng hợp cùng bộ run/version; tách so sánh lựa chọn mô hình dữ liệu với so sánh nghiệm mô phỏng | A10.4 + B9.3/B10.2 |
+| Lập luận và số liệu rõ ràng | Có metrics/tests và báo cáo candidate | Mỗi câu hỏi có bảng/hình, run/hash, đơn vị, cách tổng hợp và kết luận; không chỉ liệt kê test pass | B9.3/B10.2, A chốt truy vấn/benchmark |
+| Bố cục rõ ràng, mạch lạc | Spec/research/architecture đã có; không phải báo cáo/slide cuối | Hoàn thiện báo cáo in được và slide bảo vệ, cùng thuật ngữ và số liệu | A10.4 + B10.2/B10.3 |
+| Minh họa đầy đủ, trực quan | Web và export có; hình nghiên cứu mới chưa tập hợp đủ tại máy này | Hình voxel/cảnh, ERD, luồng, mặt cắt/profile, comparison và sai số có caption; gói dự phòng | A10.3/A10.4 + B10.2 |
+
+**Mục tiêu môn học:** G1.1 → khái niệm/vector-raster/2D-3D; G1.2/G2.1 → bảng phân loại mô hình; G2.2 → luồng dữ liệu và truy vấn; G2.3 → scene–voxel–quan hệ; G3.1 → ứng dụng và phân tích không gian. Cơ sở bảng so sánh ở RESEARCH §1, ánh xạ nguồn ở ARCHITECTURE §3; trình bày cuối vẫn chưa nghiệm thu.
+
+**Phân biệt điểm môn và điểm đồ án:** theo PDF, điểm môn = 0,20×A2 + 0,30×A3 + 0,50×A4. A3 mức giỏi yêu cầu sáu bài thực hành; chưa xác minh hồ sơ nộp A2/A3 từ repo này. CRUD trong bài thực hành không được suy thành yêu cầu cho phép sửa trực tiếp run/artifact đã freeze. PostgreSQL được giữ; PDF liệt kê ArcGIS/SQL Server là công cụ hỗ trợ, không đủ cơ sở tự đổi stack đang chạy.
+
+**Thứ tự hoàn thiện:** (1) đúng mô hình/thuật ngữ và sửa kết luận sai; (2) tổng hợp số liệu và hình; (3) báo cáo/slide; (4) rehearsal máy khác và release. Height/domain và ảnh hưởng khuếch tán số cần đánh giá đúng mức; benchmark wind tunnel/quan trắc, LoD2, higher-order solver hoặc giảm nguồn là mở rộng có điều kiện, không phải yêu cầu bắt buộc mới từ rubric. Giữ toàn bộ gate bảo toàn/DB/GIS và không coi đây là cam kết 9–10.
+
+### Cổng chất lượng nội bộ phục vụ rubric A4
 
 Hoàn thành task không đồng nghĩa tự động đạt cổng. Release chỉ được gọi là hoàn thành khi tất
 cả điều kiện dưới đây có bằng chứng lưu trong repository/artifacts:
@@ -142,7 +160,7 @@ không phải cam kết 9+. Chỉ dùng tên “đạt” sau khi có kết qu�
 | `QG-4` Verification | CFL, divergence, positivity, wall flux, mass budget và nghiệm giải tích đều pass | Run `failed` |
 | `QG-5` DB/query thật | Migration/seed, 4 query endpoint và `EXPLAIN ANALYZE` có bằng chứng | Chưa đạt yêu cầu DB |
 | `QG-6` GIS 3D thật | Web/DB/voxel dùng cùng footprint, height, CRS; scene có provenance và QA | Không dùng hình demo làm kết quả |
-| `QG-7` Đánh giá bất định | Sensitivity chiều cao + ít nhất một external benchmark/cross-check | Chỉ được tuyên bố verification nội bộ |
+| `QG-7` Đánh giá bất định | Sensitivity chiều cao + cross-check độc lập (có thể là nghiệm giải tích); ghi rõ loại bằng chứng | Chỉ được công bố mức kiểm chứng đã có; validation thực đo không được suy từ cross-check giải tích |
 | `QG-8` Tái lập | Máy sạch chạy seed → run → query → web bằng runbook/Compose | Chưa đóng gói |
 | `QG-9` Nhất quán tài liệu | Threshold, units, version và số liệu giống nhau giữa config, DB, web, report | Không chốt báo cáo |
 | `QG-10` Bằng chứng 3D | Có số liệu chênh lệch theo z, profile đứng và exceedance volume | Chưa chứng minh đóng góp 3D |
@@ -498,7 +516,7 @@ Windows Node 22.16.0 và Linux Node 22.23.3 trong Docker (mount checkout read-on
 
 | ID | Công việc | Đầu ra | Tiêu chí đạt |
 |---|---|---|---|
-| `A8.1` | 🟡 Chuẩn hóa checkout/freeze và chốt contract với B | Freeze checkout sạch Windows/Linux PASS; contract và fixture ở spec | Phần chuẩn hóa của A đã xong; còn xác nhận phương pháp độc lập của B tại B8.1, không tự ký thay |
+| `A8.1` | ✅ Chuẩn hóa checkout/freeze và chốt contract với B | Freeze và contract đã có; tham chiếu độc lập của B được đối chiếu lại | 01/11: đóng fixture R1 theo scene, SQL loại solid theo mask; 30 test tham chiếu và 23 spatial PostGIS E2E đạt. Không thay cảnh production |
 | `A8.2` | ✅ So sánh hai run trên web/API | Exact comparison, một map/camera, 3 chế độ và biểu đồ | Browser 20/10: khô–mưa, đổi 25 m, Gốc/So sánh/Chênh lệch, tự so sánh ΔC=0; số liệu production đối chiếu API |
 | `A8.3` | ✅ Chọn polygon và khoảng cao độ | Vẽ trực tiếp, JSON/CSV, kết quả theo tầng | Browser 20/10: vẽ qua tòa nhà, 0–15/0–10 m, tải CSV, đổi thông số ẩn kết quả cũ, Esc/Xóa, lỗi vùng tự cắt tiếng Việt; không có nhập tọa độ theo yêu cầu |
 | `A8.4` | ✅ Kiểm thử comparison và query vùng | PostGIS E2E, web regression, freeze tests, benchmark/EXPLAIN và browser QA | Đã sửa lỗi picking tòa nhà làm thoát vẽ; regression tái hiện FAIL→PASS. Đo lại SQL 500.000 voxel ngày 20/10; chi tiết spec §5–6 và DATABASE |
@@ -512,11 +530,13 @@ local ở `artifacts/a8-acceptance/`. Không còn lấy trạng thái browser di
 trong spec đã chuẩn bị để B review, chưa có xác nhận độc lập. M7 vẫn cần B8.2/B8.3;
 mobile/performance release và máy vật lý thứ hai giữ ở tuần 10.
 
+**Cập nhật 01/11/2026:** review độc lập của B đã có ở `docs/reviews/`. R1 đã được sửa và đối chiếu PostGIS; thông tin 20/10 phía trên là lịch sử. A8.1/B8.1 và phần thiết kế/pilot lưới B8.2/B8.3 đã đạt.
+
 **Người B**
 
 | ID | Công việc | Đầu ra | Tiêu chí đạt |
 |---|---|---|---|
-| `B8.1` | 🟡 Chốt phép so sánh và thống kê vùng | Định nghĩa metrics, fixture tham chiếu cho A | 01/11: Tham chiếu độc lập: 30 test, 17/17 kỳ vọng khớp; còn fixture solid và E2E PostGIS. Xem reviews/B8_1_REGION_COMPARISON.md |
+| `B8.1` | ✅ Chốt phép so sánh và thống kê vùng | Công thức và tham chiếu độc lập của B; fixture khớp scene | 01/11: R1 đã đóng; 30 test tham chiếu đạt, PostGIS E2E bắt buộc 98/98 không skip; giữ 0 khác null, trọng số giao XY/z và ngưỡng >. Xem reviews/B8_1_REGION_COMPARISON.md |
 | `B8.2` | ✅ Thiết kế nghiên cứu ba mức lưới và bước thời gian | Cấu hình thí nghiệm, đại lượng đánh giá, ngân sách runtime | 01/11: Thiết kế ba lưới, dt chung/CFL và sweep dt có provenance. Xem reviews/B8_B9_GRID_STUDY.md |
 | `B8.3` | ✅ Chạy pilot và kiểm tra kết quả lưới | Run manifests, sai số theo chuẩn đã chốt, runtime/memory | 01/11: Pilot/full có manifest, sai số, runtime/memory; full 10/10 case pass verification; giữ lưới production |
 | `B8.4` | ⬜ Thiết kế kịch bản giảm phát thải thật (có điều kiện) | Contract baseline/giảm 20%/giảm 40%, fixture | Chỉ thay hệ số nguồn, giữ các yếu tố khác; định nghĩa snapshot/hash/version và mass ledger; khác hoàn toàn slider minh họa trên web |
@@ -536,7 +556,7 @@ PASS cho nghiên cứu chưa hoàn thành.
 | `A9.2` | ✅ Xuất kết quả dùng cho báo cáo | PNG bản đồ + legend/provenance; CSV các tầng/comparison; CSV vùng/transect và JSON snapshot | 28/10: PNG run FV thật đã tải và kiểm ảnh; CSV dùng số gốc, đơn vị/hash/version, z thực; chặn stale/capture lỗi, ảnh ghi rõ minh họa |
 | `A9.3` | ✅ Mặt cắt đứng theo đường vẽ | DTO/schema/service/repository/controller trong Results, biểu đồ khoảng cách–z và CSV | 27/10: PostGIS E2E, web regression, browser FV thật; CSV 1.700 mẫu khớp JSON và DB. Chi tiết spec BR-46–48; review phương pháp độc lập vẫn thuộc B9.4 |
 | `A9.4` | ✅ LoD hiển thị giảm geometry thật | Ba mức render, culling có padding theo pitch/height, cache theo tập nhà nhìn thấy | 28/10: cảnh 62 nhà, 99.280 → 0/12.468/99.280 đỉnh mặt đứng; benchmark CPU và 6 cấu hình browser; nguồn/profile/CSV bất biến. Không nâng hình học thành LoD2 |
-| `A9.5` | ⬜ Hoàn thiện UX và thông tin chất lượng | Kết quả dễ đọc, chất lượng chiều cao/nguồn qua bảng thông tin gọn và export | TC-UX/TC-GEO; không thêm sidebar dài, không phục hồi nhập tọa độ hay bảng kỹ thuật đã bỏ; lỗi tiếng Việt, retry và stale response đúng |
+| `A9.5` | ✅ Hoàn thiện UX và thông tin chất lượng | Thẻ nguồn/chiều cao gọn trong Thông tin kết quả và JSON snapshot | 01/11: browser cảnh 62 nhà; phân loại GOB/OSM/số tầng/fallback/chưa rõ, lỗi tiếng Việt không lộ diagnostics; 113 web tests gồm retry/stale/empty và click biên tầng. Responsive và nghiệm thu hiệu năng cuối vẫn ở A10.3 |
 
 **Người B**
 
@@ -544,8 +564,8 @@ PASS cho nghiên cứu chưa hoàn thành.
 |---|---|---|---|
 | `B9.1` | ✅ Hoàn tất nghiên cứu lưới/bước thời gian | Bảng sai số, đồ thị, observed order/GCI nếu phù hợp | 01/11: Bảng và 4 hình đã có; nêu giới hạn GCI, không suy ra hội tụ đô thị. Xem reviews/B8_B9_GRID_STUDY.md |
 | `B9.2` | ⬜ Chạy baseline và giảm nguồn (có điều kiện) | Ba bundle cùng geometry/wind/K và báo cáo ΔC | Nguồn và mass ledger thay đổi đúng contract; phân biệt giả định tuyến tính với kết quả chạy; không gọi giảm emission proxy là dự báo chính sách hoặc cải thiện chất lượng không khí thực đo |
-| `B9.3` | 🟡 Chốt figure/table và nội dung khoa học | Hình có caption/units, sensitivity và limitations | 01/11: Có bảng/hình lưới và cao độ; còn tổng hợp hai mùa và caption cho báo cáo cuối |
-| `B9.4` | 🟡 Review mặt cắt, phân tích cao độ và chất lượng hình học | Fixture A9.3 đã có C=2+3z và tuyến gấp khúc; B còn review độc lập, bảng/hình theo tầng/cột và nguồn/fallback chiều cao | 01/11: 19 test, đối chiếu 300 tuyến và phân tích run thật; PASS có ghi chú, E2E PostGIS chưa chạy. Xem reviews/B9_4_TRANSECT_HEIGHT.md |
+| `B9.3` | 🟡 Tổng hợp so sánh và lập luận định lượng | Hai mùa/cao độ/FV-Gaussian, bảng sai số và hình có caption | Có candidate trong RESEARCH §3; cần cùng release artifacts, giải thích cả khác biệt nhỏ/0, khuếch tán số và cách lấy mean; không bịa số để khác rõ |
+| `B9.4` | 🟡 Chốt review chiều đứng và chất lượng hình học | Tham chiếu đã có; đóng ghi chú height/miền/center và tổng hợp hai mùa | PostGIS đã chạy lại, precision đã sửa cho run mới. Còn đánh giá xung đột tháp cao/GOB cap 100 m, khoảng tới biên trên và độ nhạy liên quan; không tự xem tag OSM là ground truth |
 | `B9.5` | ✅ Đánh giá khả thi LoD2, chỉ triển khai khi qua cổng | Nguồn mái, giấy phép, chất lượng, quyết định làm/không làm và phương pháp đối chiếu | 01/11: Đánh giá hoàn tất: giữ LoD1 vì thiếu nguồn mái kiểm chứng. Xem reviews/B9_5_LOD2_FEASIBILITY.md |
 
 **Kết quả mốc tuần 9 — M8:** gói mở rộng có mặt cắt đứng, phân tích cao độ,
@@ -562,17 +582,24 @@ sang nghiệm thu/báo cáo cuối ở tuần 10. Không đánh dấu release t�
 | `A10.1` | 🟡 Chốt seed/demo dataset và revision cố định | Demo profile, input hashes và version release | Dùng lại bundle candidate đã có; bổ sung kết quả nâng cấp, không phụ thuộc tải dữ liệu khoa học trực tiếp |
 | `A10.2` | ⬜ Chốt README/runbook và kiểm máy thứ hai | Log máy khác, hướng dẫn đã thực hiện | Checkout/build/seed/run/query/web chạy trên máy vật lý thứ hai; ghi OS/runtime, không coi fresh volumes cùng host là máy khác |
 | `A10.3` | ⬜ Kiểm UI, performance và demo flow | Checklist có số đo, video/screenshot dự phòng | Kiểm responsive, bàn phím, lỗi kết nối và thời gian demo; ghi cấu hình/tải đo, không coi mobile screenshot là FPS audit |
-| `A10.4` | ⬜ Chốt chương kiến trúc/DB/web/kết quả | Final report và bảng query plans/benchmark | Khớp code và số liệu release, có comparison/polygon/export nếu đã nghiệm thu |
-| `A10.5` | ⬜ Audit QG/XG và chốt release | Ma trận nghiệm thu local, version/tag được phê duyệt | QG-1…QG-10 và XG bắt buộc pass, đủ run_id/artifact; không tự commit/tag/push nếu người dùng chưa yêu cầu |
+| `A10.4` | ⬜ Chốt báo cáo và slide: GIS/kiến trúc/DB/web | Bảng so sánh mô hình, ERD, query plans/benchmark và phần slide tương ứng | Rubric A4 trang 7: nội dung đúng, bố cục và minh họa rõ; ánh xạ G1.1…G3.1. B đồng sở hữu phương pháp/kết quả; không phải seminar |
+| `A10.5` | ⬜ Audit rubric A4, QG/XG và chốt release | Ma trận nội dung/trình bày, báo cáo/slide, version/tag được phê duyệt | Không tự đóng tiêu chí trình bày khi chưa có báo cáo in được/slide; đủ bundle và máy thứ hai; không tự commit/tag/push |
 
 **Người B**
 
 | ID | Công việc | Đầu ra | Tiêu chí đạt |
 |---|---|---|---|
-| `B10.1` | ⬜ Chạy/chốt release scenarios và suite cuối | Final artifacts, manifests/checksums, regression khoa học | Cùng revision sạch/config được review; freeze khớp, mọi case bắt buộc qua gate |
-| `B10.2` | ⬜ Chốt bảng/hình verification và limitations | Final tables/captions từ release artifacts | Gồm nghiên cứu lưới, comparison và giảm nguồn nếu giữ; không copy số candidate khác version |
+| `B10.1` | ⬜ Chạy/chốt release scenarios và bundle nghiên cứu | Final artifacts/manifests/checksums, tái sinh grid-study và phần review còn thiếu local | Cùng revision/config sạch đã review; run mới dùng writer float32 .9g; giữ candidate cũ có nhãn, không thay hash để giả bộ số mới |
+| `B10.2` | ⬜ Chốt báo cáo và slide: phương pháp/kết quả/hạn chế | Bảng/hình verification, sai số, sensitivity và so sánh cùng release | Phối hợp A10.4; caption, axes, đơn vị và diễn giải trả lời câu hỏi; rubric A4 về lập luận/số liệu và minh họa, không copy số candidate khác version |
 | `B10.3` | ⬜ Review toàn bộ thuật ngữ khoa học | Review notes và báo cáo đã đối chiếu | Không gọi Röckle đầy đủ/CFD/validation; không suy từ analytic grid study ra đô thị đã grid-converged |
-| `B10.4` | ⬜ Chuẩn bị câu trả lời kỹ thuật và rehearsal | Q&A notes | Trả lời model choice, CFL/mass, numerical diffusion, bất định geometry, ý nghĩa 3D và DB/query |
+| `B10.4` | ⬜ Q&A và rehearsal cùng A | Giải thích lựa chọn 3D Array, so với B-rep/CSG, topology/ánh xạ DB và giới hạn physics | Thuyết trình theo luồng bài toán → mô hình → dữ liệu → phân tích → đối chiếu → hạn chế; cả hai hiểu phần giao nhau |
+
+**Checklist chung trước bàn giao A4:**
+
+- A soạn các hình mô hình dữ liệu/kiến trúc/ERD/query và demo; B soạn phương pháp, so sánh/sai số/height. Mỗi người viết phần báo cáo và slide cùng chủ đề; review chéo toàn bộ để cân tải.
+- Cấu trúc báo cáo khuyến nghị: bài toán/đề bài; lựa chọn mô hình GIS; dữ liệu/CRS/chất lượng; thiết kế dữ liệu và kiến trúc; phương pháp; thí nghiệm/so sánh; sai số/hạn chế; kết luận và tái lập. Định dạng/số trang theo giảng viên.
+- Bộ minh họa phải có sơ đồ ô và adjacency, cảnh/solid mask, ERD, luồng chạy, mặt cắt/profile, bảng so sánh hai mùa, sai số lưới và số đo query/LoD. Mỗi hình trả lời một câu hỏi, đọc được khi in/chiếu.
+- Slide cuối kỳ là đầu ra A4 bắt buộc theo PDF; không thêm lại seminar. Không coi việc cập nhật tài liệu kế hoạch là hoàn thành báo cáo/slide.
 
 **Cùng thực hiện:** rehearsal luồng mở web → tạo/chọn run → đổi tầng → spatial query → giải
 thích model → nêu hạn chế. Chuẩn bị video/screenshot và artifact local làm phương án dự phòng.
