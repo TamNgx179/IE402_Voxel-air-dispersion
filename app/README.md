@@ -13,7 +13,8 @@ Baseline projected CRS hiện là EPSG:32648, không tuyên bố API đã hỗ t
 Transect (spec BR-46–48) đã có `POST /api/runs/:id/transect` và `/transect/csv`, đều trả 200,
 chỉ đọc DB. Body gồm `line` WGS84 LineString, `z_min_m`, `z_max_m`, `step_m` tùy chọn.
 Tối đa 100 đỉnh/20.000 mẫu vị trí × tầng, bước mặc định min(dx,dy), không nội suy.
-Export ảnh (H), LoD render (F) vẫn là thiết kế chưa triển khai.
+Export ảnh có chú giải (A9.2) và LoD render giảm geometry theo zoom/vùng nhìn (A9.4)
+đã triển khai ở client, không đổi tensor/query. Xem README gốc để chạy benchmark và demo.
 Transect nằm trong Results module theo cấu trúc dưới đây; không tách Python
 HTTP service. Vẽ tuyến không tạo simulation run. Giữ guard run readiness/grid/mask,
 giới hạn tải và validation phía server; lỗi UI hiển thị tiếng Việt, không đẩy SQL/JSON

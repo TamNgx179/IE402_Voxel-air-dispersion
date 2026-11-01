@@ -579,11 +579,18 @@ sang nghiệm thu/báo cáo cuối ở tuần 10. Không đánh dấu release t�
 
 | ID | Công việc | Đầu ra | Tiêu chí đạt |
 |---|---|---|---|
-| `A10.1` | 🟡 Chốt seed/demo dataset và revision cố định | Demo profile, input hashes và version release | Dùng lại bundle candidate đã có; bổ sung kết quả nâng cấp, không phụ thuộc tải dữ liệu khoa học trực tiếp |
-| `A10.2` | ⬜ Chốt README/runbook và kiểm máy thứ hai | Log máy khác, hướng dẫn đã thực hiện | Checkout/build/seed/run/query/web chạy trên máy vật lý thứ hai; ghi OS/runtime, không coi fresh volumes cùng host là máy khác |
+| `A10.1` | 🟡 Chốt seed/demo dataset và revision cố định | Bundle đã có; thêm preflight read-only, hash runtime, revision và kiểm DB khớp scene | 01/11: verifier ZIP/scene và API thật đã kiểm; freeze B7 còn drift, phải phối hợp B10.1 chốt bundle/run mới rồi pin revision, chưa đóng release |
+| `A10.2` | 🟡 Chốt README/runbook và kiểm máy thứ hai | README có khởi động, preflight, luồng demo, phục hồi và bước máy thứ hai | 01/11: phần hướng dẫn và script đã triển khai/kiểm tại máy hiện tại. Còn checkout/build/seed/run/query/web trên máy vật lý thứ hai, lưu OS/runtime; không coi fresh volumes cùng host là máy khác |
 | `A10.3` | ⬜ Kiểm UI, performance và demo flow | Checklist có số đo, video/screenshot dự phòng | Kiểm responsive, bàn phím, lỗi kết nối và thời gian demo; ghi cấu hình/tải đo, không coi mobile screenshot là FPS audit |
 | `A10.4` | ⬜ Chốt báo cáo và slide: GIS/kiến trúc/DB/web | Bảng so sánh mô hình, ERD, query plans/benchmark và phần slide tương ứng | Rubric A4 trang 7: nội dung đúng, bố cục và minh họa rõ; ánh xạ G1.1…G3.1. B đồng sở hữu phương pháp/kết quả; không phải seminar |
 | `A10.5` | ⬜ Audit rubric A4, QG/XG và chốt release | Ma trận nội dung/trình bày, báo cáo/slide, version/tag được phê duyệt | Không tự đóng tiêu chí trình bày khi chưa có báo cáo in được/slide; đủ bundle và máy thứ hai; không tự commit/tag/push |
+
+**Tiếp nối A10 ngày 01/11:** `node scripts/demo-preflight.mjs --url http://127.0.0.1:3001/`
+đã đối chiếu ZIP/scene và API thật (hash/lưới cùng số nhà/đường/nước/cây). Báo cáo local
+`artifacts/demo/preflight.json` ghi runtime/revision, checksum và cảnh báo riêng; không phải
+nghiệm thu release. Suite script có 17 test đạt (13 preflight, 4 normalize), verifier bundle
+Python có 12 test đạt. README là runbook hiện hành; chưa chạy máy vật lý thứ hai hoặc tái
+sinh bộ run nghiên cứu. Preflight không xác thực build revision của server đang phục vụ.
 
 **Người B**
 
