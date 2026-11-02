@@ -71,6 +71,29 @@ def summarize(c,grid,thresholds):
         'exceedance_volume_m3':{name:int(np.count_nonzero(c>t['value']))*dx*dy*dz for name,t in thresholds.items()}}
 
 
+def paired_height_comparison(c, dz_m, lower_m=1.5, upper_m=15.0):
+    """Compare the same air columns; ratios exclude a zero lower value."""
+    if c.ndim != 3 or not np.isfinite(dz_m) or dz_m <= 0:
+        raise ValueError('Expected a 3D field and positive finite dz_m')
+    if not (0 <= lower_m < upper_m < c.shape[0] * dz_m):
+        raise ValueError('Requested heights must be ordered and inside the domain')
+    lo, hi = int(lower_m // dz_m), int(upper_m // dz_m)
+    lower, upper = c[lo], c[hi]
+    valid = np.isfinite(lower) & np.isfinite(upper)
+    count = int(valid.sum())
+    ratio_mask = valid & (lower > 0)
+    return {
+        'requested_heights_m': [lower_m, upper_m],
+        'layer_centres_m': [(lo + .5) * dz_m, (hi + .5) * dz_m],
+        'paired_air_columns': count,
+        'lower_mean_ug_m3': float(lower[valid].mean()) if count else None,
+        'upper_mean_ug_m3': float(upper[valid].mean()) if count else None,
+        'upper_greater_fraction': float((upper[valid] > lower[valid]).mean()) if count else None,
+        'ratio_columns': int(ratio_mask.sum()),
+        'median_upper_over_lower': float(np.median(upper[ratio_mask] / lower[ratio_mask])) if ratio_mask.any() else None,
+    }
+
+
 def main():
     parser=argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--root',default='artifacts/production-study')
@@ -114,6 +137,7 @@ def main():
             gaussian=gaussian_road_baseline(str(REPO_ROOT/config['paths']['emission_source_transport_netcdf']),field,
                 wind_from_deg=scenario['direction_from_deg'],wind_speed_m_s=scenario['speed_m_s'],
                 reference_height_m=config['wind']['reference_height_m'],stability=scenario.get('stability','D'))
+            result['paired_height_comparison']=paired_height_comparison(c,grid['dz_m'])
             result['gaussian_summary']=summarize(gaussian,grid,thresholds)
             valid=np.isfinite(c)&np.isfinite(gaussian)
             result['fv_vs_gaussian']={'mae_ug_m3':float(np.mean(np.abs(c[valid]-gaussian[valid]))),

@@ -1,5 +1,7 @@
 # Bàn giao B8/B9 — 01/11/2026
 
+Tiếp nối mới nhất: [kiểm tra và bundle candidate 02/11](CONTINUATION_20261102.md).
+
 Các báo cáo dưới đây được giữ trong Git; bản gốc cùng dữ liệu/hình nằm trong
 `artifacts/` (bị Git bỏ qua). Các review gốc mô tả kết quả tại thời điểm review,
 không phải xác nhận mọi ghi chú đã được sửa.

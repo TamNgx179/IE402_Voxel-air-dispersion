@@ -582,7 +582,7 @@ sang nghiệm thu/báo cáo cuối ở tuần 10. Không đánh dấu release t�
 | `A10.1` | 🟡 Chốt seed/demo dataset và revision cố định | Bundle đã có; thêm preflight read-only, hash runtime, revision và kiểm DB khớp scene | 01/11: verifier ZIP/scene và API thật đã kiểm; freeze B7 còn drift, phải phối hợp B10.1 chốt bundle/run mới rồi pin revision, chưa đóng release |
 | `A10.2` | 🟡 Chốt README/runbook và kiểm máy thứ hai | README có khởi động, preflight, luồng demo, phục hồi và bước máy thứ hai | 01/11: phần hướng dẫn và script đã triển khai/kiểm tại máy hiện tại. Còn checkout/build/seed/run/query/web trên máy vật lý thứ hai, lưu OS/runtime; không coi fresh volumes cùng host là máy khác |
 | `A10.3` | ⬜ Kiểm UI, performance và demo flow | Checklist có số đo, video/screenshot dự phòng | Kiểm responsive, bàn phím, lỗi kết nối và thời gian demo; ghi cấu hình/tải đo, không coi mobile screenshot là FPS audit |
-| `A10.4` | ⬜ Chốt báo cáo và slide: GIS/kiến trúc/DB/web | Bảng so sánh mô hình, ERD, query plans/benchmark và phần slide tương ứng | Rubric A4 trang 7: nội dung đúng, bố cục và minh họa rõ; ánh xạ G1.1…G3.1. B đồng sở hữu phương pháp/kết quả; không phải seminar |
+| `A10.4` | 🟡 Chốt báo cáo và slide: GIS/kiến trúc/DB/web | Bảng so sánh mô hình, ERD, query plans/benchmark và phần slide tương ứng | 02/11: bản thảo FINAL_REPORT.md và dàn FINAL_SLIDES.md đã có; còn báo cáo định dạng in, deck/hình, rubric G1.1…G3.1 và review chéo; không phải seminar |
 | `A10.5` | ⬜ Audit rubric A4, QG/XG và chốt release | Ma trận nội dung/trình bày, báo cáo/slide, version/tag được phê duyệt | Không tự đóng tiêu chí trình bày khi chưa có báo cáo in được/slide; đủ bundle và máy thứ hai; không tự commit/tag/push |
 
 **Tiếp nối A10 ngày 01/11:** `node scripts/demo-preflight.mjs --url http://127.0.0.1:3001/`
@@ -596,8 +596,8 @@ sinh bộ run nghiên cứu. Preflight không xác thực build revision của s
 
 | ID | Công việc | Đầu ra | Tiêu chí đạt |
 |---|---|---|---|
-| `B10.1` | ⬜ Chạy/chốt release scenarios và bundle nghiên cứu | Final artifacts/manifests/checksums, tái sinh grid-study và phần review còn thiếu local | Cùng revision/config sạch đã review; run mới dùng writer float32 .9g; giữ candidate cũ có nhãn, không thay hash để giả bộ số mới |
-| `B10.2` | ⬜ Chốt báo cáo và slide: phương pháp/kết quả/hạn chế | Bảng/hình verification, sai số, sensitivity và so sánh cùng release | Phối hợp A10.4; caption, axes, đơn vị và diễn giải trả lời câu hỏi; rubric A4 về lập luận/số liệu và minh họa, không copy số candidate khác version |
+| `B10.1` | 🟡 Chạy/chốt release scenarios và bundle nghiên cứu | Final artifacts/manifests/checksums, tái sinh grid-study và phần review còn thiếu local | 02/11: grid-study 10/10, production 5/5 pass; kiểm 35 artifact checksum/size; bảng/hình cùng đợt tại artifacts/release-candidate-20261102. Chưa chốt revision sạch/review/freeze. Run mới dùng writer float32 .9g; giữ candidate lịch sử |
+| `B10.2` | 🟡 Chốt báo cáo và slide: phương pháp/kết quả/hạn chế | Bảng/hình verification, sai số, sensitivity và so sánh cùng release | 02/11: FINAL_REPORT có số/hình candidate mới, hai mùa/cao độ/FV–Gaussian/độ nhạy; FINAL_SLIDES là dàn nội dung. Còn chốt release, deck cuối và review chéo với A10.4 |
 | `B10.3` | ⬜ Review toàn bộ thuật ngữ khoa học | Review notes và báo cáo đã đối chiếu | Không gọi Röckle đầy đủ/CFD/validation; không suy từ analytic grid study ra đô thị đã grid-converged |
 | `B10.4` | ⬜ Q&A và rehearsal cùng A | Giải thích lựa chọn 3D Array, so với B-rep/CSG, topology/ánh xạ DB và giới hạn physics | Thuyết trình theo luồng bài toán → mô hình → dữ liệu → phân tích → đối chiếu → hạn chế; cả hai hiểu phần giao nhau |
 

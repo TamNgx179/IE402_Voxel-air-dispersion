@@ -7,6 +7,11 @@ import json
 import sys
 from pathlib import Path
 
+import matplotlib
+
+# This test writes PNG evidence and must also run without a desktop/Tk install.
+matplotlib.use("Agg")
+
 
 ROOT = Path(__file__).resolve().parents[1]
 WIND_PATH = ROOT / "src" / "02_wind.py"

@@ -35,6 +35,19 @@ pip install -r requirements.txt
 pytest -q
 ```
 
+Nếu `.venv` được chép từ máy khác và báo `No Python at ...`, tạo môi trường mới
+thay vì dùng lại executable cũ:
+
+```powershell
+python -m venv .venv-work
+.venv-work/Scripts/python.exe -m pip install -r requirements.txt
+New-Item -ItemType Directory -Force artifacts/local-checks
+.venv-work/Scripts/python.exe -m pytest -p no:cacheprovider --basetemp=artifacts/local-checks/pytest-tmp
+```
+
+Trong IDE chọn `.venv-work/Scripts/python.exe` làm interpreter. Thư mục cha của
+`--basetemp` phải tồn tại; pytest xóa/nạp lại thư mục con này khi chạy.
+
 Pipeline Python hiện tại là lõi tính toán; backend là lớp sản phẩm bao quanh lõi đó.
 
 ## Tài liệu chính
@@ -48,6 +61,8 @@ Hướng dẫn chạy và kiểm thử ở mục Demo bên dưới; ma trận ca
 | [`docs/spec.md`](docs/spec.md) | Đặc tả tiếng Việt, API, dữ liệu, truy vấn và hợp đồng v1 monolith ↔ solver |
 | [`docs/DATABASE.md`](docs/DATABASE.md) | ERD, index và bốn query PostGIS bắt buộc |
 | [`docs/ROADMAP.md`](docs/ROADMAP.md) | 10 mốc tuần có lịch sử và đợt nâng cấp, phân công A/B, không seminar |
+| [`docs/FINAL_REPORT.md`](docs/FINAL_REPORT.md) | Bản thảo báo cáo tổng hợp để review, chưa nghiệm thu |
+| [`docs/FINAL_SLIDES.md`](docs/FINAL_SLIDES.md) | Dàn nội dung slide bảo vệ, chưa phải deck cuối |
 
 ## Chuẩn bị và chạy demo (A10.1/A10.2)
 

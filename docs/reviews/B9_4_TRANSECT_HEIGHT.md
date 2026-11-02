@@ -135,3 +135,19 @@ Chi tiết đủ 50 tầng ở `layer_stats.csv`; hình `b9.4_vertical_quality.p
 Review phía trên là kết quả ở thời điểm ghi nhận. Writer `.9g`/float32 và các cast float8 của API đã sửa trong đợt A8.1/B8.1; hai run executor thật được đối chiếu NetCDF với API. Phần chọn tầng trên biểu đồ tại mặt trong nay dùng khoảng nửa kín, có regression cho z=2 m và pixel biên trên của biểu đồ. Không đổi giá trị mặt cắt hoặc các run cũ.
 
 RESEARCH §3 đã tổng hợp bảng hai mùa từ report candidate có run_id, độ cao yêu cầu/tâm tầng và giới hạn kết luận. B9.3/B10.2 vẫn cần bộ số và hình cùng release để đưa vào báo cáo/slide cuối. Xung đột GOB/OSM, ảnh hưởng miền và giới hạn kiểm định vẫn mở; việc cập nhật tài liệu không thay xác nhận phương pháp của B.
+
+## Audit hình học tái lập ngày 02/11/2026
+
+`python -m src.analysis.height_audit --out artifacts/height-audit` đọc GeoJSON
+processed và config, ghi SHA-256 của cả hai cùng từng nhà trong `height-audit.json`.
+62/62 nhà dùng GOB; không chiều cao resolved nào chạm 100 m. Khoảng hở nhỏ nhất
+là 9 m = 4,5 dz. Hai nhà thấp hơn tâm tầng đầu 1 m. Có 14 tag OSM height đọc được
+(kể cả hậu tố `m`), 3 tag ≥100 m; không đổi nguồn chiều cao hoặc scene.
+
+Đây chỉ là kiểm hình học. Không có ngưỡng khoảng hở được xác nhận để kết luận
+miền đã đủ cao. Cần thử miền cao hơn và xác minh nguồn/năm của các tháp trước khi
+đóng B9.4. Nhận định lịch sử ở mục 7 rằng ảnh hưởng tại 1,5–15 m nhỏ hơn chưa
+được thí nghiệm lượng hóa; không dùng làm kết luận báo cáo. Độ nhạy ±20% chiều
+cao không thay được kiểm miền trên hoặc xác minh tag OSM. Test audit chặn giá trị
+không hữu hạn, không đoán tag đơn vị feet/multi-value và phân biệt thiếu tag với
+không chạm đỉnh miền.
