@@ -1,0 +1,71 @@
+name: Independent demo acceptance
+
+# Manual on main, or explicit CI branches; no schedule or untrusted fork execution.
+on:
+  workflow_dispatch:
+  push:
+    branches: ['ci/a10-independent-runner']
+
+permissions:
+  contents: read
+
+concurrency:
+  group: independent-demo-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  demo:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    steps:
+      - name: Checkout exact revision
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          persist-credentials: false
+      - name: Set up Node
+        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
+        with:
+          node-version: '22'
+      - name: Record independent runner and revision
+        run: |
+          mkdir -p artifacts/independent-ci
+          node --input-type=module <<'NODE'
+          import { writeFileSync } from 'node:fs';
+          import { platform, release, arch, cpus, totalmem } from 'node:os';
+          writeFileSync('artifacts/independent-ci/runner.json', JSON.stringify({
+            provider: 'GitHub-hosted', execution: 'independent VM, not a second personal PC',
+            revision: process.env.GITHUB_SHA, run_id: process.env.GITHUB_RUN_ID,
+            run_attempt: process.env.GITHUB_RUN_ATTEMPT, os: platform(), os_release: release(),
+            arch: arch(), cpus: cpus().length, memory_bytes: totalmem(), node: process.version,
+            generated_at: new Date().toISOString()
+          }, null, 2));
+          NODE
+          docker version --format '{{.Server.Version}}' > artifacts/independent-ci/docker-version.txt
+          docker compose version > artifacts/independent-ci/compose-version.txt
+      - name: Web and script regression
+        run: node --test web/tests/*.test.cjs scripts/tests/*.test.mjs
+      - name: Verify packaged scientific inputs
+        run: python3 -m src.demo_bundle verify
+      - name: Clean build, seed, two real runs, downloads, queries and restart
+        run: node scripts/rehearse.mjs --skip-browser --out artifacts/independent-ci/rehearsal
+      - name: Require every API/Compose check and matching revision
+        run: |
+          node scripts/verify-ci-rehearsal.mjs artifacts/independent-ci/rehearsal/rehearsal.json "$GITHUB_SHA" > artifacts/independent-ci/acceptance.json
+          cat artifacts/independent-ci/acceptance.json
+      - name: Preserve reports even on failure
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: independent-demo-${{ github.sha }}-${{ github.run_attempt }}
+          path: artifacts/independent-ci/
+          if-no-files-found: error
+          retention-days: 14
+      - name: State acceptance scope
+        if: always()
+        run: |
+          printf '%s\n' '### Independent runner verification' >> "$GITHUB_STEP_SUMMARY"
+          printf '%s\n' 'API/Compose: clean image build, fresh database, real dry/wet solver runs, checksums, queries and restart.' >> "$GITHUB_STEP_SUMMARY"
+          printf '%s\n' 'Browser automation, physical second PC and final scientific release are not certified by this job.' >> "$GITHUB_STEP_SUMMARY"
+          if test -f artifacts/independent-ci/acceptance.json; then
+            cat artifacts/independent-ci/acceptance.json >> "$GITHUB_STEP_SUMMARY"
+          fi
