@@ -579,8 +579,8 @@ sang nghiệm thu/báo cáo cuối ở tuần 10. Không đánh dấu release t�
 
 | ID | Công việc | Đầu ra | Tiêu chí đạt |
 |---|---|---|---|
-| `A10.1` | 🟡 Chốt seed/demo dataset và revision cố định | Bundle đã có; thêm preflight read-only, hash runtime, revision và kiểm DB khớp scene | 01/11: verifier ZIP/scene và API thật đã kiểm; freeze B7 còn drift, phải phối hợp B10.1 chốt bundle/run mới rồi pin revision, chưa đóng release |
-| `A10.2` | 🟡 Chốt README/runbook và kiểm máy thứ hai | README có khởi động, preflight, luồng demo, phục hồi và bước máy thứ hai | 01/11: phần hướng dẫn và script đã triển khai/kiểm tại máy hiện tại. Còn checkout/build/seed/run/query/web trên máy vật lý thứ hai, lưu OS/runtime; không coi fresh volumes cùng host là máy khác |
+| `A10.1` | ✅ Chốt seed/demo dataset và revision cố định | `deploy/demo-profile.json`, hai bundle cùng revision, image/source/checksums và bản xuất dự phòng | 02/11: checkout sạch ca82a50, hai run thật qua gates; đã phục hồi bằng importer vào DB mới, 917.832 giá trị lát + 500 profile khớp NetCDF. Hồ sơ chốt demo, không tự đóng B10.1/freeze khoa học hoặc release |
+| `A10.2` | 🟡 Hoàn tất gói bàn giao/runbook; còn giới hạn phần cứng thứ hai | Source ZIP/image app+PostGIS, artifacts/checksums, START_HERE và kiểm phục hồi Linux sạch | 02/11: build/seed/run/query/restart và import volume mới đã kiểm trên cùng Windows host. Người dùng không có máy khác; chưa thể đóng tiêu chí máy vật lý thứ hai. Không coi Linux container hoặc DB mới là máy thứ hai |
 | `A10.3` | ⬜ Kiểm UI, performance và demo flow | Checklist có số đo, video/screenshot dự phòng | Kiểm responsive, bàn phím, lỗi kết nối và thời gian demo; ghi cấu hình/tải đo, không coi mobile screenshot là FPS audit |
 | `A10.4` | 🟡 Chốt báo cáo và slide: GIS/kiến trúc/DB/web | Bảng so sánh mô hình, ERD, query plans/benchmark và phần slide tương ứng | 02/11: bản thảo FINAL_REPORT.md và dàn FINAL_SLIDES.md đã có; còn báo cáo định dạng in, deck/hình, rubric G1.1…G3.1 và review chéo; không phải seminar |
 | `A10.5` | ⬜ Audit rubric A4, QG/XG và chốt release | Ma trận nội dung/trình bày, báo cáo/slide, version/tag được phê duyệt | Không tự đóng tiêu chí trình bày khi chưa có báo cáo in được/slide; đủ bundle và máy thứ hai; không tự commit/tag/push |
@@ -591,6 +591,17 @@ sang nghiệm thu/báo cáo cuối ở tuần 10. Không đánh dấu release t�
 nghiệm thu release. Suite script có 17 test đạt (13 preflight, 4 normalize), verifier bundle
 Python có 12 test đạt. README là runbook hiện hành; chưa chạy máy vật lý thứ hai hoặc tái
 sinh bộ run nghiên cứu. Preflight không xác thực build revision của server đang phục vụ.
+
+**Nghiệm thu demo 02/11:** source sạch `ca82a50`, image ID và manifest SHA-256 được pin ở
+`deploy/demo-profile.json`. Build/boot 102,15 s; solver khô 46,584 s, mưa 73,955 s;
+rehearsal API/query/restart tổng khoảng 246 s, trạng thái gốc partial do skip browser tự động.
+Browser đã kiểm thủ công riêng; chưa thay A10.3 responsive/keyboard/performance audit.
+98 required PostGIS E2E pass/0 skip. Import lại 2 run vào volume mới và đối chiếu đủ 100 lát,
+500 profile values với NetCDF: khớp tuyệt đối. Gói local `artifacts/demo/a10-ca82a50.zip`
+có image/source/bundle/checksums và START_HERE; không đưa file lớn/agent records vào Git.
+A10.1 đóng phạm vi bộ demo; B10.1 vẫn cần chốt nghiên cứu/freeze sau review giới hạn B9.4.
+Người dùng xác nhận không có máy khác: A10.2 hoàn thành chuẩn bị/kiểm phục hồi tại máy này,
+riêng tiêu chí phần cứng thứ hai giữ chưa xác minh. XG-5/QG-8 không tự đóng theo hai container.
 
 **Người B**
 

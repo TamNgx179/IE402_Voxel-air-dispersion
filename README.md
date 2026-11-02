@@ -165,6 +165,47 @@ trong `artifacts/week7/`. Bỏ qua browser thì chỉ được coi là partial. 
 thực hiện bảng thao tác web, lưu ảnh/video dự phòng, đối chiếu run/version/hash và số liệu.
 Hai container hoặc hai lần clean-room trên cùng laptop không được ghi là hai máy vật lý.
 
+### Bộ demo đã kiểm ngày 02/11/2026
+
+Hồ sơ cố định ở [`deploy/demo-profile.json`](deploy/demo-profile.json): source
+`ca82a50e81220cbd8c139ec0916309546935ad41`, image `ie402-voxel-demo:ca82a50`, hai run
+`c2286867-0277-4137-92f5-38b73bf8251c` (khô) và `52d55e52-0c54-47f8-bc55-50dbcd06142f` (mưa).
+Đây là **demo đã kiểm**, không thay bộ nghiên cứu của B hoặc phê duyệt release cuối.
+
+Gói local `artifacts/demo/a10-ca82a50/` có source ZIP đúng commit, `images.tar` gồm app/PostGIS,
+hai bundle run, hash runtime, checksum từng file và PNG/CSV/JSON dự phòng. Làm theo
+`START_HERE.md` trong gói: kiểm checksum → `docker load` → Compose project mới → import
+qua verifier hiện có. Bản nén chia sẻ nằm ở `artifacts/demo/a10-ca82a50.zip`; các file lớn
+và báo cáo local không nằm trong Git, người nhận phải được cung cấp gói riêng.
+
+Đã kiểm build từ checkout sạch, volume mới, seed idempotent, hai solver thật, artifact tải
+xuống, query/EXPLAIN và restart; sau đó import lại vào DB độc lập. Toàn bộ 100 lát ngang
+(917.832 giá trị ô khí) và 500 giá trị profile sau import khớp NetCDF gốc. Suite bắt buộc
+PostGIS đạt 98/98, không skip. Browser kiểm thủ công hai run, đổi tầng, nguồn/trạng thái
+và tải PNG/CSV/JSON; script rehearsal gốc vẫn giữ `partial` vì bỏ browser automation.
+
+Người dùng xác nhận không có máy khác ngày 02/11. Kiểm tương thích hiện có là Windows
+host/Linux container và phục hồi volume trên cùng laptop; **chưa xác minh trên phần cứng
+thứ hai**. Giữ giới hạn này trong A10.2, không nâng thành PASS cross-machine.
+
+### Kiểm trên runner GitHub độc lập
+
+Workflow `.github/workflows/independent-demo.yml` dùng Ubuntu 24.04 GitHub-hosted, checkout
+đúng SHA, không dùng secret hoặc cache input từ laptop. Workflow chạy khi push nhánh
+`ci/a10-independent-runner`; sau khi có trên main có thể chạy bằng **Actions → Independent
+demo acceptance → Run workflow**. Không có lịch tự chạy hoặc deploy sản phẩm.
+
+Phạm vi: web/script regression, verifier input, build image, seed DB/volume mới, hai solver
+thật, tải/checksum artifacts, truy vấn/EXPLAIN, restart và dọn stack riêng. Validator từ chối
+thiếu check, skip ngoài phạm vi, revision sai hoặc verification/cleanup thất bại.
+Browser automation được bỏ qua có chủ đích vì smoke cũ chưa khớp UI; báo cáo rehearsal vẫn
+giữ `partial`, còn `acceptance.json` chỉ xác nhận phạm vi API/Compose độc lập.
+
+Runner/config/revision/logs và báo cáo lưu trong artifact của workflow trong 14 ngày, kể cả
+khi job thất bại. Chỉ đóng phần kiểm độc lập sau khi run thật kết thúc thành công và đã
+đối chiếu SHA; không coi có file workflow hoặc job đang chạy là đã đạt. Runner là VM độc lập
+do GitHub cấp, không chứng nhận kiểm trên một máy tính cá nhân thứ hai.
+
 ## Hướng hoàn thiện sau rà soát 27/10/2026
 
 Yêu cầu giảng viên tập trung vào **voxel/3D Array, phát tán theo độ cao và phân tích

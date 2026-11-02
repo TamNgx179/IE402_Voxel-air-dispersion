@@ -1,0 +1,47 @@
+{
+  "schema_version": 1,
+  "profile": "a10-demo-20261102",
+  "status": "verified_demo_not_final_release",
+  "verified_on": "2026-11-02",
+  "source_revision": "ca82a50e81220cbd8c139ec0916309546935ad41",
+  "model_version": "0.1.0+ca82a50",
+  "app_image": "ie402-voxel-demo:ca82a50",
+  "app_image_id": "sha256:d181f0c739c12262cf5651864da25630177396629310f07a5ceee37e36b075c1",
+  "postgis_image": "postgis/postgis:16-3.4",
+  "postgis_image_id": "sha256:44126d872ac91993766c341e369c539e8196614321765d36a6f1bab0419a5fa5",
+  "scene_manifest_sha256": "7f8728d8ac3762354e5727c217f8d1400cc6bcf397fac2471fb94240f5e2f83d",
+  "local_handoff_directory": "artifacts/demo/a10-ca82a50",
+  "runs": [
+    {
+      "scenario_id": "dry_nov_apr",
+      "run_id": "c2286867-0277-4137-92f5-38b73bf8251c",
+      "input_hash": "sha256:67c375276cd99957c3d06c6dd51a8498bd707d0e9e2a74c6c9e54a9269f102e2",
+      "manifest_sha256": "c81eaf3ce9fb04fb6bca3bcb7875748319b9ef5118ae67a84f5bcfab76f47d41",
+      "verification": "pass"
+    },
+    {
+      "scenario_id": "wet_may_oct",
+      "run_id": "52d55e52-0c54-47f8-bc55-50dbcd06142f",
+      "input_hash": "sha256:1d69ece4a1139554f14a5e1e0f7c3371081f9eb953b0f598f2e3c8bffafeef14",
+      "manifest_sha256": "fb2306f6ca1b6e2640a9b9283b64e93b877395b92ffd15c51dd21fcc0edc3ead",
+      "verification": "pass"
+    }
+  ],
+  "verification": {
+    "required_e2e_passed": 98,
+    "required_e2e_skipped": 0,
+    "restored_api_exact_air_values": 917832,
+    "restored_profile_values": 500,
+    "downloaded_artifact_checksums": "pass",
+    "fresh_volume_seed_and_restart": "pass",
+    "browser_manual": "two runs, height change, source/status, PNG/CSV/JSON download",
+    "automated_browser": "not_run",
+    "second_physical_machine": "not_available",
+    "final_scientific_release": false
+  },
+  "limitations": [
+    "Historical B7 freeze remains unchanged; this profile pins the demo only.",
+    "No independent second hardware test: Linux cleanroom and restoration share this Windows host.",
+    "B9.4 height/domain limits and final report/release review remain open."
+  ]
+}
