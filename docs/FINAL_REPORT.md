@@ -129,7 +129,11 @@ Lệnh cài đặt, Compose, preflight, luồng demo và phục hồi ở [READM
 Môi trường làm việc hiện tại dùng `.venv-work/Scripts/python.exe`; danh sách
 dependency đã cài được lưu local tại `artifacts/verification-20261102/`.
 
-Trước bàn giao cần chốt source/config và bộ run/checksum cùng revision, kiểm
-PostGIS E2E bắt buộc, responsive/bàn phím/hiệu năng thực, build và chạy trên máy
-vật lý thứ hai, xuất hình dự phòng và review chéo báo cáo/slide. Freeze B7 còn là
-candidate lịch sử; chưa thay lock hoặc coi tài liệu này là phê duyệt release.
+Trước bàn giao cần chốt bộ nghiên cứu/freeze cùng revision, kiểm responsive/bàn phím/
+hiệu năng, hình dự phòng và review chéo báo cáo/slide. Bộ demo ca82a50 đã pin riêng;
+PostGIS E2E tại máy đạt 98/98. Theo lựa chọn người dùng khi không có máy cá nhân khác,
+[GitHub-hosted CI](https://github.com/TamNgx179/IE402_Voxel-air-dispersion/actions/runs/41465927344)
+đã kiểm độc lập SHA 02185fb: build/seed, hai solver thật, checksum, query và restart.
+Đây là VM ngoài laptop, chưa phải thử trên PC cá nhân thứ hai hoặc UI automation;
+chi tiết phạm vi ở ROADMAP A10.2. Freeze B7 vẫn là candidate lịch sử và báo cáo này
+chưa phải phê duyệt release khoa học.

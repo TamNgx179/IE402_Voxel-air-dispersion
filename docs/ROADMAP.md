@@ -124,7 +124,7 @@ Sơ đồ 8 tuần cũ không còn là lịch thực hiện hiện hành; bảng
 | `M6` | 7 | Demo ổn định, integration tests, số liệu báo cáo | Chạy lại từ DB rỗng và tạo kết quả |
 | `M7` | 8 | So sánh hai run, phân tích polygon, pilot nghiên cứu lưới | API/SQL/web và fixture khớp; thiết kế thí nghiệm tái lập |
 | `M8` | 9 (nhiều đợt) | Nghiên cứu lưới, mặt cắt đứng, export và LoD render ổn định | XG-3/6/7 và regression đạt, kết luận đúng mức; khóa phạm vi tính năng |
-| `M9` | 10 | Báo cáo cuối, demo máy thứ hai và release | QG/XG bắt buộc đạt; đủ bộ bàn giao và phương án dự phòng |
+| `M9` | 10 | Báo cáo cuối, kiểm môi trường độc lập và release | QG/XG bắt buộc đạt; đủ bộ bàn giao và phương án dự phòng; phương án GitHub-hosted CI thay máy cá nhân thứ hai được chọn 02/11 |
 
 ### Đối chiếu rubric IE402 — cập nhật 01/11/2026
 
@@ -580,10 +580,10 @@ sang nghiệm thu/báo cáo cuối ở tuần 10. Không đánh dấu release t�
 | ID | Công việc | Đầu ra | Tiêu chí đạt |
 |---|---|---|---|
 | `A10.1` | ✅ Chốt seed/demo dataset và revision cố định | `deploy/demo-profile.json`, hai bundle cùng revision, image/source/checksums và bản xuất dự phòng | 02/11: checkout sạch ca82a50, hai run thật qua gates; đã phục hồi bằng importer vào DB mới, 917.832 giá trị lát + 500 profile khớp NetCDF. Hồ sơ chốt demo, không tự đóng B10.1/freeze khoa học hoặc release |
-| `A10.2` | 🟡 Hoàn tất gói bàn giao/runbook; còn giới hạn phần cứng thứ hai | Source ZIP/image app+PostGIS, artifacts/checksums, START_HERE và kiểm phục hồi Linux sạch | 02/11: build/seed/run/query/restart và import volume mới đã kiểm trên cùng Windows host. Người dùng không có máy khác; chưa thể đóng tiêu chí máy vật lý thứ hai. Không coi Linux container hoặc DB mới là máy thứ hai |
+| `A10.2` | ✅ Gói bàn giao/runbook và kiểm độc lập theo phương án CI | Source/image/run/checksums, START_HERE, phục hồi local và báo cáo runner GitHub | 02/11: người dùng chọn CI thay máy cá nhân khác; run 41465927344 trên GitHub-hosted Ubuntu đạt 146 regression, input verifier, 7 API/Compose checks, 2 solver thật và cleanup. Đúng SHA 02185fb; không chứng nhận UI automation hoặc phần cứng cá nhân thứ hai |
 | `A10.3` | ⬜ Kiểm UI, performance và demo flow | Checklist có số đo, video/screenshot dự phòng | Kiểm responsive, bàn phím, lỗi kết nối và thời gian demo; ghi cấu hình/tải đo, không coi mobile screenshot là FPS audit |
 | `A10.4` | 🟡 Chốt báo cáo và slide: GIS/kiến trúc/DB/web | Bảng so sánh mô hình, ERD, query plans/benchmark và phần slide tương ứng | 02/11: bản thảo FINAL_REPORT.md và dàn FINAL_SLIDES.md đã có; còn báo cáo định dạng in, deck/hình, rubric G1.1…G3.1 và review chéo; không phải seminar |
-| `A10.5` | ⬜ Audit rubric A4, QG/XG và chốt release | Ma trận nội dung/trình bày, báo cáo/slide, version/tag được phê duyệt | Không tự đóng tiêu chí trình bày khi chưa có báo cáo in được/slide; đủ bundle và máy thứ hai; không tự commit/tag/push |
+| `A10.5` | ⬜ Audit rubric A4, QG/XG và chốt release | Ma trận nội dung/trình bày, báo cáo/slide, version/tag được phê duyệt | Không tự đóng tiêu chí trình bày khi chưa có báo cáo in được/slide; đủ bundle và kiểm môi trường độc lập theo A10.2; không tự commit/tag/push |
 
 **Tiếp nối A10 ngày 01/11:** `node scripts/demo-preflight.mjs --url http://127.0.0.1:3001/`
 đã đối chiếu ZIP/scene và API thật (hash/lưới cùng số nhà/đường/nước/cây). Báo cáo local
@@ -602,6 +602,25 @@ có image/source/bundle/checksums và START_HERE; không đưa file lớn/agent 
 A10.1 đóng phạm vi bộ demo; B10.1 vẫn cần chốt nghiên cứu/freeze sau review giới hạn B9.4.
 Người dùng xác nhận không có máy khác: A10.2 hoàn thành chuẩn bị/kiểm phục hồi tại máy này,
 riêng tiêu chí phần cứng thứ hai giữ chưa xác minh. XG-5/QG-8 không tự đóng theo hai container.
+
+**Kiểm độc lập GitHub Actions — đạt 02/11:** người dùng chọn CI thay việc cần máy cá nhân
+thứ hai; đây là thay đổi phương án nghiệm thu nội bộ, không phải yêu cầu thêm từ rubric.
+[Run đạt](https://github.com/TamNgx179/IE402_Voxel-air-dispersion/actions/runs/41465927344)
+kiểm SHA `02185fbd25fb99c8475b5b259e547d541be9201f` trên GitHub-hosted Linux x64, 4 CPU,
+khoảng 16 GiB RAM. 146 regression pass/0 skip, input bundle hợp lệ; build từ source sạch,
+seed, 2 solver thật, downloads/checksums, query/EXPLAIN, restart và cleanup đều đạt.
+Rehearsal 118,151 s; solver khô 21,147 s, mưa 24,586 s, không so thời gian giữa máy như
+một benchmark hiệu năng có kiểm soát. Artifact ID 13150972619 đã tải, SHA-256 archive
+`8cdd1453aa2c1dfefb867a2cf5211fe9617a457f09244fa7661c63c303ded72f` khớp metadata GitHub.
+Đã chạy lại validator tại máy: 7/7 checks đúng revision; hai input hash và mean/max 1/15 m
+khớp bộ demo local. Không suy từ hai tầng này ra khớp bitwise toàn trường giữa hai host.
+
+Run đầu 41464016145 thất bại vì thiếu dependency test, đã sửa bằng npm ci theo lockfile;
+giữ lịch sử thất bại, không dùng làm kết quả đạt. Báo cáo gốc run mới giữ `partial` vì
+browser automation chưa chạy; `acceptance.json` chỉ xác nhận phạm vi API/Compose.
+Báo cáo tải local ở `artifacts/independent-ci/41465927344/`; GitHub giữ artifact 14 ngày.
+Workflow từ nhánh `ci/a10-independent-runner` được tích hợp vào main sau run đạt. A10.2 đóng theo phương án CI;
+A10.3 UI/performance, B9.4 và nghiệm thu release/report vẫn giữ mở. Không ghi VM là PC thứ hai.
 
 **Người B**
 
@@ -637,7 +656,7 @@ Release chỉ được chốt khi `QG-1` đến `QG-10` đều có trạng thái
 | Mốc 9, đợt 2 | A9.4 benchmark/LoD; A9.5 UX/quality | B9.1 phân tích sai số; B9.3 hình/bảng, B9.5 đánh giá dữ liệu mái | Kết quả chiều cao và hiệu năng có số đo, LoD2 có kết luận khả thi |
 | Mốc 9, đợt 3 tùy chọn | A9.1 sau contract B8.4, chỉ khi giữ | B9.2 hoặc pilot LoD2 khi nguồn đủ | Run thật/config/mask đúng; không dùng hiệu ứng màu thay solver |
 | Cuối mốc 9 | Regression/EXPLAIN/UI và khóa phạm vi | Review độc lập, kiểm lại bảng/hình và diễn giải | M8; tất cả gate cốt lõi và nâng cấp đã chọn có kết quả, không để placeholder |
-| Tuần 10 | A10.1–A10.5 | B10.1–B10.4 | M9; máy vật lý thứ hai, final report/artifacts, Q&A và demo dự phòng; tag/version chỉ theo phê duyệt |
+| Tuần 10 | A10.1–A10.5 | B10.1–B10.4 | M9; kiểm độc lập GitHub CI theo lựa chọn 02/11, final report/artifacts, Q&A và demo dự phòng; tag/version chỉ theo phê duyệt |
 
 Mỗi đợt có thể kéo dài hơn một tuần lịch; chưa có căn cứ để cam kết ngày hoàn tất.
 Ước lượng lại sau B8.3 và pilot A9.3/A9.4; hai người cùng review, không chia đều chỉ bằng số task.
@@ -652,7 +671,7 @@ Viết nháp báo cáo và chuẩn bị runbook được làm song song; chỉ c
 | `XG-2` GIS/query vùng đúng | Fixture polygon/độ cao/solid khớp tính tay; trọng số thể tích được định nghĩa; CSV khớp API |
 | `XG-3` Sai số được định lượng | Có nghiên cứu lưới/bước thời gian, cấu hình tái lập và kết luận đúng mức, kể cả chưa hội tụ |
 | `XG-4` Giảm nguồn (nếu giữ) | Solver chạy thật với run/config/hash riêng; gates/mass ledger pass; so sánh đúng baseline |
-| `XG-5` Bàn giao được | Máy thứ hai, báo cáo, demo dự phòng; QG-1…QG-10 không hồi quy và A10/B10 được chốt |
+| `XG-5` Bàn giao được | Môi trường độc lập theo A10.2 (GitHub CI đã chọn), báo cáo, demo dự phòng; QG-1…QG-10 không hồi quy và A10/B10 được chốt; CI API pass chưa đóng toàn bộ gate này |
 | `XG-6` Chiều đứng rõ ràng | Mặt cắt/profile/lát ngang có fixture tham chiếu, axes/units/tâm ô đúng và hình/bảng định lượng từ B9.4 |
 | `XG-7` LoD hiển thị đúng nghĩa | Geometry giảm thật ở mức xa; số đo cùng môi trường trước/sau; kết quả khoa học bất biến theo zoom |
 

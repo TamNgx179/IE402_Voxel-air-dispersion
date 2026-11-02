@@ -188,6 +188,9 @@ Người dùng xác nhận không có máy khác ngày 02/11. Kiểm tương th�
 host/Linux container và phục hồi volume trên cùng laptop; **chưa xác minh trên phần cứng
 thứ hai**. Giữ giới hạn này trong A10.2, không nâng thành PASS cross-machine.
 
+Phần trên là kết quả tại laptop. Sau đó người dùng chọn GitHub-hosted CI làm phương án
+kiểm độc lập thay máy cá nhân khác; kết quả bên dưới bổ sung lần kiểm trên runner ngoài laptop.
+
 ### Kiểm trên runner GitHub độc lập
 
 Workflow `.github/workflows/independent-demo.yml` dùng Ubuntu 24.04 GitHub-hosted, checkout
@@ -205,6 +208,14 @@ Runner/config/revision/logs và báo cáo lưu trong artifact của workflow tro
 khi job thất bại. Chỉ đóng phần kiểm độc lập sau khi run thật kết thúc thành công và đã
 đối chiếu SHA; không coi có file workflow hoặc job đang chạy là đã đạt. Runner là VM độc lập
 do GitHub cấp, không chứng nhận kiểm trên một máy tính cá nhân thứ hai.
+
+**Đã đạt ngày 02/11:** [run 41465927344](https://github.com/TamNgx179/IE402_Voxel-air-dispersion/actions/runs/41465927344)
+kiểm đúng SHA `02185fbd25fb99c8475b5b259e547d541be9201f`: 146 regression pass/0 skip,
+input verifier và 7/7 API/Compose checks đạt, hai run FV thật hội tụ, artifact checksum,
+query/restart và cleanup đều qua. Báo cáo đã tải và kiểm SHA-256 tại
+`artifacts/independent-ci/41465927344/`; artifact GitHub ID 13150972619 giữ 14 ngày.
+Workflow được tích hợp vào main từ nhánh CI đã kiểm. A10.2 hoàn tất theo phương án độc lập này; A10.3 và release khoa học
+vẫn cần nghiệm thu riêng. Bộ demo đóng gói ca82a50 không được đổi nhãn thành bộ run CI mới.
 
 ## Hướng hoàn thiện sau rà soát 27/10/2026
 
