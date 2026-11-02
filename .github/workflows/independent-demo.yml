@@ -42,8 +42,10 @@ jobs:
           NODE
           docker version --format '{{.Server.Version}}' > artifacts/independent-ci/docker-version.txt
           docker compose version > artifacts/independent-ci/compose-version.txt
+      - name: Install locked test dependencies
+        run: npm ci --prefix app --no-audit --no-fund
       - name: Web and script regression
-        run: node --test web/tests/*.test.cjs scripts/tests/*.test.mjs
+        run: node --test web/tests/*.test.cjs scripts/tests/*.test.mjs 2>&1 | tee artifacts/independent-ci/regression.log
       - name: Verify packaged scientific inputs
         run: python3 -m src.demo_bundle verify
       - name: Clean build, seed, two real runs, downloads, queries and restart
