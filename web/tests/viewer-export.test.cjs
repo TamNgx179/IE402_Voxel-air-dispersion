@@ -13,6 +13,21 @@ const {
   compose,
   comparisonLegend,
 } = require("../viewer-export.js");
+
+test('scientific CSV keeps the actual source presets separately from concentration values', () => {
+  const report={metadata:{run_id:'r',model_version:'v',input_hash:'h'},
+    summary:{emission_multiplier:.8,grid:{dz_m:2},units:'ug m-3',
+      layers:[{z_m:1,mean_ug_m3:0,max_ug_m3:0,air_cells:1}]}};
+  const [layer]=parse(layerCsv(report),{columns:true});
+  assert.equal(layer.emission_multiplier,'0.8');
+  assert.equal(layer.mean_ug_m3,'0');
+  const pair={baseline_emission_multiplier:1,comparison_emission_multiplier:.6,
+    units:'ug m-3',feature_collection:{features:[{properties:{i:0,j:0,baseline_ug_m3:5,comparison_ug_m3:3,delta_ug_m3:-2}}]}};
+  const [row]=parse(comparisonCsv(pair),{columns:true});
+  assert.equal(row.baseline_emission_multiplier,'1');
+  assert.equal(row.comparison_emission_multiplier,'0.6');
+  assert.equal(row.delta_ug_m3,'-2');
+});
 test("empty comparison must not be labelled as a measured zero delta", () => {
   const empty = {
     feature_collection: { features: [] },

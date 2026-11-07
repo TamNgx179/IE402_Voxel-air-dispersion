@@ -183,6 +183,7 @@ async function loadBootstrap() {
       id: run.run_id,
       scenario_id: run.scenario_id,
       name: run.scenario_name,
+      emission_multiplier: run.emission_multiplier ?? 1,
       wind_from_deg: run.wind_from_deg,
       wind_speed_m_s: run.wind_speed_m_s,
       model: run.model,
@@ -1078,7 +1079,8 @@ function scenarioLabel(entry) {
   const season = Object.keys(SCENARIO_NAMES).find((key) => scenarioId.startsWith(key));
   const name = season ? SCENARIO_NAMES[season] : entry.name || scenarioId;
   const mock = entry.warnings.some((warning) => /mock run/.test(warning));
-  return `${name} · ${mock ? "Dữ liệu thử" : entry.model === "fv" ? "Voxel" : "Gaussian"} · ${entry.id.slice(0, 4)}`;
+  const reduction = Math.round((1 - (entry.emission_multiplier ?? 1)) * 100);
+  return `${name} · ${mock ? "Dữ liệu thử" : entry.model === "fv" ? "Voxel" : "Gaussian"}${reduction ? ` · Giảm ${reduction}%` : ''} · ${entry.id.slice(0, 4)}`;
 }
 
 function buildControls() {
@@ -1245,7 +1247,8 @@ async function createRun() {
   try {
     const accepted = await api("/runs", {
       method: "POST",
-      body: JSON.stringify({ scenario_id: $("new-run-scenario").value, model: "fv" }),
+      body: JSON.stringify({ scenario_id: $("new-run-scenario").value, model: "fv",
+        emission_multiplier: Number($("new-run-emission").value ?? 1) }),
     });
     activeRunId = accepted.run_id;
     sessionStorage.setItem("voxel-active-run", activeRunId);
@@ -1300,6 +1303,7 @@ async function trackRun(id) {
           return;
         }
         const entry = { id, scenario_id: run.scenario.id, name: run.scenario.name,
+          emission_multiplier: run.emission_multiplier ?? 1,
           wind_from_deg: run.scenario.wind_from_deg, wind_speed_m_s: run.scenario.wind_speed_m_s,
           model: run.model, model_version: run.model_version, warnings: run.warnings || [] };
         if (!scenarioEntry(id)) M.scenarios.unshift(entry);

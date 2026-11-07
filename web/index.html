@@ -137,6 +137,12 @@
       <section class="simulation-section" aria-labelledby="run-title">
         <div class="tool-panel" id="simulation-options" hidden>
           <div class="section-heading"><h2 id="run-title" class="tool-panel-title">Chạy mô phỏng</h2><button type="button" class="help-trigger" aria-label="Cách chạy mô phỏng" data-help="Chọn kịch bản rồi bấm Chạy. Kết quả mới tự xuất hiện khi mô phỏng hoàn tất."><i class="bi bi-info-circle" aria-hidden="true"></i></button></div>
+          <label for="new-run-emission">Nguồn phát thải</label>
+          <select id="new-run-emission" aria-label="Nguồn phát thải">
+            <option value="1">Nguồn gốc</option>
+            <option value="0.8">Giảm 20%</option>
+            <option value="0.6">Giảm 40%</option>
+          </select>
           <label for="new-run-scenario">Kịch bản mô phỏng</label>
           <div class="run-form">
             <select id="new-run-scenario"></select>

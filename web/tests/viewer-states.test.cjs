@@ -43,6 +43,19 @@ async function setup() {
   return { context, element };
 }
 
+test('source preset creates a real run request and reduced labels survive reload metadata', async () => {
+  const {context,element}=await setup();
+  element('new-run-scenario').value='dry_nov_apr';
+  element('new-run-emission').value='0.8';
+  vm.runInContext(`api=async(path,options)=>{ globalThis.sent=JSON.parse(options.body);return {run_id:'reduced-id'}; };
+    trackRun=async()=>{};`,context);
+  await vm.runInContext('createRun()',context);
+  assert.deepEqual(JSON.parse(JSON.stringify(context.sent)),{scenario_id:'dry_nov_apr',model:'fv',emission_multiplier:.8});
+  const label=vm.runInContext(`scenarioLabel({id:'1234-5678',scenario_id:'dry_nov_apr',model:'fv',emission_multiplier:.6,warnings:[]})`,context);
+  assert.match(label,/Giảm 40%/);
+  assert.doesNotMatch(vm.runInContext(`scenarioLabel({id:'1234',scenario_id:'dry_nov_apr',model:'fv',warnings:[]})`,context),/Giảm/);
+});
+
 test("statistics show units and distinguish a measured zero from missing threshold data", async () => {
   const { context, element } = await setup();
   vm.runInContext(`
