@@ -226,6 +226,7 @@ describe.skipIf(!db.ok)('API with PostGIS (e2e, executor disabled)', () => {
         run_id: res.body.run_id,
         scenario_id: 'dry_nov_apr',
         model: 'fv',
+        emission_multiplier: 1,
       });
       expect(
         row.config_snapshot.meteorology.scenarios.dry_nov_apr,
@@ -239,6 +240,30 @@ describe.skipIf(!db.ok)('API with PostGIS (e2e, executor disabled)', () => {
         .expect(202);
       const got = await http().get(`/api/runs/${res.body.run_id}`).expect(200);
       expect(got.body.model).toBe('gaussian');
+    });
+
+    it.each([0.8, 0.6])('persists source preset %s and returns it after reload/retry', async (multiplier) => {
+      const accepted = await http().post('/api/runs')
+        .send({ scenario_id: 'dry_nov_apr', emission_multiplier: multiplier }).expect(202);
+      const id = accepted.body.run_id;
+      const detail = await http().get(`/api/runs/${id}`).expect(200);
+      expect(detail.body.emission_multiplier).toBe(multiplier);
+      const listed = await http().get('/api/runs?limit=100').expect(200);
+      expect(listed.body.find((run: any) => run.run_id === id).emission_multiplier).toBe(multiplier);
+      const before = (await pool.query('SELECT config_snapshot FROM simulation_runs WHERE id=$1',[id])).rows[0].config_snapshot;
+      await pool.query("UPDATE simulation_runs SET status='failed',error_kind='system' WHERE id=$1",[id]);
+      await http().post(`/api/runs/${id}/retry`).expect(202);
+      const after = (await pool.query('SELECT config_snapshot FROM simulation_runs WHERE id=$1',[id])).rows[0].config_snapshot;
+      expect(after).toEqual(before);
+      expect(after.run.emission_multiplier).toBe(multiplier);
+    });
+
+    it.each([null, true, '0.8', 0, -1, 0.7, 1.2])('rejects invalid source preset %s', async (value) => {
+      await http().post('/api/runs').send({ scenario_id:'dry_nov_apr', emission_multiplier:value }).expect(400);
+    });
+
+    it('refuses reduced Gaussian instead of silently changing only a label', async () => {
+      await http().post('/api/runs').send({ scenario_id:'dry_nov_apr',model:'gaussian',emission_multiplier:.8 }).expect(400);
     });
 
     it.each([

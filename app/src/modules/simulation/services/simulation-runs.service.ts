@@ -1,5 +1,5 @@
 import { randomUUID } from 'node:crypto';
-import { ConflictException, Injectable, NotFoundException } from '@nestjs/common';
+import { BadRequestException, ConflictException, Injectable, NotFoundException } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { buildRunSnapshot, loadProjectConfig } from '../../../common/project-config.js';
 import type { AppConfig } from '../../../config/env.validation.js';
@@ -21,6 +21,9 @@ export class SimulationRunsService {
       throw new NotFoundException(`scenario "${dto.scenario_id}" does not exist`);
     }
     const model = dto.model ?? 'fv';
+    const multiplier = dto.emission_multiplier ?? 1;
+    if (model !== 'fv' && multiplier !== 1)
+      throw new BadRequestException('Source reduction requires model=fv');
     const runId = randomUUID();
     const project = await loadProjectConfig(
       this.config.get('PROJECT_CONFIG_PATH', { infer: true }),
@@ -29,6 +32,7 @@ export class SimulationRunsService {
       run_id: runId,
       scenario_id: dto.scenario_id,
       model,
+      emission_multiplier: multiplier,
     });
     return this.runs.create(runId, dto.scenario_id, model, snapshot);
   }
@@ -41,6 +45,7 @@ export class SimulationRunsService {
       attempt: Number(row.attempt),
       wind_from_deg: Number(row.wind_from_deg),
       wind_speed_m_s: Number(row.wind_speed_m_s),
+      emission_multiplier: Number(row.emission_multiplier ?? 1),
       created_at: iso(row.created_at),
       finished_at: iso(row.finished_at),
     }));
@@ -56,6 +61,7 @@ export class SimulationRunsService {
       progress: Number(row.progress),
       attempt: Number(row.attempt),
       model: row.model,
+      emission_multiplier: Number(row.emission_multiplier ?? 1),
       scenario: {
         id: row.scenario_id,
         name: row.scenario_name,

@@ -3,6 +3,7 @@ import { lstat, readFile } from 'node:fs/promises';
 import { dirname, join, resolve } from 'node:path';
 import { Ajv2020, type ValidateFunction } from 'ajv/dist/2020.js';
 import addFormatsModule from 'ajv-formats';
+import { parse } from 'yaml';
 import { sha256File } from '../../../common/hash.js';
 
 /**
@@ -49,7 +50,7 @@ export interface RunManifest {
   model: 'fv' | 'gaussian';
   model_version: string;
   input_hash: string;
-  scenario: { id: string; wind_from_deg: number; wind_speed_m_s: number };
+  scenario: { id: string; wind_from_deg: number; wind_speed_m_s: number; emission_multiplier?: number };
   grid: Record<string, unknown>;
   stopping: {
     criterion: 'fixed_time' | 'steady_state';
@@ -95,6 +96,8 @@ export interface VerifyOptions {
   validate: ValidateFunction;
   /** SHA-256 of the config.yaml the monolith wrote; must match the listed one. */
   configSha256?: string;
+  /** Expected source preset from the persisted DB snapshot, before YAML serialization. */
+  emissionMultiplier?: number;
   /**
    * Skip the verification.status gate (used after exit 3 to read the checks
    * of a model failure for diagnosis). Integrity checks still apply.
@@ -254,6 +257,20 @@ export async function verifyRunOutput(
         manifest,
       );
     }
+  }
+
+  // Provenance must match the checksummed snapshot, not just a claimed UI label.
+  try {
+    const configArtifact = artifacts.find((a) => a.kind === 'config')!;
+    const snapshot = parse(await readFile(join(runDir, configArtifact.path), 'utf8'));
+    const value = snapshot?.run?.emission_multiplier;
+    const requested = value === undefined ? 1 : value;
+    if (![1, 0.8, 0.6].includes(requested) ||
+        (options.emissionMultiplier !== undefined && requested !== options.emissionMultiplier) ||
+        (manifest.scenario.emission_multiplier ?? 1) !== requested)
+      return systemError('manifest emission multiplier differs from the config snapshot', manifest);
+  } catch {
+    return systemError('cannot read emission multiplier from config snapshot', manifest);
   }
 
   const failing = Object.entries(manifest.verification.checks)

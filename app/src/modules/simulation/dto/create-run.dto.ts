@@ -6,6 +6,7 @@ import {
   IsString,
   Matches,
   MaxLength,
+  ValidateIf,
 } from 'class-validator';
 
 export const RUN_MODELS = ['fv', 'gaussian'] as const;
@@ -34,4 +35,10 @@ export class CreateRunDto {
   @IsOptional()
   @IsIn(RUN_MODELS)
   model?: RunModel;
+
+  @ApiPropertyOptional({ enum: [1, 0.8, 0.6], default: 1,
+    description: 'Absolute source rate multiplier: baseline, -20%, -40%; FV only' })
+  @ValidateIf((_object, value) => value !== undefined)
+  @IsIn([1, 0.8, 0.6])
+  emission_multiplier?: number;
 }

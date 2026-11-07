@@ -15,6 +15,7 @@ export interface RunDetailRow {
   progress: number;
   attempt: number;
   model: RunModel;
+  emission_multiplier: number;
   error_kind: string | null;
   error_message: string | null;
   model_version: string | null;
@@ -79,7 +80,8 @@ export class SimulationRunsRepository {
     const { rows } = await this.db.query(
       `SELECT r.id AS run_id, r.status, r.progress, r.attempt, r.model,
               r.scenario_id, s.name AS scenario_name, s.wind_from_deg, s.wind_speed_m_s,
-              r.model_version, r.warnings, r.created_at, r.finished_at
+              r.model_version, r.warnings, r.created_at, r.finished_at,
+              COALESCE((r.config_snapshot->'run'->>'emission_multiplier')::double precision,1) AS emission_multiplier
        FROM simulation_runs r
        JOIN scenarios s ON s.id = r.scenario_id
        ${where}
@@ -94,6 +96,7 @@ export class SimulationRunsRepository {
     const { rows } = await this.db.query<RunDetailRow>(
       `SELECT r.id, r.status, r.progress, r.attempt, r.model, r.error_kind, r.error_message,
               r.model_version, r.input_hash, r.warnings, r.created_at, r.started_at, r.finished_at,
+              COALESCE((r.config_snapshot->'run'->>'emission_multiplier')::double precision,1) AS emission_multiplier,
               s.id AS scenario_id, s.name AS scenario_name,
               s.wind_from_deg, s.wind_speed_m_s,
               to_jsonb(m) - 'run_id' AS metrics

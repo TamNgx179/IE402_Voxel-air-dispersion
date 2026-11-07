@@ -11,6 +11,7 @@ export interface GridSchema {
 
 export interface ResultRunContext {
   id: string;
+  emission_multiplier: number;
   status: string;
   model: string;
   scenario_id: string;

@@ -25,6 +25,7 @@ export interface VerificationCheckView {
 
 export interface RunView {
   run_id: string;
+  emission_multiplier: number;
   status: RunStatus;
   progress: number;
   attempt: number;

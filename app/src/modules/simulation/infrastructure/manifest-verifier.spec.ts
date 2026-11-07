@@ -72,6 +72,20 @@ describe('verifyRunOutput', () => {
   });
   afterEach(() => rmSync(dir, { recursive: true, force: true }));
 
+  it('checks declared emission preset against the checksummed config', async () => {
+    const m = makeRun(dir);
+    const config = m.artifacts.find((a) => a.kind === 'config')!;
+    const bytes = Buffer.from('run:\n  emission_multiplier: 0.8\n');
+    writeFileSync(join(dir,config.path),bytes);
+    config.sha256=sha(bytes); config.size_bytes=bytes.length;
+    write(dir,m);
+    expect(await verify(dir)).toMatchObject({ok:false,kind:'system'});
+    m.scenario.emission_multiplier=.8;
+    write(dir,m);
+    expect((await verify(dir)).ok).toBe(true);
+    expect(await verify(dir,{emissionMultiplier:.6})).toMatchObject({ok:false,kind:'system'});
+  });
+
   it('accepts a consistent run and adds the manifest itself as an artifact', async () => {
     const m = makeRun(dir);
     write(dir, m);

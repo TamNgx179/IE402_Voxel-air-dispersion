@@ -185,6 +185,7 @@ export class SimulationExecutorService
         run_id: block?.run_id,
         scenario_id: block?.scenario_id,
         model: block?.model,
+        emission_multiplier: block?.emission_multiplier ?? 1,
       };
       const yamlText = stringify({ run: runBlock, ...rest }, { lineWidth: 0 });
       await writeFile(configPath, yamlText, 'utf8');
@@ -334,6 +335,7 @@ export class SimulationExecutorService
       scenarioId: run.scenario_id,
       validate: this.validate!,
       configSha256: configSha,
+      emissionMultiplier: (run.config_snapshot?.run as { emission_multiplier?: number } | undefined)?.emission_multiplier ?? 1,
     });
     if (!result.ok) {
       await this.fail(

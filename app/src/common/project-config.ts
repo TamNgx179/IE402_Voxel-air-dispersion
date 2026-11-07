@@ -118,7 +118,7 @@ export function thresholdsFromConfig(
  */
 export function buildRunSnapshot(
   config: Record<string, unknown>,
-  run: { run_id: string; scenario_id: string; model: string },
+  run: { run_id: string; scenario_id: string; model: string; emission_multiplier?: number },
 ): Record<string, unknown> {
   return { ...config, run: { ...run } };
 }

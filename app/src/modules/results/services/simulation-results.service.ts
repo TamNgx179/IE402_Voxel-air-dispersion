@@ -176,6 +176,7 @@ export class SimulationResultsService {
       model: context.model,
       model_version: context.model_version,
       input_hash: context.input_hash,
+      emission_multiplier: Number(context.emission_multiplier ?? 1),
       warnings: context.warnings,
       units: 'ug m-3',
       grid: context.grid,

@@ -58,12 +58,15 @@ describe.skipIf(!db.ok)('SimulationExecutor (e2e, real Python solver)', () => {
     if (temporary) rmSync(temporary, { recursive: true, force: true });
   });
 
-  it.each(['dry_nov_apr', 'wet_may_oct'])(
-    'HTTP → real wind/FV → PostGIS → viewer contract (%s)',
-    async (scenario) => {
+  it.each([
+    ['dry_nov_apr',1],['dry_nov_apr',0.8],['dry_nov_apr',0.6],
+    ['wet_may_oct',1],['wet_may_oct',0.8],['wet_may_oct',0.6],
+  ] as const)(
+    'HTTP → real wind/FV → PostGIS → viewer contract (%s, source=%s)',
+    async (scenario, multiplier) => {
       const accepted = await http()
         .post('/api/runs')
-        .send({ scenario_id: scenario, model: 'fv' })
+        .send({ scenario_id: scenario, model: 'fv', emission_multiplier: multiplier })
         .expect(202);
       const id = accepted.body.run_id as string;
       const run = await waitFor(
@@ -74,6 +77,7 @@ describe.skipIf(!db.ok)('SimulationExecutor (e2e, real Python solver)', () => {
       );
       expect(run.status, run.error?.message).toBe('succeeded');
       expect(run.scenario.id).toBe(scenario);
+      expect(run.emission_multiplier).toBe(multiplier);
       expect(run.model_version).toMatch(/^0\.1\.0/);
       expect(run.warnings.join(' ')).toMatch(/fixed-time run/);
       expect(run.verification.status).toBe('pass');
@@ -122,6 +126,10 @@ describe.skipIf(!db.ok)('SimulationExecutor (e2e, real Python solver)', () => {
         scenario_id: scenario,
       });
       const summary = await http().get(`/api/runs/${id}/summary`).expect(200);
+      expect(summary.body.emission_multiplier).toBe(multiplier);
+      const manifestResponse = await http().get(`/api/runs/${id}/artifacts/manifest/download`).expect(200);
+      const declared = JSON.parse(manifestResponse.text ?? Buffer.from(manifestResponse.body).toString('utf8'));
+      expect(declared.scenario.emission_multiplier).toBe(multiplier);
       expect(summary.body.verification.status).toBe('pass');
       // Independent read of the saved float32 NetCDF: do not use rounded DB text as the oracle.
       const reference = spawnSync(

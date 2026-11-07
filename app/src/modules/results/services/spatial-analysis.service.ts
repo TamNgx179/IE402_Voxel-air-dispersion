@@ -83,6 +83,8 @@ export class SpatialAnalysisService {
       comparison_version: b.model_version,
       baseline_input_hash: a.input_hash,
       comparison_input_hash: b.input_hash,
+      baseline_emission_multiplier: Number(a.emission_multiplier ?? 1),
+      comparison_emission_multiplier: Number(b.emission_multiplier ?? 1),
       units: 'ug m-3',
       delta_definition: 'comparison - baseline',
       requested_z_m: z,

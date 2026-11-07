@@ -156,6 +156,14 @@ def load_inputs(config_path: Path, run_id: str) -> dict:
     if model not in ("fv", "gaussian"):
         raise SolverError(EXIT_INPUT, f"run.model must be 'fv' or 'gaussian', got {model!r}")
 
+    from src.source_scenarios import emission_multiplier
+    try:
+        multiplier = emission_multiplier(config)
+    except ValueError as exc:
+        raise SolverError(EXIT_INPUT, str(exc)) from exc
+    if model != "fv" and multiplier != 1:
+        raise SolverError(EXIT_INPUT, "source reduction is supported for model=fv only")
+
     thresholds = (config.get("analysis") or {}).get("thresholds_ug_m3") or {}
     if not thresholds:
         raise SolverError(EXIT_INPUT, "config has no analysis.thresholds_ug_m3")
@@ -173,7 +181,11 @@ def load_inputs(config_path: Path, run_id: str) -> dict:
 
     # The run_id is identity, not input: two runs of the same scenario on the
     # same data share an input_hash, which is the reproducibility evidence.
-    hashed_config = {**config, "run": {k: v for k, v in run.items() if k != "run_id"}}
+    # Explicit/default baseline has the same identity as historical baseline runs.
+    hashed_run = {k: v for k, v in run.items() if k != "run_id"}
+    if multiplier == 1:
+        hashed_run.pop("emission_multiplier", None)
+    hashed_config = {**config, "run": hashed_run}
     canonical = json.dumps(hashed_config, sort_keys=True, ensure_ascii=False, default=str).encode("utf-8")
     scene_files = json.dumps(scene["files"], sort_keys=True).encode("utf-8")
     source_raw = (config.get("paths") or {}).get("emission_source_transport_netcdf")
@@ -192,6 +204,7 @@ def load_inputs(config_path: Path, run_id: str) -> dict:
         "crs": f"EPSG:{scene['study_area']['srid']}",
         "cells_path": cells_path,
         "source_path": source_path,
+        "emission_multiplier": multiplier,
         "input_hash": f"sha256:{input_digest}",
     }
 
@@ -338,7 +351,9 @@ def load_transport_source(inputs: dict, solid: np.ndarray) -> np.ndarray:
         raise SolverError(EXIT_INPUT, "S contains emission inside solid voxels")
     if not np.any(source > 0.0):
         raise SolverError(EXIT_INPUT, "S contains no positive emission")
-    return source
+    # Scale the absolute rate before FV stepping and mass accounting, never the output colours.
+    from src.source_scenarios import emission_multiplier
+    return source * emission_multiplier(inputs["config"])
 
 
 def initial_wind(inputs: dict, solid: np.ndarray) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
@@ -442,7 +457,7 @@ def write_early_model_failure(
     manifest = {
         "schema_version": "1.0", "run_id": args.run_id, "model": inputs["model"], "model_version": model_version(),
         "input_hash": inputs["input_hash"],
-        "scenario": {"id": inputs["scenario_id"], "wind_from_deg": float(inputs["scenario"]["direction_from_deg"]), "wind_speed_m_s": float(inputs["scenario"]["speed_m_s"])},
+        "scenario": {"id": inputs["scenario_id"], "wind_from_deg": float(inputs["scenario"]["direction_from_deg"]), "wind_speed_m_s": float(inputs["scenario"]["speed_m_s"]), "emission_multiplier": inputs["emission_multiplier"]},
         "grid": {"crs": inputs["crs"], "axis_order": "z,y,x", **inputs["grid"]},
         "units": {"concentration": "ug m-3", "velocity": "m s-1"},
         "thresholds": {key: {"value_ug_m3": float(item["value"]), "label": str(item["label"])} for key, item in inputs["thresholds"].items()},
@@ -608,7 +623,7 @@ def run_real(args: argparse.Namespace, out: Path, started: str, clock: float) ->
     manifest = {
         "schema_version": "1.0", "run_id": args.run_id, "model": "fv", "model_version": model_version(),
         "input_hash": inputs["input_hash"],
-        "scenario": {"id": inputs["scenario_id"], "wind_from_deg": float(inputs["scenario"]["direction_from_deg"]), "wind_speed_m_s": float(inputs["scenario"]["speed_m_s"])},
+        "scenario": {"id": inputs["scenario_id"], "wind_from_deg": float(inputs["scenario"]["direction_from_deg"]), "wind_speed_m_s": float(inputs["scenario"]["speed_m_s"]), "emission_multiplier": inputs["emission_multiplier"]},
         "grid": {"crs": inputs["crs"], "axis_order": "z,y,x", **grid},
         "units": {"concentration": "ug m-3", "velocity": "m s-1"},
         "thresholds": {key: {"value_ug_m3": float(item["value"]), "label": str(item["label"])} for key, item in inputs["thresholds"].items()},
@@ -633,6 +648,8 @@ def run_real(args: argparse.Namespace, out: Path, started: str, clock: float) ->
 
 def run_mock(args: argparse.Namespace, out: Path, started: str, clock: float) -> int:
     inputs = load_inputs(Path(args.config), args.run_id)
+    if inputs["emission_multiplier"] != 1:
+        raise SolverError(EXIT_INPUT, "source reduction requires real solver mode, not --mock")
     LOGGER.info("mock run %s, scenario %s, model %s", args.run_id, inputs["scenario_id"], inputs["model"])
     progress("setup", 1.0)
 
@@ -729,6 +746,7 @@ def run_mock(args: argparse.Namespace, out: Path, started: str, clock: float) ->
             "id": inputs["scenario_id"],
             "wind_from_deg": float(inputs["scenario"]["direction_from_deg"]),
             "wind_speed_m_s": float(inputs["scenario"]["speed_m_s"]),
+            "emission_multiplier": inputs["emission_multiplier"],
         },
         "grid": {"crs": inputs["crs"], "axis_order": "z,y,x", **grid},
         "units": {"concentration": "ug m-3", "velocity": "m s-1"},
