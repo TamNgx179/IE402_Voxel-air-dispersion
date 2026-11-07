@@ -271,3 +271,25 @@ nằm trong [ROADMAP §2](docs/ROADMAP.md), yêu cầu nghiệm thu ở [spec §
 Bảng lựa chọn mô hình GIS ở [RESEARCH §1](docs/RESEARCH.md), ánh xạ điểm/đường/mặt/khối vào DB
 ở [ARCHITECTURE §3](docs/ARCHITECTURE.md). Báo cáo/slide cuối chưa hoàn thành chỉ bằng việc có web;
 A2/A3 được đánh giá riêng. Không khôi phục seminar hoặc các file nháp đã bỏ.
+
+### Kịch bản giảm nguồn phát thải
+
+Trong **Mô phỏng**, chọn mùa và **Nguồn phát thải**: nguồn gốc, giảm 20% hoặc
+giảm 40%, rồi bấm **Chạy**. Mỗi lựa chọn tạo run FV mới; Python nhân nguồn trước
+khi giải bài toán, giữ nguyên dữ liệu đầu vào gốc. Các thanh trong **Minh họa**
+chỉ phục vụ hiển thị và không thay cho thí nghiệm này.
+
+Để so sánh, chọn kết quả nguồn gốc của một mùa, mở **Phân tích → So sánh kết quả**,
+chọn run giảm nguồn cùng mùa và cùng độ cao. ΔC = kết quả giảm nguồn − nguồn gốc;
+giá trị âm thể hiện giảm nồng độ trong mô hình. CSV lưu cả hệ số nguồn và số liệu gốc.
+
+Tái lập nghiên cứu trên app real-mode cô lập đã migrate/seed, dùng thư mục đầu ra mới:
+
+```powershell
+.venv/Scripts/python.exe -m src.source_reduction_study --base http://127.0.0.1:3010 --out artifacts/source-reduction-new
+```
+
+Lệnh tạo sáu run thật, kiểm checksum/gió/mass/tuyến tính rồi xuất `analysis.json`,
+`comparison.csv`, `source-reduction.png`. Chỉ dùng `--resume` với chính thư mục
+nghiên cứu bị ngắt; script kiểm lại artifact và từ chối ghi đè dữ liệu khác.
+Kết quả ngày 07/11 và giới hạn diễn giải ở [RESEARCH §11](docs/RESEARCH.md).

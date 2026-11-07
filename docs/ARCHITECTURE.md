@@ -427,6 +427,15 @@ và 3D Tiles chưa là dependency hiện hành; không thêm máy chủ tile hay
 
 ### Cổng đóng gói cuối
 
+Luồng giảm nguồn B8.4/B9.2/A9.1 tái sử dụng `POST /runs`: DTO kiểm {1,0.8,0.6},
+service ghi `run.emission_multiplier` trong config snapshot JSONB. Executor dùng snapshot
+đó cho cả lần đầu và retry, Python nhân S trước FV/mass ledger, không sửa input NetCDF.
+Manifest mang hệ số trong scenario; verifier đối chiếu config đã checksum trước persistence.
+Repository đọc hệ số từ snapshot (run cũ mặc định 1), không thêm bảng/scenario hoặc service.
+Summary/comparison và export cung cấp hệ số; web dùng select có nhãn và tên run giảm nguồn.
+Script nghiên cứu gọi cùng API cho hai mùa × ba preset, kiểm artifacts và so toàn trường;
+không dùng volume uint8 hay slider Minh họa làm số liệu nghiên cứu. Contract/tolerance ở spec BR-63–66.
+
 Kiến trúc chỉ được coi là hoàn thành khi một môi trường sạch thực hiện được chuỗi:
 
 ```text

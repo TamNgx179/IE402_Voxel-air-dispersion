@@ -539,7 +539,7 @@ mobile/performance release và máy vật lý thứ hai giữ ở tuần 10.
 | `B8.1` | ✅ Chốt phép so sánh và thống kê vùng | Công thức và tham chiếu độc lập của B; fixture khớp scene | 01/11: R1 đã đóng; 30 test tham chiếu đạt, PostGIS E2E bắt buộc 98/98 không skip; giữ 0 khác null, trọng số giao XY/z và ngưỡng >. Xem reviews/B8_1_REGION_COMPARISON.md |
 | `B8.2` | ✅ Thiết kế nghiên cứu ba mức lưới và bước thời gian | Cấu hình thí nghiệm, đại lượng đánh giá, ngân sách runtime | 01/11: Thiết kế ba lưới, dt chung/CFL và sweep dt có provenance. Xem reviews/B8_B9_GRID_STUDY.md |
 | `B8.3` | ✅ Chạy pilot và kiểm tra kết quả lưới | Run manifests, sai số theo chuẩn đã chốt, runtime/memory | 01/11: Pilot/full có manifest, sai số, runtime/memory; full 10/10 case pass verification; giữ lưới production |
-| `B8.4` | ⬜ Thiết kế kịch bản giảm phát thải thật (có điều kiện) | Contract baseline/giảm 20%/giảm 40%, fixture | Chỉ thay hệ số nguồn, giữ các yếu tố khác; định nghĩa snapshot/hash/version và mass ledger; khác hoàn toàn slider minh họa trên web |
+| `B8.4` | ✅ Thiết kế kịch bản giảm phát thải thật | Contract baseline/giảm 20%/giảm 40%, fixture | 07/11: hệ số số học 1/0.8/0.6 nhân nguồn S trước solver FV; giữ file nguồn gốc, hash baseline tương thích, giảm nguồn có hash riêng; snapshot DB → YAML → manifest được đối chiếu; reject Gaussian giảm nguồn và mock giảm nguồn |
 
 **Kết quả tuần 8 — M7:** so sánh cùng cao độ cho hai run và thống kê vùng chọn
 có test đối chiếu SQL/giá trị tham chiếu; nghiên cứu lưới có thiết kế/pilot tái lập.
@@ -552,7 +552,7 @@ PASS cho nghiên cứu chưa hoàn thành.
 
 | ID | Công việc | Đầu ra | Tiêu chí đạt |
 |---|---|---|---|
-| `A9.1` | ⬜ Tích hợp kịch bản giảm nguồn (có điều kiện) | Form tối giản, config snapshot, run thật và comparison | Tạo run_id mới, spawn Python qua executor hiện tại; units/provenance/gates đầy đủ; không nhân màu phía client để giả mô phỏng |
+| `A9.1` | ✅ Tích hợp kịch bản giảm nguồn | Form tối giản, config snapshot, run thật và comparison | 07/11: chọn nguồn gốc/giảm 20%/40%, snapshot/retry/API/CSV giữ hệ số; executor chạy Python thật. E2E bắt buộc 112/112, web 115/115; browser đã chạy giảm 40% thành công. Comparison API production trả đúng ΔC âm; kiểm thao tác comparison sau reload trên browser còn bị quyền Browser tắt, thuộc QA cuối |
 | `A9.2` | ✅ Xuất kết quả dùng cho báo cáo | PNG bản đồ + legend/provenance; CSV các tầng/comparison; CSV vùng/transect và JSON snapshot | 28/10: PNG run FV thật đã tải và kiểm ảnh; CSV dùng số gốc, đơn vị/hash/version, z thực; chặn stale/capture lỗi, ảnh ghi rõ minh họa |
 | `A9.3` | ✅ Mặt cắt đứng theo đường vẽ | DTO/schema/service/repository/controller trong Results, biểu đồ khoảng cách–z và CSV | 27/10: PostGIS E2E, web regression, browser FV thật; CSV 1.700 mẫu khớp JSON và DB. Chi tiết spec BR-46–48; review phương pháp độc lập vẫn thuộc B9.4 |
 | `A9.4` | ✅ LoD hiển thị giảm geometry thật | Ba mức render, culling có padding theo pitch/height, cache theo tập nhà nhìn thấy | 28/10: cảnh 62 nhà, 99.280 → 0/12.468/99.280 đỉnh mặt đứng; benchmark CPU và 6 cấu hình browser; nguồn/profile/CSV bất biến. Không nâng hình học thành LoD2 |
@@ -563,7 +563,7 @@ PASS cho nghiên cứu chưa hoàn thành.
 | ID | Công việc | Đầu ra | Tiêu chí đạt |
 |---|---|---|---|
 | `B9.1` | ✅ Hoàn tất nghiên cứu lưới/bước thời gian | Bảng sai số, đồ thị, observed order/GCI nếu phù hợp | 01/11: Bảng và 4 hình đã có; nêu giới hạn GCI, không suy ra hội tụ đô thị. Xem reviews/B8_B9_GRID_STUDY.md |
-| `B9.2` | ⬜ Chạy baseline và giảm nguồn (có điều kiện) | Ba bundle cùng geometry/wind/K và báo cáo ΔC | Nguồn và mass ledger thay đổi đúng contract; phân biệt giả định tuyến tính với kết quả chạy; không gọi giảm emission proxy là dự báo chính sách hoặc cải thiện chất lượng không khí thực đo |
+| `B9.2` | ✅ Chạy baseline và giảm nguồn | Sáu bundle: hai mùa × ba hệ số, CSV/JSON và hình | 07/11: 6/6 real FV đạt gates, checksum, steady state; gió mặt ô giống hệt trong từng mùa; rate nguồn đúng hệ số, sai số mass ≤9.58e-14, sai số tuyến tính chuẩn hóa ≤5.66e-8. Xem RESEARCH §11; đây là thí nghiệm nguồn proxy có kiểm soát, không phải dự báo chính sách |
 | `B9.3` | 🟡 Tổng hợp so sánh và lập luận định lượng | Hai mùa/cao độ/FV-Gaussian, bảng sai số và hình có caption | Có candidate trong RESEARCH §3; cần cùng release artifacts, giải thích cả khác biệt nhỏ/0, khuếch tán số và cách lấy mean; không bịa số để khác rõ |
 | `B9.4` | 🟡 Chốt review chiều đứng và chất lượng hình học | Tham chiếu đã có; đóng ghi chú height/miền/center và tổng hợp hai mùa | PostGIS đã chạy lại, precision đã sửa cho run mới. Còn đánh giá xung đột tháp cao/GOB cap 100 m, khoảng tới biên trên và độ nhạy liên quan; không tự xem tag OSM là ground truth |
 | `B9.5` | ✅ Đánh giá khả thi LoD2, chỉ triển khai khi qua cổng | Nguồn mái, giấy phép, chất lượng, quyết định làm/không làm và phương pháp đối chiếu | 01/11: Đánh giá hoàn tất: giữ LoD1 vì thiếu nguồn mái kiểm chứng. Xem reviews/B9_5_LOD2_FEASIBILITY.md |

@@ -106,6 +106,10 @@ Các chuẩn đầu ra cần thể hiện: G1.1 (khái niệm/vector-raster/2D-3
 | `BR-60` | Hồ sơ A4 gồm báo cáo in được và slide bảo vệ, có sơ đồ dữ liệu/kiến trúc, hình thực nghiệm và demo tái lập. Web đẹp hoặc nhiều test không thay thế các đầu ra trình bày. Định dạng nộp theo giảng viên; không tự đặt số trang/slide bắt buộc. |
 | `BR-61` | Xung đột chiều cao GOB/OSM, giới hạn 100 m của GOB, biên miền và khuếch tán số phải được kiểm tra/định lượng hoặc nêu rõ hạn chế. Không tự thay nguồn chiều cao bằng tag OSM chưa xác minh; đổi scene cần bundle/hash/run mới. |
 | `BR-62` | Nguồn EDGAR và nền 0 không đủ để khẳng định nghiệm là cận dưới ngoài thực tế. Tính tuyến tính theo hệ số nguồn chỉ diễn giải khi các điều kiện cố định phù hợp; không gọi multiplier minh họa là thí nghiệm solver hoặc công bố kiểm định thực đo khi chưa có. |
+| `BR-63` | Thí nghiệm giảm nguồn dùng `POST /api/runs` với `emission_multiplier` dạng số thuộc {1, 0.8, 0.6}; bỏ trống là 1. Snapshot lưu mức nguồn, retry giữ nguyên snapshot; null/bool/string/giá trị khác trả 400. Chỉ hỗ trợ FV thật, không dùng mock hoặc Gaussian để giả thí nghiệm này. |
+| `BR-64` | Python nhân tensor nguồn tuyệt đối S (kg m⁻³ s⁻¹) trước bước FV và mass ledger; giữ nguyên file nguồn gốc, cảnh/mask, gió, K, initial/boundary và cấu hình dừng. Baseline bỏ trống/1 có cùng canonical input hash; 0.8/0.6 có hash khác. Manifest `scenario.emission_multiplier` phải khớp config artifact đã kiểm checksum. |
+| `BR-65` | List/detail/summary/comparison và CSV/JSON giữ mức nguồn; run selector ghi Giảm 20%/40% sau khi tải lại. Chọn nguồn trong Mô phỏng tạo run thật; các điều chỉnh Minh họa chỉ dùng hiển thị. Comparison vẫn định nghĩa ΔC = comparison − baseline, không coi thay nguồn là thay geometry/model. |
+| `BR-66` | Nghiên cứu nguồn gồm hai mùa × {1,0.8,0.6}, mới hoàn toàn, cùng phiên bản và physics trong từng bộ ba. Đối chiếu đủ ô khí kể cả C=0, cùng mask/face wind, mass ledger và tốc độ phát thải emitted/simulated_s. Chỉ kết luận thí nghiệm có kiểm soát trên nguồn proxy, không dự báo chất lượng không khí/chính sách thực tế. |
 
 ## 5. Trường hợp biên
 
@@ -144,6 +148,9 @@ Các chuẩn đầu ra cần thể hiện: G1.1 (khái niệm/vector-raster/2D-3
 | E-31 | Số liệu candidate khác revision release hoặc thiếu artifact nghiên cứu | Giữ nhãn candidate; tái sinh/đóng gói bundle có hash trước khi chốt số báo cáo, không đổi trạng thái thành đạt theo ảnh. |
 | E-32 | Hai nguồn chiều cao xung đột hoặc chạm giới hạn sản phẩm | Ghi ID/nguồn/năm/chênh lệch; xác minh hoặc sensitivity trước kết luận, không chọn giá trị chỉ vì nhìn giống thật. |
 | E-33 | Click mặt trong giữa hai tầng của biểu đồ | Chọn tầng phía trên theo khoảng nửa kín; pixel biên trên biểu đồ đọc hàng cuối đang vẽ, không truy vấn thêm tầng ngoài miền. |
+| E-34 | Mức nguồn null, string, bool, âm, 0 hoặc ngoài preset | API trả 400, CLI exit input; không ép kiểu hoặc ghi run thành công giả. |
+| E-35 | Manifest ghi khác nguồn trong snapshot hoặc người dùng retry | Verifier từ chối metadata lệch; retry chạy đúng hệ số đã lưu, không lấy lựa chọn UI mới. |
+| E-36 | Bộ nghiên cứu lẫn gió/K/cảnh/version/mask hoặc baseline C=0 | Từ chối kết luận nguồn-only khi điều kiện khác; giữ 0, không chia tỷ số cho 0. Không dùng ảnh màu làm tham chiếu số. |
 
 ## 6. Tiêu chí nghiệm thu
 
@@ -202,3 +209,7 @@ Các chuẩn đầu ra cần thể hiện: G1.1 (khái niệm/vector-raster/2D-3
 | `AC-47` | Báo cáo in được và slide cuối đã rà bố cục, chữ/trục/đơn vị/caption, cùng một bộ số; demo có run và dữ liệu dự phòng. Không chốt A4 trình bày khi mới có screenshot UI. |
 | `AC-48` | Generator giả định phát thải không khẳng định cận dưới hoặc bất biến phân bố vô điều kiện; biểu đồ mặt cắt có test đúng mặt trong và biên trên. |
 | `AC-49` | Ma trận nghiệm thu phân biệt việc đã đo, báo cáo lịch sử, việc còn chờ A/B và gói bàn giao; A2/A3 và điểm môn không suy từ việc hoàn thành project. |
+| `AC-50` | DTO/CLI kiểm preset, default tương thích baseline cũ; source NetCDF không đổi byte, hệ số đi vào snapshot/hash/manifest; retry giữ nguyên. |
+| `AC-51` | Real Python E2E cho sáu ca nhỏ đi qua writer/import/DB/API, đối chiếu float32 NetCDF; manifest/snapshot sai hệ số bị từ chối. |
+| `AC-52` | Sáu run production steady-state mới có checksum, mass ledger và cùng wind/mask/physics trong từng mùa; source-rate ratio khớp trong rtol 1e-8, mass relative ≤1e-6, max abs(C_reduced−m×C_base)/max(C_base) ≤5e-5. Báo thực tế, không coi ngưỡng này là kiểm định thực đo. |
+| `AC-53` | Browser chọn preset và Chạy tạo run thật, tên giảm nguồn giữ sau reload; comparison và CSV/JSON chứa hệ số, số gốc và định nghĩa ΔC. |

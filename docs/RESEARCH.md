@@ -158,3 +158,54 @@ Vitest phục vụ kiểm thử TypeScript của app; Node test runner kiểm c�
 Docker Compose mô tả dịch vụ và môi trường phụ thuộc; migrate/seed/version thư viện và dữ liệu đầu vào vẫn phải được quản lý để tái lập. Container chạy được không chứng minh mô hình đúng. [Docker Compose](https://docs.docker.com/compose/).
 
 Kết luận nghiên cứu cần truy ngược về run, tham số, input hash và phép kiểm tra. Những việc chưa đo như hiệu quả render LoD, hội tụ lưới hoặc độ đúng so với đo đạc phải được trình bày là công việc cần thực hiện, không biến nguồn tham khảo thành kết quả của dự án.
+
+## 11. Thí nghiệm giảm nguồn có kiểm soát
+
+Với phương trình tải–khuếch tán chất thụ động ở §2, khi giữ cố định gió, K, hình học
+và điều kiện đầu/biên đồng nhất, nhân nguồn S với hệ số α cho kỳ vọng Cα ≈ αC1.
+Đây là tính chất của bài toán tuyến tính trong các điều kiện đó; không áp dụng
+nguyên xi cho hóa học khí quyển phi tuyến hoặc nền đầu vào không cùng tỷ lệ.
+
+Triển khai giới hạn α = 1, 0.8, 0.6, nhân nguồn kg m⁻³ s⁻¹ trước bước FV và mass
+ledger. Không sửa NetCDF nguồn gốc, không nhân lại nồng độ phía client. Snapshot
+DB, YAML thực thi và manifest phải khớp hệ số; thiếu trường cũ mặc định 1.
+Baseline giữ quy tắc hash cũ; hai mức giảm có input hash riêng. Gaussian/mock
+không được dùng để giả kết quả thí nghiệm giảm nguồn.
+
+Ngày 07/11/2026 chạy sáu run FV thật qua NestJS/Python trong Docker cô lập.
+Cùng mỗi mùa: toàn bộ config vật lý, mặt nạ và trường gió mặt ô giống nhau;
+khác run_id và hệ số nguồn. Sáu run dùng cùng model_version
+`0.1.0+f710ff405cead2995e8ee527986b4288bb6e0220791018e4b82a5b76891573bf`.
+
+| Mùa | Nguồn | Trung bình cả miền (µg/m³) | Cao nhất (µg/m³) | Δ trung bình (µg/m³) | Run |
+|---|---|---:|---:|---:|---|
+| Khô | Gốc | 0.02220517 | 0.89016986 | 0 | `069afb65-6c96-4dd0-80b5-885c394e13ea` |
+| Khô | −20% | 0.01776413 | 0.71213585 | −0.00444103 | `f4981916-f40c-48aa-8b99-27ce0c9c778d` |
+| Khô | −40% | 0.01332310 | 0.53410190 | −0.00888207 | `8f77420b-6a17-4795-b4e8-2668cad19873` |
+| Mưa | Gốc | 0.02241627 | 0.84274167 | 0 | `96733280-ea5e-45c5-a421-32fa1be2fc64` |
+| Mưa | −20% | 0.01793301 | 0.67419332 | −0.00448325 | `edf3c480-c957-404b-ab9d-2b754719a31b` |
+| Mưa | −40% | 0.01344976 | 0.50564504 | −0.00896651 | `060efce5-c1dc-42a0-bd29-857aca6bbf32` |
+
+Mean dùng 458.916 voxel không khí hợp lệ từ NetCDF float32, trọng số bằng nhau
+do voxel đều; giữ 0 hợp lệ, bỏ solid/NaN, không dùng uint8 hiển thị. Mean cả miền
+khác mean tầng đang xem trên web. Hai mùa có mean gần nhau, không chỉnh số liệu
+để tạo khác biệt trực quan.
+
+Cả sáu run đạt verification và dừng steady state, correction_kg = 0. Sai số mass
+tương đối lớn nhất 9.58e−14; sai số `max|Cα−αC1| / max(C1)` lớn nhất 5.66e−8
+(ngưỡng nghiệm thu 5e−5). Rate `emitted_kg / simulated_s` đúng tỷ lệ với rtol 1e−8;
+rate gốc khoảng 3.073346914e−6 kg/s. Mỗi bộ ba có ba input hash khác nhau; gió
+uf/vf/wf khớp từng phần tử. Không chỉ kiểm tổng mass để kết luận trường đúng.
+
+Kết quả cục bộ: `artifacts/source-reduction-20261107-v2/analysis.json`,
+`comparison.csv`, `source-reduction.png` và sáu thư mục bundle có checksum.
+Script `src/source_reduction_study.py` kiểm lại config, version, mask, checksum,
+gió, nguồn và trường nồng độ; JSON giữ hash mã phân tích và manifest để truy vết.
+Lượt thử đầu trong thư mục không có hậu tố v2 thất bại do serializer làm rơi hệ
+số nguồn; giữ nguyên để chẩn đoán và không dùng làm kết quả khoa học. Serializer
+đã sửa, E2E đọc manifest thực thi và verifier đối chiếu DB → YAML → manifest.
+
+Nguồn EDGAR được phân bổ theo giả định proxy, vì vậy kết quả chứng minh phản ứng
+của mô hình khi thay nguồn trong điều kiện cố định. Nó không chứng minh giảm phát
+thải thực tế ở từng đường, không phải dự báo chính sách và chưa phải đối chiếu với
+quan trắc cùng vị trí/thời điểm/độ cao. Freeze phát hành cuối vẫn cần review của B.
