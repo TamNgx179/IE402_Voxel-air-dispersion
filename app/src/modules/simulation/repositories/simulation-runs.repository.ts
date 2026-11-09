@@ -51,7 +51,8 @@ export class SimulationRunsRepository {
     scenarioId: string,
     model: RunModel,
     snapshot: Record<string, unknown>,
-  ): Promise<RunAccepted> {
+    multiplier: number,
+  ): Promise<RunAccepted | null> {
     const { rows } = await this.db.query<{
       id: string;
       status: RunStatus;
@@ -59,10 +60,22 @@ export class SimulationRunsRepository {
     }>(
       `INSERT INTO simulation_runs (id, scenario_id, model, status, config_snapshot)
        VALUES ($1, $2, $3, 'queued', $4)
+       ON CONFLICT (id) DO NOTHING
        RETURNING id, status, attempt`,
       [id, scenarioId, model, snapshot],
     );
-    return { run_id: rows[0].id, status: rows[0].status, attempt: rows[0].attempt };
+    let [run] = rows;
+    if (!run) {
+      // A separate statement sees the winner of a concurrent INSERT.
+      const existing = await this.db.query<typeof run>(
+        `SELECT id, status, attempt FROM simulation_runs
+         WHERE id = $1 AND scenario_id = $2 AND model = $3
+           AND COALESCE((config_snapshot->'run'->>'emission_multiplier')::double precision, 1) = $4`,
+        [id, scenarioId, model, multiplier],
+      );
+      [run] = existing.rows;
+    }
+    return run ? { run_id: run.id, status: run.status, attempt: run.attempt } : null;
   }
 
   async list(query: ListRunsQueryDto) {

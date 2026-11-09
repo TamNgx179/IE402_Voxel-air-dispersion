@@ -3,8 +3,10 @@ const assert = require("node:assert/strict");
 const vm = require("node:vm");
 const fs = require("node:fs");
 const path = require("node:path");
+const { randomUUID } = require("node:crypto");
 async function setup() {
   const elements = new Map();
+  const session = new Map();
   const element = (id) => {
     if (!elements.has(id))
       elements.set(id, {
@@ -19,7 +21,12 @@ async function setup() {
   const context = vm.createContext({
     document: { getElementById: element },
     window: { matchMedia: () => ({ matches: false }) },
-    sessionStorage: { getItem: () => null, removeItem() {}, setItem() {} },
+    crypto: { randomUUID },
+    sessionStorage: {
+      getItem: (key) => session.get(key) ?? null,
+      removeItem: (key) => session.delete(key),
+      setItem: (key, value) => session.set(key, value),
+    },
     location: { reload() {} },
     ViewerApi: {
       request: async () => {
@@ -50,7 +57,9 @@ test('source preset creates a real run request and reduced labels survive reload
   vm.runInContext(`api=async(path,options)=>{ globalThis.sent=JSON.parse(options.body);return {run_id:'reduced-id'}; };
     trackRun=async()=>{};`,context);
   await vm.runInContext('createRun()',context);
-  assert.deepEqual(JSON.parse(JSON.stringify(context.sent)),{scenario_id:'dry_nov_apr',model:'fv',emission_multiplier:.8});
+  const { request_id, ...payload } = JSON.parse(JSON.stringify(context.sent));
+  assert.match(request_id, /^[\da-f-]{36}$/);
+  assert.deepEqual(payload,{scenario_id:'dry_nov_apr',model:'fv',emission_multiplier:.8});
   const label=vm.runInContext(`scenarioLabel({id:'1234-5678',scenario_id:'dry_nov_apr',model:'fv',emission_multiplier:.6,warnings:[]})`,context);
   assert.match(label,/Giảm 40%/);
   assert.doesNotMatch(vm.runInContext(`scenarioLabel({id:'1234',scenario_id:'dry_nov_apr',model:'fv',warnings:[]})`,context),/Giảm/);
@@ -198,14 +207,23 @@ test("coordinate selection validates bounds and retains previous selection on in
   assert.equal(vm.runInContext("selectCell(10,0)", context), false);
   assert.equal(vm.runInContext("state.selected.i", context), 2);
 });
-test("an uncertain simulation POST reports duplicate risk and is never retried automatically", async () => {
+test("a lost create response keeps the request ID for a manual retry", async () => {
   const { context, element } = await setup();
-  vm.runInContext("calls=0;api=async()=>{calls++;const e=new Error('lost reply');e.kind='timeout';throw e;}", context);
+  vm.runInContext(`requests=[]; trackRun=async()=>{};
+    api=async(_, options)=>{
+      const body=JSON.parse(options.body);
+      requests.push(body.request_id);
+      if(requests.length>1) return {run_id:body.request_id};
+      const e=new Error('lost reply'); e.kind='timeout'; throw e;
+    };`, context);
   await vm.runInContext("createRun()", context);
-  assert.equal(vm.runInContext("calls", context), 1);
-  assert.match(element('run-note').textContent, /tránh tạo trùng/);
+  assert.equal(context.requests.length, 1);
+  assert.match(element('run-note').textContent, /bấm Chạy để thử lại/);
   assert.equal(element('run-error').hidden, false);
   assert.equal(element('run-button').disabled, false);
+  await vm.runInContext("createRun()", context);
+  assert.equal(context.requests.length, 2);
+  assert.equal(context.requests[0], context.requests[1]);
 });
 test("late result responses cannot replace the more recently selected run", async () => {
   const { context } = await setup();

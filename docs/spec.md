@@ -59,7 +59,7 @@ Các chuẩn đầu ra cần thể hiện: G1.1 (khái niệm/vector-raster/2D-3
 | `BR-13` | Thiếu chiều cao nhà phải được báo cáo; không dùng default im lặng |
 | `BR-14` | Output khoa học đầy đủ là NetCDF kèm units, CRS, coordinates và provenance |
 | `BR-15` | Nguồn dữ liệu, thời điểm tải, version và phép biến đổi phải được lưu |
-| `BR-16` | `POST /runs` validate DTO, tạo snapshot tham số và trả `202 Accepted` cùng `run_id` |
+| `BR-16` | `POST /runs` validate DTO, tạo snapshot tham số và trả `202 Accepted` cùng `run_id`. Client có thể gửi `request_id` UUID v4. Gửi lại cùng mã và cùng kịch bản, mô hình, mức nguồn trả về run hiện có; dùng lại mã với tham số khác trả `409`. Client giữ mã qua reload khi chưa nhận xác nhận. |
 | `BR-17` | Trạng thái hợp lệ: `queued → running → succeeded/failed`; có thể thêm `cancelled/stale` |
 | `BR-18` | Python solver không mở port/API; chỉ `SimulationModule` được spawn process bằng command/arguments whitelist |
 | `BR-19` | Monolith chỉ chạy một simulation process tại một thời điểm trong MVP; retry ghi attempt count và không nhân đôi kết quả |
@@ -83,7 +83,7 @@ Các chuẩn đầu ra cần thể hiện: G1.1 (khái niệm/vector-raster/2D-3
 | `BR-37` | Positivity được kiểm trên giá trị cập nhật thô trước mọi round-off correction; mọi correction phải ghi lượng mass thay đổi |
 | `BR-38` | FV voxel là kết quả mặc định trên web và trong báo cáo; Gaussian chỉ là baseline có nhãn |
 | `BR-39` | Run chỉ được `succeeded` khi CFL, divergence, positivity, wall flux, mass balance và artifact integrity đều pass |
-| `BR-40` | Threshold/units có một nguồn cấu hình được version hoá; DB seed, API, web và report không được tự chép số riêng |
+| `BR-40` | Threshold/units có một nguồn cấu hình được version hoá; DB seed, API, web và report dùng cùng nguồn. Khi DB có run, seed kiểm checksum scene, grid và hash cấu hình rồi giữ nguyên dữ liệu nếu khớp. Scene hoặc cấu hình mới dùng DB riêng để bảo toàn truy vấn run cũ. |
 | `BR-41` | Có sensitivity chiều cao và ít nhất một external benchmark/cross-check; mức tuyên bố phải khớp loại bằng chứng |
 | `BR-42` | Release phải chạy được trên môi trường sạch theo chuỗi Compose → migrate → seed → run → query → web |
 | `BR-43` | Mọi kết luận định lượng trong báo cáo truy được về `run_id`, model version, input hash, table/figure và limitation |

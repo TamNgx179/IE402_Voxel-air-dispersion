@@ -1,4 +1,7 @@
 import { randomUUID } from 'node:crypto';
+import { mkdtemp, readFile, rmdir, unlink, writeFile } from 'node:fs/promises';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
 import type { INestApplication } from '@nestjs/common';
 import request from 'supertest';
 import { projectConfigPath } from '../src/common/project-config.js';
@@ -278,6 +281,38 @@ describe.skipIf(!db.ok)('API with PostGIS (e2e, executor disabled)', () => {
       const res = await http().post('/api/runs').send(body).expect(400);
       expect(res.body.message).toBeDefined();
       expect(await runCount()).toBe(before);
+    });
+
+    it('replays concurrent create requests without queuing another run', async () => {
+      const body = { request_id: randomUUID(), scenario_id: 'dry_nov_apr', emission_multiplier: 0.8 };
+      const [first, replay] = await Promise.all([
+        http().post('/api/runs').send(body).expect(202),
+        http().post('/api/runs').send(body).expect(202),
+      ]);
+      expect(first.body.run_id).toBe(body.request_id);
+      expect(replay.body).toEqual(first.body);
+      await http().post('/api/runs').send({ ...body, emission_multiplier: 0.6 }).expect(409);
+      const detail = await http().get(`/api/runs/${body.request_id}`).expect(200);
+      expect(detail.body.emission_multiplier).toBe(0.8);
+    });
+
+    it('preserves historical queries when an operator attempts to seed a new revision', async () => {
+      await http().post('/api/runs').send({ scenario_id: 'dry_nov_apr' }).expect(202);
+      const configPath = projectConfigPath(REPO_ROOT);
+      const original = await seed(pool, { sceneDir: FIXTURE_SCENE, configPath });
+      const directory = await mkdtemp(join(tmpdir(), 'ie402-seed-'));
+      const changed = join(directory, 'project.yaml');
+      try {
+        await writeFile(changed, (await readFile(configPath, 'utf8')) + '\n# Different release configuration\n');
+        await expect(seed(pool, { sceneDir: FIXTURE_SCENE, configPath: changed }))
+          .rejects.toThrow('Use a new database');
+        expect(await seed(pool, { sceneDir: FIXTURE_SCENE, configPath })).toEqual(original);
+        const hashes = await pool.query('SELECT DISTINCT config_hash FROM thresholds');
+        expect(hashes.rows).toEqual([{ config_hash: original.config_hash }]);
+      } finally {
+        await unlink(changed);
+        await rmdir(directory);
+      }
     });
 
     it('rejects an unknown scenario with 404 and creates nothing', async () => {

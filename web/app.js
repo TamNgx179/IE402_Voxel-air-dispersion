@@ -1244,18 +1244,25 @@ async function createRun() {
   const button = $("run-button");
   button.disabled = true;
   $("run-error").hidden = true;
+  const payload = { scenario_id: $("new-run-scenario").value, model: "fv",
+    emission_multiplier: Number($("new-run-emission").value ?? 1) };
+  const pendingKey = `voxel-create:${payload.scenario_id}:${payload.emission_multiplier}`;
   try {
+    // Keep the same request ID across reloads until the server confirms creation.
+    const requestId = sessionStorage.getItem(pendingKey) ?? crypto.randomUUID();
+    sessionStorage.setItem(pendingKey, requestId);
     const accepted = await api("/runs", {
       method: "POST",
-      body: JSON.stringify({ scenario_id: $("new-run-scenario").value, model: "fv",
-        emission_multiplier: Number($("new-run-emission").value ?? 1) }),
+      body: JSON.stringify({ ...payload, request_id: requestId }),
     });
     activeRunId = accepted.run_id;
     sessionStorage.setItem("voxel-active-run", activeRunId);
+    sessionStorage.removeItem(pendingKey);
     await trackRun(activeRunId);
   } catch (error) {
-    showRunError(error, ['network','timeout'].includes(error.kind)
-      ? 'Chưa xác nhận được yêu cầu. Kiểm tra danh sách kết quả trước khi chạy lại để tránh tạo trùng.'
+    if (error.status >= 400 && error.status < 500) sessionStorage.removeItem(pendingKey);
+    showRunError(error, ['network','timeout','server'].includes(error.kind)
+      ? 'Chưa nhận được xác nhận. Giữ nguyên kịch bản và mức nguồn rồi bấm Chạy để thử lại.'
       : 'Chưa tạo được mô phỏng. Vui lòng kiểm tra và thử lại.');
   } finally {
     button.disabled = Boolean(activeRunId);

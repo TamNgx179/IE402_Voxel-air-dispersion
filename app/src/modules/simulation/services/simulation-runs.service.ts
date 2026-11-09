@@ -24,7 +24,7 @@ export class SimulationRunsService {
     const multiplier = dto.emission_multiplier ?? 1;
     if (model !== 'fv' && multiplier !== 1)
       throw new BadRequestException('Source reduction requires model=fv');
-    const runId = randomUUID();
+    const runId = dto.request_id?.toLowerCase() ?? randomUUID();
     const project = await loadProjectConfig(
       this.config.get('PROJECT_CONFIG_PATH', { infer: true }),
     );
@@ -34,7 +34,11 @@ export class SimulationRunsService {
       model,
       emission_multiplier: multiplier,
     });
-    return this.runs.create(runId, dto.scenario_id, model, snapshot);
+    const accepted = await this.runs.create(runId, dto.scenario_id, model, snapshot, multiplier);
+    if (!accepted) {
+      throw new ConflictException('request_id already belongs to a different run request');
+    }
+    return accepted;
   }
 
   async list(query: ListRunsQueryDto) {

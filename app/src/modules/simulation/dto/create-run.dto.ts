@@ -4,6 +4,7 @@ import {
   IsNotEmpty,
   IsOptional,
   IsString,
+  IsUUID,
   Matches,
   MaxLength,
   ValidateIf,
@@ -14,6 +15,11 @@ export type RunModel = (typeof RUN_MODELS)[number];
 
 /** Body of POST /api/runs (BR-16). Unknown properties are rejected (400). */
 export class CreateRunDto {
+  @ApiPropertyOptional({ description: 'Client UUID v4 reused if the create response is lost' })
+  @ValidateIf((_object, value) => value !== undefined)
+  @IsUUID('4')
+  request_id?: string;
+
   @ApiProperty({
     example: 'dry_nov_apr',
     description: 'Scenario id from GET /api/scenarios',

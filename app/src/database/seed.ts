@@ -35,9 +35,8 @@ export interface SeedSummary {
 
 /**
  * Loads the scene package and config/project.yaml into the database in one
- * transaction. Idempotent: the study area is matched by name and its features
- * are replaced; scenarios and thresholds are upserted by key, so re-running
- * never creates duplicates. Runs that reference a scenario are kept.
+ * transaction. Once a run exists, the database stays on the same scene and
+ * config. A new input revision requires a separate database.
  */
 export async function seed(
   pool: pg.Pool,
@@ -60,8 +59,40 @@ export async function seed(
   const thresholds = thresholdsFromConfig(config.data);
 
   const client = await pool.connect();
+  const summarize = (studyAreaId: string): SeedSummary => ({
+    study_area_id: studyAreaId,
+    study_area: scene.manifest.study_area.name,
+    buildings: scene.buildings.length,
+    roads: scene.roads.length,
+    water: scene.water.length,
+    green: scene.green.length,
+    grid_cells: scene.gridCells.length,
+    scenarios: scenarios.map((s) => s.id),
+    thresholds: thresholds.map((t) => t.key),
+    config_hash: config.sha256,
+  });
   try {
     await client.query('BEGIN');
+    // Serialize seeding with run creation so a run cannot appear mid-reseed.
+    await client.query('LOCK TABLE simulation_runs IN SHARE ROW EXCLUSIVE MODE');
+    const { rows: [state] } = await client.query<{ has_runs: boolean; matching_area_id: string | null }>(
+      `SELECT EXISTS (SELECT 1 FROM simulation_runs) AS has_runs,
+        (SELECT id FROM study_areas
+         WHERE name = $1 AND provenance->>'scene_manifest_sha256' = $2 AND grid = $3::jsonb
+           AND (SELECT count(*) FROM thresholds) = $5
+           AND NOT EXISTS (SELECT 1 FROM thresholds WHERE config_hash IS DISTINCT FROM $4)
+        ) AS matching_area_id`,
+      [scene.manifest.study_area.name, scene.manifestSha256, scene.manifest.grid,
+        config.sha256, thresholds.length],
+    );
+    if (state.has_runs) {
+      if (!state.matching_area_id) {
+        throw new Error('Scene or config differs from the seeded revision. Use a new database to preserve existing runs.');
+      }
+      await client.query('COMMIT');
+      log('Seed unchanged; keeping existing runs and scene data.');
+      return summarize(state.matching_area_id);
+    }
     const studyAreaId = await upsertStudyArea(client, scene);
     await replaceFeatures(client, studyAreaId, scene);
 
@@ -110,18 +141,7 @@ export async function seed(
     log(
       `seeded study area "${scene.manifest.study_area.name}" (${studyAreaId})`,
     );
-    return {
-      study_area_id: studyAreaId,
-      study_area: scene.manifest.study_area.name,
-      buildings: scene.buildings.length,
-      roads: scene.roads.length,
-      water: scene.water.length,
-      green: scene.green.length,
-      grid_cells: scene.gridCells.length,
-      scenarios: scenarios.map((s) => s.id),
-      thresholds: thresholds.map((t) => t.key),
-      config_hash: config.sha256,
-    };
+    return summarize(studyAreaId);
   } catch (err) {
     await client.query('ROLLBACK').catch(() => undefined);
     throw err;

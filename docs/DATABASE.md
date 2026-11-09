@@ -242,6 +242,11 @@ Tensor đầy đủ (gió 3 thành phần, mặt ô, nồng độ) **không** v�
 
 ## 5 · Nguồn seed
 
+Một DB demo dùng một revision dữ liệu. Khi đã có run, seed kiểm scene manifest,
+grid và hash `config/project.yaml` trước khi quyết định. Nếu khớp, seed giữ nguyên
+scene, kịch bản và ngưỡng. Nếu lệch, lệnh dừng và cần một DB hoặc Compose volume
+mới. Quy tắc này giữ lưới và ngưỡng dùng cho truy vấn lịch sử qua đường seed.
+
 | Bảng | Sinh bởi | Người |
 |---|---|---|
 | `study_areas`, `building_footprints`, `road_segments`, `grid_cells` | scene package do Python xuất (B2.4) | B xuất, A nạp |
