@@ -552,7 +552,7 @@ PASS cho nghiên cứu chưa hoàn thành.
 
 | ID | Công việc | Đầu ra | Tiêu chí đạt |
 |---|---|---|---|
-| `A9.1` | ✅ Tích hợp kịch bản giảm nguồn | Form tối giản, config snapshot, run thật và comparison | 07/11: chọn nguồn gốc/giảm 20%/40%, snapshot/retry/API/CSV giữ hệ số; executor chạy Python thật. E2E bắt buộc 112/112, web 115/115; browser đã chạy giảm 40% thành công. Comparison API production trả đúng ΔC âm; kiểm thao tác comparison sau reload trên browser còn bị quyền Browser tắt, thuộc QA cuối |
+| `A9.1` | ✅ Tích hợp kịch bản giảm nguồn | Form tối giản, config snapshot, run thật và comparison | 07/11: chọn nguồn gốc/giảm 20%/40%, snapshot/retry/API/CSV giữ hệ số; executor chạy Python thật. E2E bắt buộc 112/112, web 115/115. 09/11: so sánh sau tải lại và CSV trên browser đã đối chiếu đủ 7.683 ô với API. |
 | `A9.2` | ✅ Xuất kết quả dùng cho báo cáo | PNG bản đồ + legend/provenance; CSV các tầng/comparison; CSV vùng/transect và JSON snapshot | 28/10: PNG run FV thật đã tải và kiểm ảnh; CSV dùng số gốc, đơn vị/hash/version, z thực; chặn stale/capture lỗi, ảnh ghi rõ minh họa |
 | `A9.3` | ✅ Mặt cắt đứng theo đường vẽ | DTO/schema/service/repository/controller trong Results, biểu đồ khoảng cách–z và CSV | 27/10: PostGIS E2E, web regression, browser FV thật; CSV 1.700 mẫu khớp JSON và DB. Chi tiết spec BR-46–48; review phương pháp độc lập vẫn thuộc B9.4 |
 | `A9.4` | ✅ LoD hiển thị giảm geometry thật | Ba mức render, culling có padding theo pitch/height, cache theo tập nhà nhìn thấy | 28/10: cảnh 62 nhà, 99.280 → 0/12.468/99.280 đỉnh mặt đứng; benchmark CPU và 6 cấu hình browser; nguồn/profile/CSV bất biến. Không nâng hình học thành LoD2 |
@@ -581,7 +581,7 @@ sang nghiệm thu/báo cáo cuối ở tuần 10. Không đánh dấu release t�
 |---|---|---|---|
 | `A10.1` | ✅ Chốt seed/demo dataset và revision cố định | `deploy/demo-profile.json`, hai bundle cùng revision, image/source/checksums và bản xuất dự phòng | 02/11: checkout sạch ca82a50, hai run thật qua gates; đã phục hồi bằng importer vào DB mới, 917.832 giá trị lát + 500 profile khớp NetCDF. Hồ sơ chốt demo, không tự đóng B10.1/freeze khoa học hoặc release |
 | `A10.2` | ✅ Gói bàn giao/runbook và kiểm độc lập theo phương án CI | Source/image/run/checksums, START_HERE, phục hồi local và báo cáo runner GitHub | 02/11: người dùng chọn CI thay máy cá nhân khác; run 41465927344 trên GitHub-hosted Ubuntu đạt 146 regression, input verifier, 7 API/Compose checks, 2 solver thật và cleanup. Đúng SHA 02185fb; không chứng nhận UI automation hoặc phần cứng cá nhân thứ hai |
-| `A10.3` | ⬜ Kiểm UI, performance và demo flow | Checklist có số đo, video/screenshot dự phòng | Kiểm responsive, bàn phím, lỗi kết nối và thời gian demo; ghi cấu hình/tải đo, không coi mobile screenshot là FPS audit |
+| `A10.3` | ✅ Kiểm UI, performance và demo flow | Số đo, CSV và ảnh dự phòng trong `artifacts/a10-3/` tại máy nghiệm thu | 09/11: desktop, viewport 390/320 px, bàn phím, tải lại, gián đoạn API và khôi phục đã kiểm. Sửa thanh xoay che nút MapLibre trên mobile. Web regression 115/115. |
 | `A10.4` | 🟡 Chốt báo cáo và slide: GIS/kiến trúc/DB/web | Bảng so sánh mô hình, ERD, query plans/benchmark và phần slide tương ứng | 02/11: bản thảo FINAL_REPORT.md và dàn FINAL_SLIDES.md đã có; còn báo cáo định dạng in, deck/hình, rubric G1.1…G3.1 và review chéo; không phải seminar |
 | `A10.5` | ⬜ Audit rubric A4, QG/XG và chốt release | Ma trận nội dung/trình bày, báo cáo/slide, version/tag được phê duyệt | Không tự đóng tiêu chí trình bày khi chưa có báo cáo in được/slide; đủ bundle và kiểm môi trường độc lập theo A10.2; không tự commit/tag/push |
 
@@ -595,7 +595,22 @@ sinh bộ run nghiên cứu. Preflight không xác thực build revision của s
 **Nghiệm thu demo 02/11:** source sạch `ca82a50`, image ID và manifest SHA-256 được pin ở
 `deploy/demo-profile.json`. Build/boot 102,15 s; solver khô 46,584 s, mưa 73,955 s;
 rehearsal API/query/restart tổng khoảng 246 s, trạng thái gốc partial do skip browser tự động.
-Browser đã kiểm thủ công riêng; chưa thay A10.3 responsive/keyboard/performance audit.
+Browser đã kiểm thủ công riêng. Lượt A10.3 ngày 09/11 dùng Docker cô lập với
+hai run mùa khô `069a` và `8f77`. Sau tải lại, mở Phân tích/So sánh bằng Enter,
+xem chênh lệch ở tâm 1 m và tải CSV. Cả 7.683 dòng khớp API, gồm hệ số 1 và 0.6.
+Khi dừng riêng container app rồi chuyển sang 25 m, web báo mất kết nối. Sau khi
+app lên lại, cập nhật so sánh bằng Enter hiển thị 8.709 ô sau khoảng 0,73 s
+(một lượt đo từ thao tác đến khi bộ kiểm quan sát được kết quả).
+
+Windows, Intel i5-12500H, browser 1280×720, DPR 1,5, cảnh 62 nhà. HTTP localhost
+so sánh tại 1 m qua 10 lượt mất 251–372 ms, trung vị 320 ms. Benchmark render LoD
+tắt gió, 5 khung làm nóng và 40 khung đo mỗi cấu hình. p95 cũ → mới lần lượt
+12,1 → 12,3 ms (xa), 15,8 → 9,8 ms (giữa), 9,0 → 9,1 ms (gần). Đây là thời gian
+từ cập nhật camera đến callback render trong cảnh benchmark. Viewport 390×844
+và 320×700 đều không tràn ngang và ba nút MapLibre nhận được thao tác tại tâm nút
+sau sửa. Demo dùng run đã có để xem kết quả ngay. Nếu demo cần chạy solver mới,
+các run B9.2 trước đó mất khoảng 43–77 s tính toán. Ảnh desktop, mobile và trạng
+thái lỗi/khôi phục cùng số đo gốc lưu cục bộ trong `artifacts/a10-3/`.
 98 required PostGIS E2E pass/0 skip. Import lại 2 run vào volume mới và đối chiếu đủ 100 lát,
 500 profile values với NetCDF: khớp tuyệt đối. Gói local `artifacts/demo/a10-ca82a50.zip`
 có image/source/bundle/checksums và START_HERE; không đưa file lớn/agent records vào Git.
@@ -620,7 +635,7 @@ giữ lịch sử thất bại, không dùng làm kết quả đạt. Báo cáo 
 browser automation chưa chạy; `acceptance.json` chỉ xác nhận phạm vi API/Compose.
 Báo cáo tải local ở `artifacts/independent-ci/41465927344/`; GitHub giữ artifact 14 ngày.
 Workflow từ nhánh `ci/a10-independent-runner` được tích hợp vào main sau run đạt. A10.2 đóng theo phương án CI;
-A10.3 UI/performance, B9.4 và nghiệm thu release/report vẫn giữ mở. Không ghi VM là PC thứ hai.
+B9.4 và nghiệm thu release/report vẫn giữ mở. Không ghi VM là PC thứ hai.
 
 **Người B**
 

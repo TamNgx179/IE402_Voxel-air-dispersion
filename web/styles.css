@@ -670,8 +670,9 @@ body .tool-panel button.help-trigger:not(.action-primary):not(:disabled):hover, 
 .height-mark:hover, .height-mark[aria-pressed="true"] { color:var(--accent); background:var(--tool-bg); }
 .height-mark:disabled { opacity:.5; cursor:default; }
 @media (max-width: 640px) {
-  .camera-toolbar { top: 50px; }
-  .wind-hud { top: 102px; }
+  /* Leave the right column available for MapLibre zoom and compass controls. */
+  .camera-toolbar { top: 50px; right: 48px; }
+  .wind-hud { top: 102px; right: 48px; max-width: calc(100vw - 56px); }
   .panel { max-height: 52dvh; }
   #status-box { max-width: calc(100vw - 60px); }
 }
