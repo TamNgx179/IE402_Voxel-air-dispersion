@@ -22,8 +22,10 @@ def test_source_is_scaled_before_transport_without_modifying_original(tmp_path):
     xr.Dataset({'S':(('z','y','x'),source,{'units':'kg m-3 s-1'})}).to_netcdf(path)
     before = path.read_bytes()
     for multiplier in (1,.8,.6):
-        got = load_transport_source({'config':{'paths':{'emission_source_transport_netcdf':str(path)},
-            'run':{'emission_multiplier':multiplier}}}, np.zeros(source.shape,dtype=bool))
+        got = load_transport_source(
+            {"source_path": path, "emission_multiplier": multiplier},
+            np.zeros(source.shape, dtype=bool),
+        )
         np.testing.assert_array_equal(got,source*multiplier)
         assert path.read_bytes()==before
 

@@ -41,6 +41,7 @@ from src.wind import power_law_profile, project_mass_consistent
 from src.convergence import SteadyStateMonitor
 from src.wind.web_vectors import export_vectors
 from src.fv_operator import SparseFVStepper
+from src.source_scenarios import emission_multiplier
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
 SCHEMA_PATH = REPO_ROOT / "config" / "manifest.schema.json"
@@ -156,7 +157,6 @@ def load_inputs(config_path: Path, run_id: str) -> dict:
     if model not in ("fv", "gaussian"):
         raise SolverError(EXIT_INPUT, f"run.model must be 'fv' or 'gaussian', got {model!r}")
 
-    from src.source_scenarios import emission_multiplier
     try:
         multiplier = emission_multiplier(config)
     except ValueError as exc:
@@ -195,7 +195,6 @@ def load_inputs(config_path: Path, run_id: str) -> dict:
 
     return {
         "config": config,
-        "run_id": run_id,
         "model": model,
         "scenario_id": scenario_id,
         "scenario": scenarios[scenario_id],
@@ -322,10 +321,9 @@ def write_columns(path: Path, field: np.ndarray) -> None:
 def load_transport_source(inputs: dict, solid: np.ndarray) -> np.ndarray:
     """Load the absolute emission source, enforcing the B2 tensor contract."""
 
-    raw = (inputs["config"].get("paths") or {}).get("emission_source_transport_netcdf")
-    if not raw:
+    path = inputs["source_path"]
+    if path is None:
         raise SolverError(EXIT_INPUT, "paths.emission_source_transport_netcdf is required for a real run")
-    path = _repo_path(str(raw))
     if not path.is_file():
         raise SolverError(EXIT_INPUT, f"transport source not found: {path} (run the B2 emission pipeline)")
     try:
@@ -351,9 +349,9 @@ def load_transport_source(inputs: dict, solid: np.ndarray) -> np.ndarray:
         raise SolverError(EXIT_INPUT, "S contains emission inside solid voxels")
     if not np.any(source > 0.0):
         raise SolverError(EXIT_INPUT, "S contains no positive emission")
-    # Scale the absolute rate before FV stepping and mass accounting, never the output colours.
-    from src.source_scenarios import emission_multiplier
-    return source * emission_multiplier(inputs["config"])
+    # Use the source and factor already resolved for the input checksum.
+    # Scaling here changes the solver input and the mass budget together.
+    return source * inputs["emission_multiplier"]
 
 
 def initial_wind(inputs: dict, solid: np.ndarray) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
@@ -436,6 +434,17 @@ def check(value: float, tolerance: float, passed: bool, detail: str | None = Non
     return item
 
 
+def manifest_scenario(inputs: dict) -> dict:
+    """Use the same scenario provenance in successful and diagnostic manifests."""
+    scenario = inputs["scenario"]
+    return {
+        "id": inputs["scenario_id"],
+        "wind_from_deg": float(scenario["direction_from_deg"]),
+        "wind_speed_m_s": float(scenario["speed_m_s"]),
+        "emission_multiplier": inputs["emission_multiplier"],
+    }
+
+
 def write_early_model_failure(
     args: argparse.Namespace, out: Path, started: str, inputs: dict,
     *, failed_check: str, value: float, tolerance: float, detail: str,
@@ -448,8 +457,6 @@ def write_early_model_failure(
         for name in ("cfl", "face_divergence", "positivity", "wall_flux", "mass_balance")
     }
     checks[failed_check] = check(value, tolerance, False, detail)
-    if failed_check == "sor_convergence":
-        checks["sor_convergence"] = check(value, tolerance, False, detail)
     artifacts = []
     for kind, path in (("config", Path(args.config)), ("log", out / "solver.log")):
         if path.is_file() and path.resolve().parent == out.resolve():
@@ -457,7 +464,7 @@ def write_early_model_failure(
     manifest = {
         "schema_version": "1.0", "run_id": args.run_id, "model": inputs["model"], "model_version": model_version(),
         "input_hash": inputs["input_hash"],
-        "scenario": {"id": inputs["scenario_id"], "wind_from_deg": float(inputs["scenario"]["direction_from_deg"]), "wind_speed_m_s": float(inputs["scenario"]["speed_m_s"]), "emission_multiplier": inputs["emission_multiplier"]},
+        "scenario": manifest_scenario(inputs),
         "grid": {"crs": inputs["crs"], "axis_order": "z,y,x", **inputs["grid"]},
         "units": {"concentration": "ug m-3", "velocity": "m s-1"},
         "thresholds": {key: {"value_ug_m3": float(item["value"]), "label": str(item["label"])} for key, item in inputs["thresholds"].items()},
@@ -623,7 +630,7 @@ def run_real(args: argparse.Namespace, out: Path, started: str, clock: float) ->
     manifest = {
         "schema_version": "1.0", "run_id": args.run_id, "model": "fv", "model_version": model_version(),
         "input_hash": inputs["input_hash"],
-        "scenario": {"id": inputs["scenario_id"], "wind_from_deg": float(inputs["scenario"]["direction_from_deg"]), "wind_speed_m_s": float(inputs["scenario"]["speed_m_s"]), "emission_multiplier": inputs["emission_multiplier"]},
+        "scenario": manifest_scenario(inputs),
         "grid": {"crs": inputs["crs"], "axis_order": "z,y,x", **grid},
         "units": {"concentration": "ug m-3", "velocity": "m s-1"},
         "thresholds": {key: {"value_ug_m3": float(item["value"]), "label": str(item["label"])} for key, item in inputs["thresholds"].items()},
@@ -742,12 +749,7 @@ def run_mock(args: argparse.Namespace, out: Path, started: str, clock: float) ->
         "model": inputs["model"],
         "model_version": model_version(),
         "input_hash": inputs["input_hash"],
-        "scenario": {
-            "id": inputs["scenario_id"],
-            "wind_from_deg": float(inputs["scenario"]["direction_from_deg"]),
-            "wind_speed_m_s": float(inputs["scenario"]["speed_m_s"]),
-            "emission_multiplier": inputs["emission_multiplier"],
-        },
+        "scenario": manifest_scenario(inputs),
         "grid": {"crs": inputs["crs"], "axis_order": "z,y,x", **grid},
         "units": {"concentration": "ug m-3", "velocity": "m s-1"},
         "thresholds": {

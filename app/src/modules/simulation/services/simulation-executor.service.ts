@@ -130,7 +130,7 @@ export class SimulationExecutorService
         this.recovered = true;
       }
       while (!this.stopping) {
-        const run = await this.claim();
+        const run = await this.runs.claimNext();
         if (!run) break;
         await this.execute(run);
       }
@@ -150,11 +150,6 @@ export class SimulationExecutorService
       this.logger.warn(`run ${id} was running at startup → stale`);
   }
 
-  /** Oldest queued run → running, only when nothing else runs (concurrency 1). */
-  private async claim(): Promise<ClaimedRun | null> {
-    return this.runs.claimNext();
-  }
-
   private async execute(run: ClaimedRun): Promise<void> {
     const runDir = join(this.cfg('ARTIFACT_DIR'), run.id);
     const configPath = join(runDir, 'config.yaml');
@@ -163,6 +158,7 @@ export class SimulationExecutorService
     );
 
     let configSha: string;
+    let expectedMultiplier: number;
     try {
       let snapshot = run.config_snapshot;
       if (!snapshot) {
@@ -180,7 +176,10 @@ export class SimulationExecutorService
       await rm(runDir, { recursive: true, force: true });
       await mkdir(runDir, { recursive: true });
       // jsonb does not keep key order; put the run block first for readers.
-      const { run: block, ...rest } = snapshot as Record<string, any>;
+      const { run: rawRun, ...rest } = snapshot;
+      const block = rawRun as Partial<Parameters<typeof buildRunSnapshot>[1]> | undefined;
+      // Carry the persisted value independently of the emitted YAML for verification.
+      expectedMultiplier = block?.emission_multiplier ?? 1;
       const runBlock = {
         run_id: block?.run_id,
         scenario_id: block?.scenario_id,
@@ -207,7 +206,7 @@ export class SimulationExecutorService
 
     const kind = classifyExit(exit.info);
     if (kind === null) {
-      await this.finishSuccess(run, runDir, configSha);
+      await this.finishSuccess(run, runDir, configSha, expectedMultiplier);
       return;
     }
     const detail = (
@@ -327,6 +326,7 @@ export class SimulationExecutorService
     run: ClaimedRun,
     runDir: string,
     configSha: string,
+    expectedMultiplier: number,
   ) {
     const result = await verifyRunOutput({
       runDir,
@@ -335,7 +335,7 @@ export class SimulationExecutorService
       scenarioId: run.scenario_id,
       validate: this.validate!,
       configSha256: configSha,
-      emissionMultiplier: (run.config_snapshot?.run as { emission_multiplier?: number } | undefined)?.emission_multiplier ?? 1,
+      emissionMultiplier: expectedMultiplier,
     });
     if (!result.ok) {
       await this.fail(
