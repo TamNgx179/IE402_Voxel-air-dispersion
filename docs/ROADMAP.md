@@ -1,5 +1,29 @@
 # ROADMAP — 10 mốc tuần, 2 người, ứng dụng web GIS 3D
 
+## Upgrade work allocation
+
+Tâm owns implementation and engineering acceptance for all four parts. Part 1 has a tested API, CSV and SQL benchmark. Parts 2–4 are deferred to a later implementation round. The baseline milestones below preserve the earlier assignments.
+
+| Part | Tâm's deliverable |
+| --- | --- |
+| 1. PostGIS | Corridor SQL, REST, CSV, integration tests and production query plans. |
+| 2. React | Migrate map and analysis panels. Provide English by default and Vietnamese as an option. Verify state and exports in both languages. |
+| 3. gRPC | Implement the NestJS dispatcher, Python service and worker, durable attempt tracking and recovery. Verify limits of one and two child processes. |
+| 4. Integration | Own Docker, CI, numerical parity automation, dependency notices and clean deployment acceptance. |
+
+Thanh owns the scientific workstream:
+
+| Work | Deliverable |
+| --- | --- |
+| GIS data and rights | Inventory scene, height, weather and emission inputs with source, date, CRS, checksum, transformations, attribution and redistribution status. Resolve or flag uncertain terms before release. |
+| Independent corridor verification | Produce hand-calculated references for overlapping buffers, partial XY and altitude overlap, solid cells and missing values. Compare them with the API and CSV and document any discrepancies. |
+| Solver and sensitivity review | Supply reference run IDs, input hashes and tolerances. Review FV and Gaussian comparisons, conservation, convergence, and sensitivity to building height, grid and distance-band choices. |
+| Scientific report and figures | Prepare the methods, results and limitations sections with reproducible maps, profiles and tables. Review the figures against the final run artifacts. |
+
+See the [upgrade plan](UPGRADE_PLAN.md) and [licensing review](LICENSING.md).
+
+## Baseline milestones
+
 **Ràng buộc:** 2 người · giữ mã 10 mốc tuần để truy vết · một study area · PM2.5 · chạy được trên
 laptop. Kế hoạch không có gói seminar; thời gian được dùng cho API, cơ sở dữ liệu, tích hợp,
 kiểm thử và báo cáo cuối kỳ.

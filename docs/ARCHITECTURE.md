@@ -1,5 +1,23 @@
 # Kiến trúc hệ thống
 
+## Target deployment
+
+The upgrade uses two application services. NestJS owns the public REST API, run lifecycle and spatial queries. A private Python gRPC service owns solver execution. PostgreSQL/PostGIS stores the queue and GIS data. React replaces the current viewer and is served with the API.
+
+```mermaid
+flowchart LR
+    Web["React WebGIS (EN / VI)"] -->|REST| Api["NestJS API"]
+    Api -->|SQL| DB["PostgreSQL / PostGIS"]
+    Api -->|Private gRPC| Solver["Python Solver Service"]
+    Solver --> Worker["Solver child processes (1 by default)"]
+    Worker --> Files["Attempt artifacts"]
+    Files -->|Verify and import| Api
+```
+
+NestJS reserves capacity in PostgreSQL before dispatch. The Python supervisor starts one child per accepted attempt and tracks it until exit. The API reconciles ambiguous replies by attempt ID, verifies the manifest and imports results transactionally. The Spatial Analysis module queries PostGIS directly for slices, profiles, regions, transects, comparisons and the proposed road corridor analysis. See [worker and SQL contracts](UPGRADE_PLAN.md#service-ownership-and-worker).
+
+The sections below document the current demo and its scientific data model. Its diagram shows the existing subprocess deployment.
+
 > Tài liệu này được dẫn xuất từ [`spec.md`](spec.md) và [`RESEARCH.md`](RESEARCH.md).
 > Spec quy định *điều gì phải đúng*; tài liệu này mô tả *các thành phần ghép với nhau như thế
 > nào và phương án nào bị loại*. Nếu có mâu thuẫn, spec là chuẩn yêu cầu.
@@ -69,7 +87,7 @@ Giữ lưới chung giảm chuyển đổi giữa các bước solver nhưng kh�
 GIS đầu vào, NetCDF→DB và projected CRS→web vẫn cần kiểm. Nghiên cứu khác lưới là run
 riêng, không phải cặp comparison A8 tương thích.
 
-Kiến trúc mục tiêu là **modular monolith**, không phải microservice. NestJS là một ứng dụng duy
+Kiến trúc của bản demo hiện tại là **modular monolith**. NestJS là một ứng dụng duy
 nhất chứa các module nghiệp vụ, phục vụ frontend và gọi pipeline Python bằng tiến trình con.
 PostgreSQL/PostGIS là cơ sở dữ liệu của monolith; NetCDF là định dạng artifact khoa học. Python
 được giữ riêng về ngôn ngữ để tái sử dụng solver NumPy/SciPy, nhưng không có API, queue hay vòng
@@ -196,7 +214,7 @@ Báo cáo/slide A4 cần dẫn từ mô hình khái niệm (đối tượng/quan
 | Array order | the grid model's documented convention | `[z, y, x]` for 3D, `[y, x]` for 2D, asserted by a unit test |
 | On-disk field contract | the netCDF writer | Writer ghi tọa độ/units, `positive="up"` trên z và nhãn CF; AC-3 vẫn cần mở bằng QGIS/Panoply và kiểm metadata, không suy đạt chuẩn từ nhãn Conventions |
 | Solver stability | the CFL helper | The time step is **computed from the velocity field**, never passed in as a constant, and the realised Courant number is reported back |
-| Web payload | API DTO + OpenAPI của monolith | Viewer lấy study area/scene/scenario/run/volume từ `/api`; `web/data/*.js` chỉ còn fixture cũ, không được nạp trong `index.html` |
+| Web payload | API DTO + OpenAPI của monolith | Viewer lấy study area, scene, scenario, run và volume từ `/api`. Script nghiên cứu có thể sinh lại bản xuất tĩnh khi cần. |
 | Run state | `simulation_runs` trong PostgreSQL | monolith restart quét lại `queued/running`, đánh dấu run gián đoạn và cho phép chạy lại có kiểm soát |
 | Spatial geometry | PostGIS với SRID + GiST | mọi phép đo dùng projected CRS; migration/ingest reject geometry sai |
 | Full 3D tensor | NetCDF artifact + checksum | NetCDF là bản khoa học gốc; DB giữ bản dẫn xuất `concentration_columns` (`real[]` theo z) để query/profile/web, được import lại idempotent từ artifact đã kiểm checksum |
@@ -404,7 +422,7 @@ broker hoặc dịch vụ transect riêng. API vùng/comparison/transect hiện 
 **Phân biệt hiện tại và mục tiêu:** profile/slice/region/comparison, CSV vùng và vệt
 gió theo solver và transect A9.3 đã có. A9.2/A9.4 đã bổ sung PNG có legend, CSV/JSON và LoD giảm geometry ngày 28/10.
 `viewer-export.js` ghép canvas MapLibre/deck sau render, giữ snapshot và từ chối nếu đổi camera/run.
-`viewer-lod.js` chọn ba mức, culling theo bounds có padding cho mái và cache theo tập nhà nhìn thấy.
+`map/viewer-lod.js` chọn ba mức, culling theo bounds có padding cho mái và cache theo tập nhà nhìn thấy.
 Thân nhà giữ nguyên GIS LoD1; mức xa bỏ chi tiết mặt đứng, giữa giữ khoảng 1/4 cửa sổ, gần giữ đầy đủ.
 Script `benchmark-lod.cjs` đo CPU/count và kiểm raw profile/CSV; `lod-benchmark.html` đo wall time renderer, không gọi là thời gian GPU riêng.
 Giữ cửa sổ thủ tục, không thêm texture ảnh thật hoặc mái giả như dữ liệu khảo sát.
