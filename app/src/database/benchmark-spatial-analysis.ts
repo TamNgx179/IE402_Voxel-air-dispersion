@@ -4,6 +4,8 @@ import { mkdir, writeFile } from 'node:fs/promises';
 import { dirname, resolve } from 'node:path';
 import pg from 'pg';
 import { ROAD_CORRIDOR_SQL } from '../modules/results/repositories/road-corridor.sql.js';
+import { CONCENTRATION_SLICE_SQL, VERTICAL_PROFILE_SQL } from '../modules/results/repositories/simulation-results.repository.js';
+import { TRANSECT_COLUMNS_SQL, TRANSECT_PROJECT_SQL } from '../modules/results/repositories/transect.repository.js';
 import {
   COMPARISON_SQL,
   REGION_SQL,
@@ -17,7 +19,7 @@ const pool = new pg.Pool({
 });
 try {
   const { rows: runs } = await pool.query(
-    `SELECT r.id,r.model,r.model_version,r.input_hash,r.warnings,s.study_area_id,sa.grid
+    `SELECT r.id,r.scenario_id,r.model,r.model_version,r.input_hash,r.warnings,s.study_area_id,sa.grid
     FROM simulation_runs r JOIN scenarios s ON s.id=r.scenario_id JOIN study_areas sa ON sa.id=s.study_area_id
     WHERE r.status='succeeded' AND r.model='fv' AND NOT EXISTS(SELECT 1 FROM unnest(r.warnings) w WHERE w LIKE '%mock run%')
       AND ($1::uuid IS NULL OR r.id=$1) ORDER BY r.finished_at DESC LIMIT 1`,
@@ -26,6 +28,15 @@ try {
   if (!runs.length) throw new Error('Need a succeeded non-mock FV run');
   const run = runs[0],
     g = run.grid;
+  const { rows: indexes } = await pool.query(
+    `SELECT tablename, indexname, indexdef,
+            pg_relation_size(format('%I.%I', schemaname, indexname)::regclass) AS size_bytes
+     FROM pg_indexes
+     WHERE schemaname = current_schema()
+       AND tablename IN ('study_areas', 'road_segments', 'grid_cells', 'concentration_columns',
+                         'simulation_runs', 'scenarios')
+     ORDER BY tablename, indexname`,
+  );
   const { rows: polygons } = await pool.query(
     `SELECT ST_AsGeoJSON(ST_Transform(ST_MakeEnvelope($1,$2,$3,$4,32648),4326),15)::json AS polygon`,
     [
@@ -42,7 +53,32 @@ try {
     [run.study_area_id],
   );
   const roadIds = roads.map((road) => road.source_feature_id);
+  const sampleCount = g.nx;
+  const indices = Array.from({ length: sampleCount }, (_, i) => i);
+  const sampleRow = Math.floor(g.ny / 2);
+  const rows = indices.map(() => sampleRow);
+  const xs = indices.map((i) => g.origin_x_m + (i + 0.5) * g.dx_m);
+  const ys = rows.map((j) => g.origin_y_m + (j + 0.5) * g.dy_m);
+  const { rows: [line] } = await pool.query(
+    `SELECT ST_AsGeoJSON(ST_Transform(ST_SetSRID(ST_MakeLine(
+       ST_MakePoint($1,$2), ST_MakePoint($3,$4)),32648),4326),15) AS geojson`,
+    [xs[0], ys[0], xs.at(-1), ys.at(-1)],
+  );
+  const ring: [number, number][] = polygon.coordinates[0];
+  const longitude = ring.map(([x]) => x);
+  const latitude = ring.map(([, y]) => y);
+  const bbox = [Math.min(...longitude), Math.min(...latitude), Math.max(...longitude), Math.max(...latitude)];
   const cases = [
+    { name: 'slice_viewport', sql: CONCENTRATION_SLICE_SQL, values: [run.id, 1, ...bbox, run.scenario_id] },
+    { name: 'slice_full', sql: CONCENTRATION_SLICE_SQL, values: [run.id, 1, null, null, null, null, run.scenario_id] },
+    { name: 'profile', sql: VERTICAL_PROFILE_SQL, values: [run.id, 0, 0, run.scenario_id] },
+    { name: 'transect_project', sql: TRANSECT_PROJECT_SQL, values: [line.geojson, run.study_area_id, 32648] },
+    {
+      name: 'transect_columns',
+      sql: TRANSECT_COLUMNS_SQL,
+      values: [run.id, run.study_area_id, xs, ys, indices, rows, 32648,
+        g.origin_x_m, g.origin_y_m, g.dx_m, g.dy_m, 1, g.nz],
+    },
     {
       name: 'comparison_sql_self',
       sql: COMPARISON_SQL,
@@ -79,11 +115,13 @@ try {
   const queries: Record<string, unknown> = {};
   for (const item of cases) {
     for (let n = 0; n < 3; n++) await pool.query(item.sql, item.values);
-    const times = [];
+    const times: number[] = [];
+    let returnedRows = 0;
     for (let n = 0; n < 20; n++) {
       const t = performance.now();
-      await pool.query(item.sql, item.values);
+      const result = await pool.query(item.sql, item.values);
       times.push(performance.now() - t);
+      returnedRows = result.rows.length;
     }
     times.sort((a, b) => a - b);
     const plan = await pool.query(
@@ -91,8 +129,11 @@ try {
       item.values,
     );
     queries[item.name] = {
-      p50_ms: times[10],
-      p95_ms: times[19],
+      // Nearest-rank percentiles: for 20 samples p95 is the 19th, not the maximum.
+      p50_ms: times[Math.ceil(times.length * 0.5) - 1],
+      p95_ms: times[Math.ceil(times.length * 0.95) - 1],
+      returned_rows: returnedRows,
+      parameters: item.values,
       plan: plan.rows[0]['QUERY PLAN'][0],
     };
   }
@@ -106,6 +147,7 @@ try {
     input_hash: run.input_hash,
     warnings: run.warnings,
     grid: g,
+    indexes,
     environment: {
       platform: platform(),
       node: process.version,

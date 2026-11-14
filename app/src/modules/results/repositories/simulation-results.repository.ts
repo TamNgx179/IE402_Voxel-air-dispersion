@@ -24,18 +24,7 @@ export class SimulationResultsRepository {
     scenarioId: string,
   ): Promise<ConcentrationCellRow[]> {
     const { rows } = await this.db.query<ConcentrationCellRow>(
-      `SELECT c.i, c.j, c.c_ug_m3[$2]::double precision AS concentration,
-              ST_AsGeoJSON(ST_Transform(g.geom, 4326), 7)::json AS geometry
-       FROM concentration_columns c
-       JOIN scenarios s ON s.id = $7
-       JOIN grid_cells g ON g.study_area_id = s.study_area_id AND g.i = c.i AND g.j = c.j
-       WHERE c.run_id = $1
-         AND c.c_ug_m3[$2] IS NOT NULL
-         AND ($3::double precision IS NULL OR ST_Intersects(
-           g.geom,
-           ST_Transform(ST_MakeEnvelope($3, $4, $5, $6, 4326), 32648)
-         ))
-       ORDER BY c.j, c.i`,
+      CONCENTRATION_SLICE_SQL,
       [runId, layer, ...(bbox ?? [null, null, null, null]), scenarioId],
     );
     return rows;
@@ -67,12 +56,7 @@ export class SimulationResultsRepository {
     scenarioId: string,
   ): Promise<VerticalProfileRow | null> {
     const { rows } = await this.db.query<VerticalProfileRow>(
-      `SELECT c.c_ug_m3::double precision[] AS c_ug_m3,
-              ST_AsGeoJSON(ST_Transform(ST_Centroid(g.geom), 4326), 7)::json AS centre
-       FROM concentration_columns c
-       JOIN scenarios s ON s.id = $4
-       JOIN grid_cells g ON g.study_area_id = s.study_area_id AND g.i = c.i AND g.j = c.j
-       WHERE c.run_id = $1 AND c.i = $2 AND c.j = $3`,
+      VERTICAL_PROFILE_SQL,
       [runId, i, j, scenarioId],
     );
     return rows[0] ?? null;
@@ -183,3 +167,23 @@ export class SimulationResultsRepository {
     return rows[0] ?? null;
   }
 }
+
+export const CONCENTRATION_SLICE_SQL = `SELECT c.i, c.j, c.c_ug_m3[$2]::double precision AS concentration,
+              ST_AsGeoJSON(ST_Transform(g.geom, 4326), 7)::json AS geometry
+       FROM concentration_columns c
+       JOIN scenarios s ON s.id = $7
+       JOIN grid_cells g ON g.study_area_id = s.study_area_id AND g.i = c.i AND g.j = c.j
+       WHERE c.run_id = $1
+         AND c.c_ug_m3[$2] IS NOT NULL
+         AND ($3::double precision IS NULL OR ST_Intersects(
+           g.geom,
+           ST_Transform(ST_MakeEnvelope($3, $4, $5, $6, 4326), 32648)
+         ))
+       ORDER BY c.j, c.i`;
+
+export const VERTICAL_PROFILE_SQL = `SELECT c.c_ug_m3::double precision[] AS c_ug_m3,
+              ST_AsGeoJSON(ST_Transform(ST_Centroid(g.geom), 4326), 7)::json AS centre
+       FROM concentration_columns c
+       JOIN scenarios s ON s.id = $4
+       JOIN grid_cells g ON g.study_area_id = s.study_area_id AND g.i = c.i AND g.j = c.j
+       WHERE c.run_id = $1 AND c.i = $2 AND c.j = $3`;

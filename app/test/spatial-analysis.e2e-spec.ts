@@ -75,6 +75,21 @@ describe.skipIf(!db.ok)('Spatial analysis with actual PostGIS', () => {
     await pool?.end();
   });
 
+  it('rejects voxel arrays that cannot be read with k + 1 and incomplete solid intervals', async () => {
+    for (const literal of ['{}', '[0:3]={10,5,3,1}', '{{1,2},{3,4},{5,6},{7,8}}']) {
+      await expect(pool.query(
+        'UPDATE concentration_columns SET c_ug_m3 = $2 WHERE run_id = $1 AND i = 1 AND j = 0',
+        [baseline, literal],
+      )).rejects.toMatchObject({ code: '23514' });
+    }
+    for (const [from, to] of [[null, 2], [0, null]]) {
+      await expect(pool.query(
+        'UPDATE grid_cells SET solid_from_k = $2, solid_to_k = $3 WHERE study_area_id = $1 AND i = 0 AND j = 0',
+        [area, from, to],
+      )).rejects.toMatchObject({ code: '23514', constraint: 'grid_cells_solid_pair_complete' });
+    }
+  });
+
   it('clips overlapping road buffers into disjoint bands and weights partial layers', async () => {
     const roadIds = ['corridor-test-a', 'corridor-test-b'];
     await pool.query(
@@ -108,6 +123,31 @@ describe.skipIf(!db.ok)('Spatial analysis with actual PostGIS', () => {
       await http().post(path).send({ ...query, road_ids: [...roadIds, 'absent'] }).expect(400);
     } finally {
       await pool.query('DELETE FROM road_segments WHERE study_area_id = $1 AND source_feature_id = ANY($2)', [area, roadIds]);
+    }
+  });
+
+  it('separates missing air from zero and excludes threshold equality in a clipped corridor', async () => {
+    const roadId = 'corridor-zero-coverage';
+    const id = await run(['{NULL,NULL,NULL,2}', '{0,5,NULL,1}', '{20,10,5,2}', '{NULL,NULL,NULL,NULL}']);
+    await pool.query(
+      `INSERT INTO road_segments(study_area_id, source_feature_id, geom)
+       VALUES ($1, $2, ST_GeomFromText('LINESTRING(685990 1191302.5,686020 1191302.5)',32648))`,
+      [area, roadId],
+    );
+    try {
+      const { body } = await http().post(`/api/runs/${id}/road-corridor`).send({
+        road_ids: [roadId], distances_m: [1], z_min_m: 1, z_max_m: 5, threshold_ug_m3: 5,
+      }).expect(201);
+      // The air column contributes 10 m² at each height. Thicknesses 1, 2,
+      // 1 m and concentrations 0, 5, missing give 40 m³ of air and 30 m³ of data.
+      expect(body.bands).toHaveLength(1);
+      expect(body.bands[0]).toMatchObject({
+        area_m2: 20, air_volume_m3: 40, valid_volume_m3: 30,
+        coverage: 0.75, mean_ug_m3: 10 / 3, exceedance_volume_m3: 0,
+      });
+    } finally {
+      await pool.query('DELETE FROM road_segments WHERE study_area_id = $1 AND source_feature_id = $2', [area, roadId]);
+      await pool.query('DELETE FROM simulation_runs WHERE id = $1', [id]);
     }
   });
 
