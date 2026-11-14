@@ -4,10 +4,12 @@ import { readFile, mkdir, writeFile } from 'node:fs/promises';
 import { resolve, dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { parseArgs } from 'node:util';
+import { createRequire } from 'node:module';
 import { assert, command, numericClose, request, waitUntil, writeJson } from './lib/process.mjs';
 import { browserSmoke } from './viewer-smoke.mjs';
 
 const root = resolve(dirname(fileURLToPath(import.meta.url)), '..');
+const { parse: parseCsv } = createRequire(new URL('../app/package.json', import.meta.url))('csv-parse/sync');
 const { values } = parseArgs({ options: {
   port: { type: 'string', default: '3107' },
   out: { type: 'string', default: 'artifacts/week7/cleanroom' },
@@ -135,6 +137,36 @@ async function verifyRun(scenario) {
   await request(base, `${prefix}/slices?z_m=100`, { expected: 400 });
   await request(base, `${prefix}/profile?i=100&j=0`, { expected: 400 });
   await request(base, `${prefix}/retry`, { method: 'POST', expected: 409 });
+  const [area] = await request(base, '/api/study-areas');
+  const scene = await request(base, `/api/study-areas/${area.id}/scene`);
+  const roadId = scene.roads.features[0].properties.source_feature_id;
+  assert(roadId, 'Seeded road has no source identity');
+  const corridorQuery = { road_ids: [roadId], distances_m: [10, 25, 50], z_min_m: 1, z_max_m: 15 };
+  const corridor = await request(base, `${prefix}/road-corridor`, {
+    method: 'POST', expected: 201, body: corridorQuery,
+  });
+  assert(corridor.run_id === id && corridor.input_hash === summary.input_hash &&
+    corridor.bands.length === corridorQuery.distances_m.length, 'Corridor run or band identity mismatch');
+  const csv = await fetch(new URL(`${prefix}/road-corridor/csv`, base), {
+    method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify(corridorQuery),
+    signal: AbortSignal.timeout(30_000),
+  });
+  assert(csv.ok && csv.headers.get('content-type')?.includes('text/csv'), 'Corridor CSV not available');
+  const csvText = await csv.text();
+  const rows = parseCsv(csvText, { columns: true });
+  assert(rows.length === corridor.bands.length, 'Corridor CSV band count differs from API');
+  for (const [index, row] of rows.entries()) {
+    assert(row.run_id === id && row.input_hash === summary.input_hash, 'Corridor CSV identity differs from API');
+    for (const key of ['inner_m', 'outer_m', 'area_m2', 'air_volume_m3', 'valid_volume_m3',
+      'coverage', 'mean_ug_m3', 'exceedance_volume_m3']) {
+      const expected = corridor.bands[index][key];
+      const actual = row[key];
+      assert(typeof actual === 'string' && (actual === '' ? expected === null :
+        expected !== null && Number(actual) === expected), `Corridor CSV differs at band ${index + 1}: ${key}`);
+    }
+  }
+  await writeJson(join(out, `${scenario}-corridor.json`), corridor);
+  await writeFile(join(out, `${scenario}-corridor.csv`), csvText);
   const result = { scenario, run_id: id, input_hash: summary.input_hash, model_version: summary.model_version,
     verification: summary.verification.status, solver_wall_s: summary.metrics.wall_clock_s,
     layers: [summary.layers[0], summary.layers[7]] };
@@ -168,7 +200,9 @@ try {
     assert((await request(base, '/api/study-areas')).length === 1, 'Seed is not idempotent');
     const index = await fetch(base);
     const html = await index.text();
-    assert(index.ok && html.includes('viewer-evidence.js'), 'Viewer dashboard missing from image');
+    const entry = html.match(/<script\b[^>]*type="module"[^>]*src="([^"]+)"/)?.[1];
+    assert(index.ok && html.includes('id="root"') && entry, 'React viewer missing from image');
+    assert((await fetch(new URL(entry, base))).ok, 'React entry bundle is not served');
     const config = await readFile(join(root, 'config/project.yaml'));
     report.config_sha256 = createHash('sha256').update(config).digest('hex');
   });
@@ -178,7 +212,7 @@ try {
   await check('Production query benchmark and EXPLAIN', async () => {
     const runId = report.runs[0].run_id;
     await compose(['exec', '-T', '-e', `BENCHMARK_RUN_ID=${runId}`, '-e', 'BENCHMARK_OUTPUT=/opt/project/artifacts/week7-query-benchmark.json',
-      'app', 'node', 'dist/database/benchmark-results.js']);
+      'app', 'node', 'dist/database/benchmark-spatial-analysis.js']);
     await compose(['cp', 'app:/opt/project/artifacts/week7-query-benchmark.json', join(out, 'query-benchmark.json')]);
   });
   await check('Restart retains verified runs and query results', async () => {
@@ -190,7 +224,7 @@ try {
     }
   });
   if (!values['skip-browser']) {
-    report.browser = await check('Browser: scene, run, height, profile, evidence dashboard',
+    report.browser = await check('Browser: React scene, run, height, locale and mobile',
       () => browserSmoke({ base, out: join(out, 'browser') }));
   } else {
     report.checks.push({ name: 'Browser viewer', status: 'skipped', reason: '--skip-browser supplied' });
