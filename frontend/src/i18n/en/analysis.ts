@@ -96,5 +96,8 @@ const analysis = {
   'export.mapNotReady': 'The map is not ready yet.',
   'export.pngFailed': 'Could not create the PNG image.',
   'export.pngCors': 'The basemap does not allow image export (CORS). Change the basemap and try again.',
+
+  // Analysis panel shell (panels/analysis/index.tsx).
+  switchLabel: 'Analysis type',
 } as const;
 export default analysis;

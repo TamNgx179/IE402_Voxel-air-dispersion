@@ -85,5 +85,7 @@ const analysis: Messages<typeof en> = {
   'export.mapNotReady': 'Bản đồ chưa sẵn sàng.',
   'export.pngFailed': 'Không tạo được ảnh PNG.',
   'export.pngCors': 'Nền bản đồ không cho phép xuất ảnh (CORS). Hãy đổi nền rồi thử lại.',
+
+  switchLabel: 'Loại phân tích',
 };
 export default analysis;
