@@ -6,7 +6,6 @@
 import { PathLayer } from '@deck.gl/layers';
 import { useCallback, useEffect, useMemo, useRef, useState, type KeyboardEvent, type MouseEvent } from 'react';
 import { createPortal } from 'react-dom';
-import { api } from '../../../api/client';
 import { HelpTrigger } from '../../../components/Help';
 import { useExportContribution } from '../../../export/ExportProvider';
 import { useI18n } from '../../../i18n';
@@ -42,6 +41,7 @@ import {
 } from '../../../lib/transect';
 import { useMapClick, useMapInstance, useMapLayers } from '../../../map/hooks';
 import { selectExact, selectGrid, selectZ } from '../../../store/selectors';
+import { useApi } from '../../../store/controller';
 import { useViewer } from '../../../store/store';
 import { fromError, renderMsg, type Msg } from './message';
 
@@ -59,6 +59,7 @@ const START: Selection = { position: 0, layer: 0 };
 
 export function TransectPanel({ active }: TransectPanelProps) {
   const { t, formatNumber, locale } = useI18n();
+  const api = useApi();
   const runId = useViewer((s) => s.selectedRunId);
   const runs = useViewer((s) => s.runs);
   const modified = !useViewer(selectExact);

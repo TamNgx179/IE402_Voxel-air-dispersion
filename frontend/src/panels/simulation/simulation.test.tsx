@@ -5,7 +5,7 @@ import { ApiError, type RequestOptions } from '../../api/client';
 import type { RunView } from '../../api/types';
 import type { ApiFn } from '../../store/controller';
 import { createViewerStore } from '../../store/store';
-import { fakeApi } from '../../test/fixtures';
+import { routedApi } from '../../test/fixtures';
 import { createFakeMapFactory } from '../../test/fakeMap';
 import { simulationPanel } from '.';
 import { ACTIVE_RUN_KEY, MAX_FAILURES, configureSimulationTracker, pollDelay } from './tracker';
@@ -30,7 +30,7 @@ function runView(status: RunView['status'], extra: Partial<RunView> = {}): RunVi
   };
 }
 
-/** Simulation API mock: POST /runs result and a queue of GET /runs/new-run responses. */
+/** Simulation API mock: POST /runs result and a queue of GET /runs/:id responses (the rest is fakeApi). */
 function simulationApi(post: unknown, polls: unknown[]) {
   const posts: Array<Record<string, unknown>> = [];
   const gets: string[] = [];
@@ -68,8 +68,9 @@ function manualSleep() {
 
 async function renderPanel(sim: { fn: ApiFn }, sleep: (ms: number) => Promise<void> = () => Promise.resolve()) {
   const store = createViewerStore();
-  configureSimulationTracker(store, { api: sim.fn, sleep });
-  const utils = render(<App store={store} api={fakeApi()} mapFactory={createFakeMapFactory().factory} panels={[simulationPanel]} />);
+  configureSimulationTracker(store, { sleep });
+  const api = routedApi((path, options) => (path === '/runs' && options?.method === 'POST') || /^\/runs\/[^/?]+$/.test(path), sim.fn);
+  const utils = render(<App store={store} api={api} mapFactory={createFakeMapFactory().factory} panels={[simulationPanel]} />);
   await waitFor(() => expect(store.getState().selectedRunId).not.toBeNull());
   act(() => store.dispatch({ type: 'panel/open', id: 'simulation' }));
   return { store, ...utils };

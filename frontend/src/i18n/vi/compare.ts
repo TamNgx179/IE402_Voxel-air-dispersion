@@ -42,6 +42,5 @@ const compare: Messages<typeof en> = {
   'report.baseline': 'Kết quả gốc',
   'report.comparison': 'Kết quả đối chiếu',
   'report.delta': 'Chênh lệch: so sánh − gốc',
-  'report.notice': ' Gió và khối nhà thuộc run gốc.',
 };
 export default compare;

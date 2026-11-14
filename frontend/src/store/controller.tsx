@@ -270,9 +270,10 @@ export function createViewerActions(store: ViewerStore, api: ApiFn): ViewerActio
 }
 
 const ActionsContext = createContext<ViewerActions | null>(null);
+const ApiContext = createContext<ApiFn>(defaultApi as ApiFn);
 
 /**
- * Provides `useViewerActions()`, loads the bootstrap once on mount and keeps the
+ * Provides `useViewerActions()` and `useApi()` (the `api` prop), loads the bootstrap once on mount and keeps the
  * exact queries in sync with run/layer/cell/display.
  */
 export function ViewerActionsProvider({ children, api = defaultApi, autoLoad = true }: { children: ReactNode; api?: ApiFn; autoLoad?: boolean }) {
@@ -313,7 +314,20 @@ export function ViewerActionsProvider({ children, api = defaultApi, autoLoad = t
     }),
     [actions],
   );
-  return <ActionsContext.Provider value={value}>{children}</ActionsContext.Provider>;
+  return (
+    <ApiContext.Provider value={api}>
+      <ActionsContext.Provider value={value}>{children}</ActionsContext.Provider>
+    </ApiContext.Provider>
+  );
+}
+
+/**
+ * The REST function of this viewer: the `api` given to `<App>` /
+ * `<ViewerActionsProvider>` (tests inject `fakeApi()`), else the real same-origin
+ * client from api/client.ts. Panels use it instead of importing `api` directly.
+ */
+export function useApi(): ApiFn {
+  return useContext(ApiContext);
 }
 
 export function useViewerActions(): ViewerActions {

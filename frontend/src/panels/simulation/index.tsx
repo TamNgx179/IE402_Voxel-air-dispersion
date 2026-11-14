@@ -9,7 +9,7 @@ import { useEffect, useState, useSyncExternalStore } from 'react';
 import { HelpTrigger } from '../../components/Help';
 import { useI18n, type TranslationKey } from '../../i18n';
 import { seasonKey } from '../../lib/labels';
-import { useViewerActions } from '../../store/controller';
+import { useApi, useViewerActions } from '../../store/controller';
 import { useViewer, useViewerStore } from '../../store/store';
 import type { PanelDefinition, PanelProps } from '../types';
 import { EMISSION_MULTIPLIERS, trackerFor, type EmissionMultiplier, type Message, type SimulationTracker, type TrackerState } from './tracker';
@@ -21,7 +21,7 @@ const EMISSION_KEYS: Record<EmissionMultiplier, TranslationKey> = {
 };
 
 function useTracker(): [SimulationTracker, TrackerState] {
-  const tracker = trackerFor(useViewerStore());
+  const tracker = trackerFor(useViewerStore(), useApi());
   const state = useSyncExternalStore(tracker.subscribe, tracker.getState, tracker.getState);
   return [tracker, state];
 }

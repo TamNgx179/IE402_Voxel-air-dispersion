@@ -13,6 +13,7 @@ const exportCopy: Messages<typeof en> = {
   legendTitle: 'Nồng độ (µg/m³, thang log)',
   thresholdLegendTitle: 'Vùng vượt ngưỡng (µg/m³)',
   thresholdNotice: ' Màu vùng theo ngưỡng; nơi không vượt được làm nhạt.',
+  comparisonNotice: ' Gió và khối nhà thuộc run gốc.',
   defaultAttribution: 'OpenStreetMap contributors; OpenFreeMap/OpenMapTiles',
 };
 export default exportCopy;

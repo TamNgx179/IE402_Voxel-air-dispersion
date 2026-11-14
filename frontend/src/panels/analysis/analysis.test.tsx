@@ -9,15 +9,11 @@ import { App } from '../../App';
 import { ApiError } from '../../api/client';
 import { useReportSnapshot } from '../../export/ExportProvider';
 import type { Report } from '../../export/report';
-import type { ApiFn } from '../../store/controller';
 import { createViewerStore } from '../../store/store';
-import { fakeApi } from '../../test/fixtures';
+import { routedApi } from '../../test/fixtures';
 import { createFakeMapFactory } from '../../test/fakeMap';
 import { PANELS } from '../index';
-import type { PanelDefinition, PanelProps } from '../types';
-import { analysisPanel } from './index';
-import { AnalysisApiContext } from './context';
-import { COMPARISON_ACTIVE_CLASS } from './compare';
+import type { PanelDefinition } from '../types';
 
 type Handler = (path: string, options?: { method?: string; body?: unknown; responseType?: string }) => Promise<unknown>;
 
@@ -74,25 +70,15 @@ function layerIds(overlay: { setProps: { mock: { calls: unknown[][] } } }) {
 
 async function setup(handler: Handler) {
   const calls: Array<[string, unknown]> = [];
-  const analysisApi = (async (path: string, options?: { body?: unknown }) => {
+  // Analysis endpoints go to the test handler; bootstrap and runs to fakeApi().
+  const api = routedApi(/^\/runs\/[^/]+\/(region|comparison)/, async (path, options) => {
     calls.push([path, typeof options?.body === 'string' ? JSON.parse(options.body) : undefined]);
     return handler(path, options);
-  }) as ApiFn;
-  function Wrapped(props: PanelProps) {
-    const Component = analysisPanel.Component;
-    return (
-      <AnalysisApiContext.Provider value={analysisApi}>
-        <Component {...props} />
-      </AnalysisApiContext.Provider>
-    );
-  }
-  const panels: PanelDefinition[] = [
-    ...PANELS.map((panel) => (panel.id === 'analysis' ? { ...panel, Component: Wrapped } : panel)),
-    { id: 'probe', icon: 'x', labelKey: 'common.close', Component: Probe },
-  ];
+  });
+  const panels: PanelDefinition[] = [...PANELS, { id: 'probe', icon: 'x', labelKey: 'common.close', Component: Probe }];
   const store = createViewerStore();
   const fake = createFakeMapFactory();
-  render(<App store={store} api={fakeApi()} mapFactory={fake.factory} panels={panels} />);
+  render(<App store={store} api={api} mapFactory={fake.factory} panels={panels} />);
   await waitFor(() => expect(store.getState().selectedRunId).toBe('real-run'));
   await frame();
   let zoom = true;
@@ -110,6 +96,8 @@ async function setup(handler: Handler) {
 }
 
 const el = (id: string) => document.getElementById(id) as HTMLElement;
+/** The core concentration legend (hidden while a comparison view replaces the layer). */
+const legendShown = () => ['legend-title', 'legend', 'legend-labels'].map((id) => !el(id).hidden);
 const typeInto = (id: string, value: string) => fireEvent.change(el(id), { target: { value } });
 
 async function chooseRegion(ui: Awaited<ReturnType<typeof setup>>) {
@@ -321,7 +309,7 @@ describe('analysis panel: compare and mode switching', () => {
     expect(el('comparison-note')).toHaveTextContent('Choose a map view to turn on the comparison.');
     fireEvent.change(screen.getByLabelText('Comparison result'), { target: { value: 'mock-run' } });
     expect((screen.getByLabelText('Show on the map') as HTMLSelectElement).value).toBe('delta');
-    expect(document.body).toHaveClass(COMPARISON_ACTIVE_CLASS);
+    expect(legendShown()).toEqual([false, false, false]);
     expect(el('comparison-note')).toHaveAttribute('aria-busy', 'true');
     expect(() => snapshot!()).toThrow('compare.waitForComparison');
     await waitFor(() => expect(el('comparison-note')).toHaveTextContent('The system could not process the request.'));
@@ -350,6 +338,12 @@ describe('analysis panel: compare and mode switching', () => {
     expect(report.mode).toBe('Difference: comparison − baseline');
     expect(report.legend.title).toBe('ΔC (µg/m³, symmetric linear scale)');
     expect(report.notice).toMatch(/ Wind and buildings belong to the baseline run\.$/);
+    expect(report.notice.startsWith('Model illustration; does not replace the original CSV data or monitoring. Wind ')).toBe(true);
+    // Threshold colouring is not shown while comparing: no threshold notice/legend.
+    act(() => ui.store.dispatch({ type: 'threshold/toggle', key: 'who_24h', enabled: true }));
+    const withThreshold = snapshot!();
+    expect(withThreshold.notice).toBe(report.notice);
+    expect(withThreshold.legend).toEqual(report.legend);
 
     act(() => screen.getByRole('button', { name: 'Switch language to Vietnamese' }).click());
     expect(el('comparison-result')).toHaveTextContent('Kết quả so sánh cao hơn gốc 1 µg/m³ ở tầng này.');
@@ -384,11 +378,11 @@ describe('analysis panel: compare and mode switching', () => {
     expect(el('analysis-compare-mode')).toHaveAttribute('aria-pressed', 'true');
 
     fireEvent.change(screen.getByLabelText('Show on the map'), { target: { value: 'delta' } });
-    expect(document.body).toHaveClass(COMPARISON_ACTIVE_CLASS);
+    expect(legendShown()).toEqual([false, false, false]);
     act(() => ui.panel().getByRole('button', { name: 'Region' }).click());
     expect(el('analysis-mode-compare')).not.toBeVisible();
     expect((screen.getByLabelText('Show on the map') as HTMLSelectElement).value).toBe('off');
-    expect(document.body).not.toHaveClass(COMPARISON_ACTIVE_CLASS);
+    expect(legendShown()).toEqual([true, true, true]);
 
     // Closing the tool panel also cancels drawing.
     act(() => ui.panel().getByRole('button', { name: 'Draw region' }).click());

@@ -11,6 +11,7 @@ const exportCopy = {
   legendTitle: 'Concentration (µg/m³, log scale)',
   thresholdLegendTitle: 'Exceedance areas (µg/m³)',
   thresholdNotice: ' Areas are coloured by threshold; areas below it are faded.',
+  comparisonNotice: ' Wind and buildings belong to the baseline run.',
   defaultAttribution: 'OpenStreetMap contributors; OpenFreeMap/OpenMapTiles',
 } as const;
 export default exportCopy;

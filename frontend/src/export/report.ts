@@ -122,7 +122,11 @@ export function buildReport(input: ReportInput): Report {
       labels: legendValues(scale).map((v) => formatNumber(v)),
     },
   };
-  if (thresholds.length) {
+  // A contributed comparison replaces the concentration layer (and its threshold
+  // colouring): the notice then says wind and buildings belong to the baseline run.
+  const comparing = input.contributions.report.comparison != null;
+  if (comparing) report.notice += t('export.comparisonNotice');
+  else if (thresholds.length) {
     report.legend = {
       title: t('export.thresholdLegendTitle'),
       categories: thresholds.map((th) => ({ label: `${th.label}: > ${th.value}`, color: `rgb(${thresholdColour(th.key).join(',')})` })),

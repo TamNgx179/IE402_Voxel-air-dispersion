@@ -1,5 +1,5 @@
 /** Shared test fixtures: a 2×2×3 study area and an in-memory API. */
-import { ApiError } from '../api/client';
+import { ApiError, type RequestOptions } from '../api/client';
 import type { ApiFn } from '../store/controller';
 
 export const fixtureArea = {
@@ -68,3 +68,19 @@ export function fakeApi(overrides: Record<string, unknown> = {}): ApiFn & { call
   return fn;
 }
 
+
+/**
+ * An App `api` that sends matching requests to `handler` and everything else to
+ * `base` (default `fakeApi()`), e.g. a panel's POST endpoints next to the bootstrap:
+ *
+ *   <App api={routedApi(/^\/runs\/[^/]+\/region/, async () => regionData)} … />
+ */
+export function routedApi(
+  match: RegExp | ((path: string, options?: RequestOptions) => boolean),
+  handler: (path: string, options?: RequestOptions) => Promise<unknown>,
+  base: ApiFn = fakeApi(),
+): ApiFn {
+  const matches = typeof match === 'function' ? match : (path: string) => match.test(path);
+  return (async (path: string, options?: RequestOptions) =>
+    matches(path, options) ? handler(path, options) : base(path, options)) as ApiFn;
+}

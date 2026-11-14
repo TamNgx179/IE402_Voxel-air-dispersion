@@ -6,7 +6,6 @@
 import type { PickingInfo } from '@deck.gl/core';
 import { GeoJsonLayer, PathLayer } from '@deck.gl/layers';
 import { useCallback, useEffect, useMemo, useRef, useState, type ChangeEvent } from 'react';
-import { api } from '../../../api/client';
 import type { Feature, Geometry, Position } from '../../../api/geojson';
 import type { RoadProperties } from '../../../api/types';
 import { HelpTrigger } from '../../../components/Help';
@@ -29,6 +28,7 @@ import { latestTask, throwKeyed } from '../../../lib/analysis';
 import { runLabel } from '../../../lib/labels';
 import { useMapClick, useMapInstance, useMapLayers } from '../../../map/hooks';
 import { selectExact, selectGrid, selectZ } from '../../../store/selectors';
+import { useApi } from '../../../store/controller';
 import { useViewer } from '../../../store/store';
 import { fromError, renderMsg, type Msg } from '../transect/message';
 
@@ -79,6 +79,7 @@ const present = (value: unknown): boolean =>
 
 export function CorridorPanel({ active }: CorridorPanelProps) {
   const { t, formatNumber } = useI18n();
+  const api = useApi();
   const runId = useViewer((s) => s.selectedRunId);
   const runs = useViewer((s) => s.runs);
   const modified = !useViewer(selectExact);

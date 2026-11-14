@@ -6,7 +6,7 @@ import { ApiError } from '../../../api/client';
 import type { MapFactory } from '../../../map/MapView';
 import type { PanelDefinition, PanelProps } from '../../types';
 import { createViewerStore } from '../../../store/store';
-import { fakeApi } from '../../../test/fixtures';
+import { routedApi } from '../../../test/fixtures';
 import { createFakeMapFactory } from '../../../test/fakeMap';
 import type { TransectResult } from '../../../lib/transect';
 import { TransectPanel } from './TransectPanel';
@@ -21,15 +21,6 @@ function Exporter() {
 const exporterPanel: PanelDefinition = { id: 'exporter', icon: 'x', labelKey: 'transect.title', Component: () => null, Persistent: Exporter };
 
 type Handler = (path: string, options?: { body?: unknown; method?: string }) => Promise<unknown>;
-const panelApi = vi.hoisted(() => ({ handler: null as null | ((path: string, options?: unknown) => Promise<unknown>) }));
-vi.mock('../../../api/client', async (importOriginal) => {
-  const actual = await importOriginal<typeof import('../../../api/client')>();
-  return {
-    ...actual,
-    api: (path: string, options?: unknown) =>
-      panelApi.handler ? panelApi.handler(path, options) : Promise.reject(new Error('no handler')),
-  };
-});
 
 const result: TransectResult = {
   run_id: 'real-run',
@@ -76,7 +67,6 @@ beforeEach(() => {
 });
 afterEach(() => {
   HTMLCanvasElement.prototype.getContext = originalGetContext;
-  panelApi.handler = null;
 });
 
 function layerIds(overlay: { setProps: { mock: { calls: unknown[][] } } }) {
@@ -88,11 +78,11 @@ const tick = () => act(async () => new Promise<void>((resolve) => setTimeout(res
 
 async function setup(handler: Handler = async () => structuredClone(result)) {
   const calls: Array<[string, unknown]> = [];
-  panelApi.handler = (path, options) => {
+  const api = routedApi(/^\/runs\/[^/]+\/transect/, (path, options) => {
     const o = options as { body?: string } | undefined;
     calls.push([path, o?.body ? JSON.parse(o.body) : undefined]);
     return handler(path, options as never);
-  };
+  });
   const store = createViewerStore();
   const fake = createFakeMapFactory();
   let zoom = true;
@@ -103,7 +93,7 @@ async function setup(handler: Handler = async () => structuredClone(result)) {
     });
     return made;
   };
-  render(<App store={store} api={fakeApi()} mapFactory={factory} panels={[transectTestPanel, exporterPanel]} />);
+  render(<App store={store} api={api} mapFactory={factory} panels={[transectTestPanel, exporterPanel]} />);
   await waitFor(() => expect(store.getState().selectedRunId).toBe('real-run'));
   act(() => store.dispatch({ type: 'panel/open', id: 'transect-test' }));
   await frame();

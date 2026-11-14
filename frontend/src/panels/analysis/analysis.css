@@ -6,10 +6,3 @@
   margin-top: 0;
   padding-top: 0;
 }
-
-/* While a comparison view is on, the core concentration legend does not describe the map. */
-body.analysis-comparison-active #legend,
-body.analysis-comparison-active #legend-title,
-body.analysis-comparison-active #legend-labels {
-  display: none;
-}

@@ -1,29 +1,17 @@
 /** UI flows of the road corridor analysis (mirrors web/tests/viewer-corridor.test.cjs). */
 import { act, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
-import { afterEach, describe, expect, test, vi } from 'vitest';
+import { describe, expect, test, vi } from 'vitest';
 import { App } from '../../../App';
 import { ApiError } from '../../../api/client';
 import { useReportSnapshot } from '../../../export/ExportProvider';
 import type { Report } from '../../../export/report';
 import type { MapFactory } from '../../../map/MapView';
 import { createViewerStore } from '../../../store/store';
-import { fakeApi } from '../../../test/fixtures';
+import { fakeApi, routedApi } from '../../../test/fixtures';
 import { createFakeMapFactory } from '../../../test/fakeMap';
 import type { PanelDefinition, PanelProps } from '../../types';
 import { CorridorPanel, type CorridorBand } from './CorridorPanel';
 
-const panelApi = vi.hoisted(() => ({ handler: null as null | ((path: string, options?: unknown) => Promise<unknown>) }));
-vi.mock('../../../api/client', async (importOriginal) => {
-  const actual = await importOriginal<typeof import('../../../api/client')>();
-  return {
-    ...actual,
-    api: (path: string, options?: unknown) =>
-      panelApi.handler ? panelApi.handler(path, options) : Promise.reject(new Error('no handler')),
-  };
-});
-afterEach(() => {
-  panelApi.handler = null;
-});
 
 const roads = [
   { type: 'Feature', geometry: { type: 'LineString', coordinates: [[106.7, 10.77], [106.701, 10.77]] }, properties: { source_feature_id: 'a', road_class: 'primary', emission_share: 0.1 } },
@@ -78,11 +66,15 @@ const tick = () => act(async () => new Promise<void>((resolve) => setTimeout(res
 
 async function setup(handler: (path: string, body: Body) => Promise<unknown> = async (_p, body) => response(body)) {
   const calls: Array<[string, Body]> = [];
-  panelApi.handler = (path, options) => {
-    const body = JSON.parse((options as { body: string }).body) as Body;
-    calls.push([path, body]);
-    return handler(path, body);
-  };
+  const api = routedApi(
+    /^\/runs\/[^/]+\/road-corridor/,
+    (path, options) => {
+      const body = JSON.parse((options as { body: string }).body) as Body;
+      calls.push([path, body]);
+      return handler(path, body);
+    },
+    fakeApi({ '/study-areas/area-1/scene': scene }),
+  );
   const store = createViewerStore();
   const fake = createFakeMapFactory();
   let zoom = true;
@@ -94,7 +86,7 @@ async function setup(handler: (path: string, body: Body) => Promise<unknown> = a
     });
     return made;
   };
-  render(<App store={store} api={fakeApi({ '/study-areas/area-1/scene': scene })} mapFactory={factory} panels={panels} />);
+  render(<App store={store} api={api} mapFactory={factory} panels={panels} />);
   await waitFor(() => expect(store.getState().selectedRunId).toBe('real-run'));
   act(() => store.dispatch({ type: 'panel/open', id: 'corridor-test' }));
   await frame();

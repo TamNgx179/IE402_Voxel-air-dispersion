@@ -4,6 +4,7 @@
  *   useMapLayers(id, layers, options?)  contribute deck.gl layers
  *   useMapClick(handler, options?)      receive map clicks; `drawing: true` claims the map
  *   useIsDrawing()                      true while any drawing claim is active
+ *   useConcentrationSuppressed()        true while a contribution hides the concentration layer
  *   useMapInstance()                    { map, overlay } once the map exists, else null
  */
 import type { MapboxOverlay } from '@deck.gl/mapbox';
@@ -117,6 +118,15 @@ export function useMapClick(handler: (event: MapClickEvent) => void, options: Ma
 export function useIsDrawing(): boolean {
   const registry = useMapRegistry();
   return useSyncExternalStore(registry.subscribe, () => registry.isDrawing(), () => registry.isDrawing());
+}
+
+/**
+ * True while any contribution passes `suppressConcentration` (e.g. the comparison
+ * view). The core legend hides itself then, since it describes the hidden layer.
+ */
+export function useConcentrationSuppressed(): boolean {
+  const registry = useMapRegistry();
+  return useSyncExternalStore(registry.subscribe, () => registry.concentrationSuppressed(), () => registry.concentrationSuppressed());
 }
 
 export type { MapClickEvent, LayerSlot, LayerList } from './registry';

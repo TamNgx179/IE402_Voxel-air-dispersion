@@ -11,7 +11,6 @@ import { GeoJsonLayer } from '@deck.gl/layers';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { AppError } from '../../../api/client';
 import { HelpTrigger } from '../../../components/Help';
-import { usePrefersReducedMotion } from '../../../components/usePrefersReducedMotion';
 import { useExportContribution } from '../../../export/ExportProvider';
 import type { ReportLegend } from '../../../export/report';
 import { useI18n } from '../../../i18n';
@@ -20,8 +19,9 @@ import { comparisonLegend } from '../../../lib/export';
 import { runLabel } from '../../../lib/labels';
 import { useIsDrawing, useMapLayers } from '../../../map/hooks';
 import { selectCurrentRun, selectExact, selectZ } from '../../../store/selectors';
+import { useApi } from '../../../store/controller';
 import { useViewer } from '../../../store/store';
-import { useAnalysisApi, useAnalysisMode } from '../context';
+import { useAnalysisMode } from '../context';
 import { useAnalysisNumber } from '../Metrics';
 import { useRenderMessage, type PanelMessage } from '../messages';
 import type { AnalysisModeDefinition, AnalysisModeProps } from '../modes';
@@ -36,14 +36,11 @@ const FIELD = {
   delta: 'delta_ug_m3',
 } as const;
 
-/** Body class that hides the core concentration legend while a comparison view is on. */
-export const COMPARISON_ACTIVE_CLASS = 'analysis-comparison-active';
-
 function CompareMode(_props: AnalysisModeProps) {
   const { t, formatInteger } = useI18n();
   const render = useRenderMessage();
   const number = useAnalysisNumber('compare.noData');
-  const api = useAnalysisApi();
+  const api = useApi();
   const mode = useAnalysisMode();
   const drawing = useIsDrawing();
   const runId = useViewer((s) => s.selectedRunId);
@@ -112,13 +109,6 @@ function CompareMode(_props: AnalysisModeProps) {
     return () => void current.invalidate();
   }, []);
 
-  // The core legend describes the concentration layer, which is hidden while comparing.
-  useEffect(() => {
-    if (!comparing) return;
-    document.body.classList.add(COMPARISON_ACTIVE_CLASS);
-    return () => document.body.classList.remove(COMPARISON_ACTIVE_CLASS);
-  }, [comparing]);
-
   const retry = () => {
     if (!runId || !pair) return;
     task.current.invalidate();
@@ -167,12 +157,10 @@ function CompareMode(_props: AnalysisModeProps) {
       }),
     ];
   }, [comparing, payload, view, z, drawing]);
+  // Also hides the core legend (it describes the concentration layer).
   useMapLayers('analysis-comparison', layers, { suppressConcentration: comparing });
 
   // ---------------------------------------------------------------- export
-  const reducedMotion = usePrefersReducedMotion();
-  const wind = useViewer((s) => s.layers.wind);
-  const windPaused = useViewer((s) => s.windPaused);
   useExportContribution(
     'comparison',
     () => {
@@ -244,29 +232,18 @@ function CompareMode(_props: AnalysisModeProps) {
       >
         {t('compare.retry')}
       </button>
-      {comparing && valid && <ComparisonExport payload={valid} view={view} wind={wind} windPaused={windPaused} reducedMotion={reducedMotion} />}
+      {comparing && valid && <ComparisonExport payload={valid} view={view} />}
     </section>
   );
 }
 
 /**
- * Report overrides while a comparison is exported (legacy reportSnapshot): mode,
- * comparison legend and notice. Mounted only while a valid comparison is shown, so
- * the core report is untouched otherwise.
+ * Report overrides while a comparison is exported (legacy reportSnapshot): mode and
+ * comparison legend (buildReport adds the comparison notice itself when `comparison`
+ * is contributed). Mounted only while a valid comparison is shown, so the core
+ * report is untouched otherwise.
  */
-function ComparisonExport({
-  payload,
-  view,
-  wind,
-  windPaused,
-  reducedMotion,
-}: {
-  payload: ComparisonPayload;
-  view: ComparisonView;
-  wind: boolean;
-  windPaused: boolean;
-  reducedMotion: boolean;
-}) {
+function ComparisonExport({ payload, view }: { payload: ComparisonPayload; view: ComparisonView }) {
   const { t, formatNumber } = useI18n();
   useExportContribution('mode', () => t(`compare.report.${view as Exclude<ComparisonView, 'off'>}`), { target: 'report' });
   useExportContribution(
@@ -279,15 +256,6 @@ function ComparisonExport({
         ...(keyed.categories ? { categories: keyed.categories.map((c) => ({ label: t(c.labelKey), color: c.color })) } : {}),
         labels: keyed.labels,
       };
-    },
-    { target: 'report' },
-  );
-  useExportContribution(
-    'notice',
-    () => {
-      const windText = !wind ? t('export.windHidden') : windPaused || reducedMotion ? t('export.windPaused') : t('export.windMoving');
-      // Threshold colouring is not shown while comparing, so no threshold notice.
-      return t('export.notice', { wind: windText }) + t('compare.report.notice');
     },
     { target: 'report' },
   );

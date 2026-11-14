@@ -3,10 +3,11 @@ import { useMemo } from 'react';
 import { describe, expect, test } from 'vitest';
 import { PathLayer } from '@deck.gl/layers';
 import { App } from './App';
-import { ApiError } from './api/client';
+import { ApiError, api as realApi } from './api/client';
 import { useMapClick, useMapLayers } from './map/hooks';
 import { PANELS } from './panels';
 import type { PanelDefinition, PanelProps } from './panels/types';
+import { useApi, type ApiFn } from './store/controller';
 import { createViewerStore } from './store/store';
 import { fakeApi } from './test/fixtures';
 import { createFakeMapFactory } from './test/fakeMap';
@@ -149,6 +150,22 @@ describe('viewer shell', () => {
     expect(report.metadata.z_center_m).toBe(1);
     expect(report.metadata.road_corridor).toEqual({ bands: [10, 25] });
     expect(Object.keys(report.metadata.layers as object)).toEqual(['buildings', 'facades', 'roads', 'wind', 'wind_paused', 'grid']);
+  });
+
+  test('panels reach the App api through useApi(); without a provider it is the real client', async () => {
+    let seen: ApiFn | null = null;
+    const probe: PanelDefinition = { id: 'api-probe', icon: 'x', labelKey: 'common.close', Component: () => ((seen = useApi()), null) };
+    const api = fakeApi();
+    const store = createViewerStore();
+    render(<App store={store} api={api} mapFactory={createFakeMapFactory().factory} panels={[probe]} />);
+    await waitFor(() => expect(store.getState().selectedRunId).toBe('real-run'));
+    expect(seen).toBe(api);
+    function Outside() {
+      seen = useApi();
+      return null;
+    }
+    render(<Outside />);
+    expect(seen).toBe(realApi);
   });
 
   test('unmount removes the map and finalizes the overlay', async () => {

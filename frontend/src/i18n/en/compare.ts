@@ -43,6 +43,5 @@ const compare = {
   'report.baseline': 'Baseline result',
   'report.comparison': 'Comparison result',
   'report.delta': 'Difference: comparison − baseline',
-  'report.notice': ' Wind and buildings belong to the baseline run.',
 } as const;
 export default compare;

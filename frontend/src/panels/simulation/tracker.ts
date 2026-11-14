@@ -2,7 +2,8 @@
  * Simulation run creation and tracking (port of web/app.js createRun/trackRun).
  *
  * One tracker exists per viewer store (WeakMap), so the panel body and the
- * always-visible progress block share it, and each test App gets a fresh one.
+ * always-visible progress block share it, and each test App gets a fresh one. It
+ * uses the viewer's REST function (`useApi()`, i.e. the `api` given to `<App>`).
  *
  * Guarantees:
  * - `create()` sends exactly one POST per user action and is never retried here. The
@@ -13,7 +14,7 @@
  * - The active run id survives reloads (sessionStorage `voxel-active-run`).
  * - All user-facing text is stored as i18n keys (language switches keep state).
  */
-import { ApiError, api as defaultApi, errorMessage } from '../../api/client';
+import { ApiError, errorMessage } from '../../api/client';
 import type { RunAccepted, RunStatus, RunView } from '../../api/types';
 import type { TranslationKey, TranslationParams } from '../../i18n';
 import type { ApiFn, ViewerActions } from '../../store/controller';
@@ -256,24 +257,22 @@ export function createSimulationTracker(store: ViewerStore, options: TrackerOpti
 }
 
 const trackers = new WeakMap<ViewerStore, SimulationTracker>();
-const pendingOptions = new WeakMap<ViewerStore, Partial<TrackerOptions>>();
+const pendingSleep = new WeakMap<ViewerStore, TrackerOptions['sleep']>();
 
-const defaultOptions: TrackerOptions = {
-  api: defaultApi,
-  sleep: (ms) => new Promise((resolve) => setTimeout(resolve, ms)),
-};
+const defaultSleep: TrackerOptions['sleep'] = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
 
-/** Inject the API/sleep for a store before its tracker is first used (tests). */
-export function configureSimulationTracker(store: ViewerStore, options: Partial<TrackerOptions>) {
+/** Inject the poll delay for a store before its tracker is first used (tests). */
+export function configureSimulationTracker(store: ViewerStore, options: { sleep: TrackerOptions['sleep'] }) {
   trackers.get(store)?.dispose();
   trackers.delete(store);
-  pendingOptions.set(store, options);
+  pendingSleep.set(store, options.sleep);
 }
 
-export function trackerFor(store: ViewerStore): SimulationTracker {
+/** The store's tracker, created on first use with `api` (from `useApi()`). */
+export function trackerFor(store: ViewerStore, api: ApiFn): SimulationTracker {
   let tracker = trackers.get(store);
   if (!tracker) {
-    tracker = createSimulationTracker(store, { ...defaultOptions, ...pendingOptions.get(store) });
+    tracker = createSimulationTracker(store, { api, sleep: pendingSleep.get(store) ?? defaultSleep });
     trackers.set(store, tracker);
   }
   return tracker;

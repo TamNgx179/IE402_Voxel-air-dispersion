@@ -3,6 +3,7 @@ import { useMemo } from 'react';
 import { useI18n } from '../i18n';
 import { activeThresholds, colourScale, legendValues, position, rampGradient } from '../lib/concentration';
 import { milestones } from '../lib/heightMarks';
+import { useConcentrationSuppressed } from '../map/hooks';
 import { runLabel } from '../lib/labels';
 import { useViewerActions } from '../store/controller';
 import { selectCurrentRun, selectExact } from '../store/selectors';
@@ -127,22 +128,24 @@ export function Legend() {
   const exact = useViewer(selectExact);
   const thresholds = useViewer((s) => s.bootstrap.data?.thresholds);
   const enabled = useViewer((s) => s.thresholdsEnabled);
+  // The legend describes the concentration layer; hide it while a panel replaces that layer.
+  const hidden = useConcentrationSuppressed();
   const scale = colourScale(run?.volume.scale, display);
   const markers = activeThresholds(thresholds ?? {}, enabled)
     .map((threshold) => ({ ...threshold, p: position(threshold.value, scale) }))
     .filter((m) => m.p >= 0 && m.p <= 1);
   return (
     <>
-      <div className="legend-title" id="legend-title">
+      <div className="legend-title" id="legend-title" hidden={hidden}>
         {t('viewer.legendTitle')}
         {exact ? '' : t('viewer.legendAdjusted', { multiplier: formatNumber(display.multiplier), background: formatNumber(display.background) })}
       </div>
-      <div className="legend" id="legend" style={{ background: `linear-gradient(90deg, ${rampGradient()})` }}>
+      <div className="legend" id="legend" hidden={hidden} style={{ background: `linear-gradient(90deg, ${rampGradient()})` }}>
         {markers.map((m) => (
           <span key={m.key} className="legend-marker" style={{ left: `${m.p * 100}%` }} title={m.label} />
         ))}
       </div>
-      <div className="legend-labels" id="legend-labels">
+      <div className="legend-labels" id="legend-labels" hidden={hidden}>
         {legendValues(scale).map((value, index) => (
           <span key={index}>{formatNumber(value)}</span>
         ))}
