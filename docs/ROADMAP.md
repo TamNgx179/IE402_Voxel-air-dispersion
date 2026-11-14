@@ -2,7 +2,7 @@
 
 ## Upgrade work allocation
 
-Tâm owns implementation and engineering acceptance for all four parts. Part 1 has a tested API, CSV and SQL benchmark. Parts 2–4 are deferred to a later implementation round. The baseline milestones below preserve the earlier assignments.
+Tâm owns implementation and engineering acceptance for all four parts. Part 1 has a tested API, CSV and SQL benchmark. Part 2 is implemented in `frontend/` (React + TypeScript, English default, Vietnamese selectable; see `frontend/README.md`) and is pending browser acceptance and the full CI/Docker run. Parts 3–4 are deferred to a later implementation round. The baseline milestones below preserve the earlier assignments.
 
 | Part | Tâm's deliverable |
 | --- | --- |

@@ -36,12 +36,12 @@ src/
 ├── panels/                    # tool panels — ONE directory per panel, ONE registry file
 │   ├── index.ts               # PANELS registry (the only shared file)
 │   ├── types.ts               # PanelDefinition / PanelProps
-│   ├── simulation/            # placeholder
-│   ├── map-options/           # placeholder
-│   ├── stats/                 # placeholder
+│   ├── simulation/            # run creation (one POST) and progress tracking
+│   ├── map-options/           # layer toggles, run evidence, PNG/CSV/JSON export
+│   ├── stats/                 # layer stats, threshold cards, selected-cell profile
 │   ├── analysis/              # host with sub-mode switch; modes.ts registry
-│   │   ├── region/ compare/ transect/ corridor/   # placeholders
-│   └── illustration/          # complete reference panel
+│   │   ├── region/ compare/ transect/ corridor/   # the four analysis modes
+│   └── illustration/          # display multiplier/background (smallest panel)
 ├── styles/viewer.css          # verbatim copy of web/styles.css (legacy ids/classes kept)
 ├── styles/app.css             # React-only additions
 └── test/                      # setup, fixtures (fakeApi), fakeMap
@@ -51,7 +51,7 @@ public/vendor/bootstrap-icons  # copied from web/vendor (offline icon font)
 Shared files that panel work should **not** need to touch: `App.tsx`, `store/*`,
 `map/*`, `export/*`, `components/*`, `i18n/index.tsx`. Each panel owns its directory
 and its i18n namespace files. The only shared edits are one line in
-`panels/index.ts` (already present for the four placeholder panels) and, for a
+`panels/index.ts` (one entry per panel) and, for a
 brand-new namespace, two lines in `i18n/dictionaries.ts`.
 
 ## Store
@@ -201,7 +201,7 @@ interface PanelDefinition {
 }
 ```
 
-- Each placeholder exports a fixed name (`simulationPanel`, `mapOptionsPanel`, `statsPanel`, `analysisPanel`) from `panels/<name>/index.tsx`. Replace the component, keep the export name and `id`.
+- Each panel exports a fixed name (`simulationPanel`, `mapOptionsPanel`, `statsPanel`, `analysisPanel`, `illustrationPanel`) from `panels/<name>/index.tsx`; analysis modes export `regionMode`, `compareMode`, `transectMode`, `corridorMode`. Keep export names and `id`s stable.
 - The host renders every panel **always mounted** inside `<section class="tool-panel" id={elementId} hidden={!active}>`, so state survives tool switches. Use `active` to stop work when hidden (cancel drawing, disable click claims).
 - Legacy DOM ids are preserved for CSS: `simulation-options`, `map-options`, `analysis-details` (stats), `spatial-analysis` (analysis), `illustration-options`. Rules in `styles/viewer.css` such as `#analysis-details .stat` therefore still apply. Put panel-specific CSS in your directory (`import './panel.css'`).
 - Open a panel from code: `dispatch({ type: 'panel/open', id: 'map-options' })`. A cell click opens `stats`; a building click opens `map-options` and sets `selectedBuildingId`.
