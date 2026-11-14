@@ -61,6 +61,31 @@ def height_variant(config: dict, factor: float, out: Path):
     config['paths']['scene_package_dir']=str(target)
 
 
+def extend_top(config: dict, out: Path, extra_layers: int = 25) -> None:
+    """Raise the top boundary while keeping the existing mask and ground source."""
+    scene = REPO_ROOT / config['paths']['scene_package_dir']
+    target = out / 'scene'
+    shutil.copytree(scene, target)
+    manifest_path = target / 'scene_manifest.json'
+    manifest = json.loads(manifest_path.read_text(encoding='utf-8'))
+    grid = manifest['grid']
+    grid['nz'] += extra_layers
+    top = grid['nz'] * grid['dz_m']
+    manifest['sensitivity'] = {'top_m': top, 'added_air_layers': extra_layers}
+    manifest_path.write_text(json.dumps(manifest, indent=2), encoding='utf-8')
+    config['domain']['vertical']['max_m'] = top
+    config['paths']['scene_package_dir'] = str(target)
+    source_path = REPO_ROOT / config['paths']['emission_source_transport_netcdf']
+    with xr.open_dataset(source_path) as source:
+        z = (np.arange(grid['nz']) + 0.5) * grid['dz_m']
+        variable = source['S']
+        if not np.array_equal(variable.z.values, z[:-extra_layers]):
+            raise ValueError('Source coordinates do not match the original vertical grid')
+        extended = variable.reindex(z=z, fill_value=0)
+        extended.to_dataset(name='S').to_netcdf(out / 'source.nc')
+    config['paths']['emission_source_transport_netcdf'] = str(out / 'source.nc')
+
+
 def execute(config: dict, case: str, root: Path) -> dict:
     run_id = str(uuid.uuid4())
     out = root / case / run_id
@@ -71,6 +96,8 @@ def execute(config: dict, case: str, root: Path) -> dict:
     config['wind']['poisson_method'] = 'cg'
     if case in ('height_low','height_high'):
         height_variant(config,.8 if case=='height_low' else 1.2,out)
+    if case == 'top_high':
+        extend_top(config, out)
     if case == 'k_half':
         for name in ('horizontal_diffusivity_m2_s', 'vertical_diffusivity_m2_s'):
             config['transport'][name] *= .5
@@ -135,7 +162,9 @@ def main():
     parser=argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--config',default='config/project.yaml')
     parser.add_argument('--out',default='artifacts/production-study')
-    parser.add_argument('--cases',nargs='+',choices=['dry','wet','k_half','height_low','height_high'],default=['dry','wet','k_half','height_low','height_high'])
+    parser.add_argument('--cases', nargs='+',
+                        choices=['dry', 'wet', 'k_half', 'height_low', 'height_high', 'top_high'],
+                        default=['dry', 'wet', 'k_half', 'height_low', 'height_high'])
     args=parser.parse_args()
     config=yaml.safe_load((REPO_ROOT/args.config).read_text(encoding='utf-8'))
     root=REPO_ROOT/args.out
