@@ -3,6 +3,7 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import type { INestApplication } from '@nestjs/common';
 import request from 'supertest';
+import { SimulationExecutionRepository } from '../src/modules/simulation/repositories/simulation-execution.repository.js';
 import {
   createTestApp,
   FAKE_SOLVER,
@@ -186,6 +187,26 @@ describe.skipIf(!db.ok)('SimulationExecutor (e2e, fake solver)', () => {
     expect(
       await pool.query('SELECT 1 FROM run_metrics WHERE run_id = $1', [id]),
     ).toMatchObject({ rowCount: 0 });
+  });
+
+  it('preserves a published success if failure is recorded after the commit', async () => {
+    const { id, run } = await runToEnd('ok');
+    expect(run.status).toBe('succeeded');
+    await app.get(SimulationExecutionRepository).persistFailure(id, 'system', 'commit response lost');
+    expect(await getRun(id)).toEqual(run);
+    const columns = await pool.query('SELECT i, j FROM concentration_columns WHERE run_id = $1', [id]);
+    expect(columns.rowCount).toBe(4);
+  });
+
+  it('keeps results unpublished when a checksummed artifact fails the database import', async () => {
+    const { id, run } = await runToEnd('invalid-column-length');
+    expect(run).toMatchObject({ status: 'failed', error: { kind: 'system' }, metrics: null });
+    expect(run.error.message).toMatch(/array_length/);
+    for (const table of ['concentration_columns', 'artifacts', 'run_metrics', 'verification_checks']) {
+      expect(await pool.query(`SELECT 1 FROM ${table} WHERE run_id = $1`, [id])).toMatchObject({
+        rowCount: 0,
+      });
+    }
   });
 
   it('exit 3 → failed/model, keeping the failed checks for diagnosis', async () => {

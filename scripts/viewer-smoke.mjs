@@ -1,7 +1,7 @@
 /** Headless Chrome/Edge smoke using Node's built-in DevTools WebSocket. */
 import { spawn } from 'node:child_process';
 import { existsSync } from 'node:fs';
-import { mkdir, readFile, writeFile } from 'node:fs/promises';
+import { mkdir, readdir, readFile, writeFile } from 'node:fs/promises';
 import { join, resolve, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { parseArgs } from 'node:util';
@@ -75,7 +75,7 @@ class DevTools {
   }
 }
 
-export async function browserSmoke({ base, out, timeout = 120_000 }) {
+export async function browserSmoke({ base, out, timeout = 120_000, legacy = false }) {
   const origin = new URL(base);
   assert(['127.0.0.1', 'localhost'].includes(origin.hostname), 'Browser smoke only accepts the local demo');
   await mkdir(out, { recursive: true });
@@ -112,7 +112,51 @@ export async function browserSmoke({ base, out, timeout = 120_000 }) {
     await client.send('Emulation.setDeviceMetricsOverride', {
       width: 1440, height: 1000, deviceScaleFactor: 1, mobile: false,
     });
-    // The legacy viewer moved to /legacy/ when the React build took over "/".
+    if (!legacy) {
+      await client.send('Page.navigate', { url: origin.href });
+      const evaluate = (expression) => client.evaluate(expression);
+      await waitUntil(() => evaluate(`Boolean(document.querySelector('#map canvas') &&
+        document.querySelector('#scenario-list')?.value &&
+        document.querySelector('#height-slider:not(:disabled)') &&
+        document.documentElement.lang === 'en')`), Boolean, { timeout, name: 'React viewer bootstrap' });
+      checks('React viewer loaded a real result in English');
+      await client.screenshot(join(out, 'scene-overview.png'));
+      const initial = await evaluate(`(() => {
+        document.querySelector('#height-marks button[data-index="12"]').click();
+        return document.querySelector('#scenario-list').value;
+      })()`);
+      await waitUntil(() => evaluate(`document.querySelector('#height-slider').value === '12'`),
+        Boolean, { name: '25 m layer' });
+      await evaluate(`document.querySelector('.lang-switch button[lang="vi"]').click()`);
+      await waitUntil(() => evaluate(`document.documentElement.lang === 'vi' &&
+        document.querySelector('#scenario-list').value === ${JSON.stringify(initial)} &&
+        document.querySelector('#height-slider').value === '12'`), Boolean, { name: 'Vietnamese and retained result' });
+      checks('Changing language retains the run and 25 m layer');
+      await client.send('Browser.setDownloadBehavior', { behavior: 'allow', downloadPath: out });
+      await evaluate(`document.querySelector('[data-tool-panel="map-options"]').click()`);
+      await waitUntil(() => evaluate(`Boolean(document.querySelector('#export-data:not(:disabled)'))`),
+        Boolean, { name: 'CSV export ready' });
+      await evaluate(`document.querySelector('#export-data').click()`);
+      const csv = await waitUntil(async () => {
+        const names = await readdir(out);
+        return names.find((name) => name.endsWith('.csv'));
+      }, Boolean, { name: 'browser CSV downloaded' });
+      assert((await readFile(join(out, csv), 'utf8')).trim().split(/\r?\n/).length > 1, 'CSV is empty');
+      checks('Browser downloaded a populated CSV');
+      await evaluate(`document.querySelector('#toggle-3d').click()`);
+      await waitUntil(() => evaluate(`document.querySelector('#toggle-3d').getAttribute('aria-pressed') === 'false'`),
+        Boolean, { name: '2D camera' });
+      checks('Camera switches to 2D');
+      await client.send('Emulation.setDeviceMetricsOverride', { width: 390, height: 844, deviceScaleFactor: 1, mobile: true });
+      assert(await evaluate(`document.documentElement.scrollWidth <= innerWidth`), 'Mobile viewport has horizontal overflow');
+      await client.screenshot(join(out, 'mobile-layout.png'));
+      checks('Mobile viewport fits without horizontal overflow');
+      assert(client.exceptions.length === 0, `Viewer JS exceptions: ${JSON.stringify(client.exceptions)}`);
+      report.exceptions = client.exceptions;
+      report.network_failures = client.networkFailures;
+      report.status = 'pass';
+      return report;
+    }
     await client.send('Page.navigate', { url: new URL('/legacy/', origin).href });
     await waitUntil(() => client.evaluate(`Boolean(document.querySelector('canvas') &&
       document.getElementById('scenario-list')?.options.length >= 2 &&
@@ -186,9 +230,10 @@ if (process.argv[1] && resolve(process.argv[1]) === fileURLToPath(import.meta.ur
   const { values } = parseArgs({ options: {
     base: { type: 'string', default: 'http://127.0.0.1:3001' },
     out: { type: 'string', default: 'artifacts/week7/browser' },
+    legacy: { type: 'boolean', default: false },
   } });
   const root = resolve(dirname(fileURLToPath(import.meta.url)), '..');
-  browserSmoke({ base: values.base, out: resolve(root, values.out) })
+  browserSmoke({ base: values.base, out: resolve(root, values.out), legacy: values.legacy })
     .then((report) => console.log(`Browser ${report.status}: ${report.checks.length} checks`))
     .catch((error) => { console.error(error.message); process.exitCode = 1; });
 }

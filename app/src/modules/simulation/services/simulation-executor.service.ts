@@ -63,6 +63,7 @@ export class SimulationExecutorService
   private child?: ChildProcess;
   private killedForShutdown = false;
   private lastPollError?: string;
+  private pendingFailure?: Parameters<SimulationExecutionRepository['persistFailure']>;
 
   constructor(
     private readonly execution: SimulationExecutionRepository,
@@ -129,6 +130,11 @@ export class SimulationExecutorService
       if (!this.recovered) {
         await this.recoverInterrupted();
         this.recovered = true;
+      }
+      if (this.pendingFailure) {
+        // The child has already stopped. Resolve its state before claiming another run.
+        await this.execution.persistFailure(...this.pendingFailure);
+        this.pendingFailure = undefined;
       }
       while (!this.stopping) {
         const run = await this.runs.claimNext();
@@ -392,7 +398,9 @@ export class SimulationExecutorService
     this.logger.warn(
       `run ${runId} → failed/${kind}: ${message.split('\n')[0]}`,
     );
-    await this.execution.persistFailure(runId, kind, message, manifest);
+    this.pendingFailure = [runId, kind, message, manifest];
+    await this.execution.persistFailure(...this.pendingFailure);
+    this.pendingFailure = undefined;
   }
 }
 
