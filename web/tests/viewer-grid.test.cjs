@@ -1,6 +1,6 @@
 const { test } = require("node:test");
 const assert = require("node:assert/strict");
-const { lines, outline, validCell } = require("../viewer-grid.js");
+const { lines, outline, validCell } = require("../map/viewer-grid.js");
 const grid = { nx: 100, ny: 100 },
   node = (i, j) => [106 + i * 0.00001, 10 + j * 0.00001];
 test("every grid boundary is drawn once, including outer edges, with 10-cell divisions", () => {

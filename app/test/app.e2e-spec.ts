@@ -88,11 +88,11 @@ describe('API (e2e)', () => {
   it.each([
     'app.js',
     'viewer-api.js',
-    'viewer-grid.js',
+    'map/viewer-grid.js',
     'viewer-analysis.js',
     'viewer-sidebar.js',
     'viewer-evidence.js',
-    'viewer-flow.js',
+    'map/viewer-flow.js',
     'building-appearance.js',
     'styles.css',
     'vendor/bootstrap-icons/bootstrap-icons.min.css',

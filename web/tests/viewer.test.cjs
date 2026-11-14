@@ -8,7 +8,7 @@ const {
   advance,
   rasterStyle,
   streamlet,
-} = require("../viewer-flow.js");
+} = require("../map/viewer-flow.js");
 const grid = { nx: 10, ny: 10, nz: 2, dx_m: 5, dy_m: 5, dz_m: 2 };
 test('building clicks during polygon drawing cannot switch tools or cancel the draft',()=>{
   const source=readFileSync(join(__dirname,'../app.js'),'utf8');

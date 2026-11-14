@@ -20,7 +20,7 @@ Có thể tắt Chi tiết mặt đứng để so sánh.
 
 ### LoD hiển thị — cập nhật 28/10/2026
 
-`viewer-lod.js` đã giảm geometry thực sự: xa không có mặt đứng phụ; giữa giữ khoảng
+`map/viewer-lod.js` đã giảm geometry thực sự: xa không có mặt đứng phụ; giữa giữ khoảng
 1/4 cửa sổ và không có khung; gần giữ chi tiết trong bounds đã nới theo pitch/height.
 Cache dựa trên mức LoD và ID nhà nhìn thấy để tránh nạp lại buffer khi chỉ xoay nhẹ.
 Số đo trước/sau và cách tái lập ở README; kiểm spec BR-52/AC-40.

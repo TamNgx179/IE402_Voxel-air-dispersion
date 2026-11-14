@@ -1,6 +1,6 @@
 """
-netCDF -> web/data export: quantisation error, geolocation, the data contract,
-the size budget, and the file:// constraint on the viewer.
+Research export: quantisation, geolocation, field contracts and output size.
+The product viewer uses the same-origin API.
 """
 
 from __future__ import annotations
@@ -192,7 +192,7 @@ def test_viewer_pins_exact_library_versions():
         assert re.fullmatch(r"\d+\.\d+\.\d+", version), f"unpinned version {version!r}"
 
 
-# --- AC-7 end to end: the committed export ---------------------------------
+# --- AC-7 end to end: generate the research export on demand ---------------
 
 def _read_global(path: Path) -> dict:
     text = path.read_text(encoding="utf-8")
@@ -200,19 +200,26 @@ def _read_global(path: Path) -> dict:
     return json.loads(body)
 
 
-@pytest.mark.skipif(not (WEB_DIR / "data" / "manifest.js").exists(), reason="run src/06_export_web.py first")
-def test_ac7_exported_package_is_under_budget_and_decodes():
+def test_ac7_exported_package_is_under_budget_and_decodes(tmp_path, monkeypatch):
     import yaml
 
-    budget = yaml.safe_load(CONFIG_PATH.read_text(encoding="utf-8"))["web"]["size_budget_bytes"]
-    files = list((WEB_DIR / "data").glob("*.js"))
-    assert sum(f.stat().st_size for f in files) < budget
+    config = yaml.safe_load(CONFIG_PATH.read_text(encoding="utf-8"))
+    config["web"]["output_dir"] = str(tmp_path)
+    field = _field_on("EPSG:32648", 686012.54, 1191324.79)
+    field.concentration[0, 0, 0] = 10.0
+    field.attrs.update(scenario="fixture", model="gaussian", wind_from_deg=90.0, wind_speed_m_s=1.0)
+    monkeypatch.setattr(wx, "load_scenario", lambda *_: field)
+    monkeypatch.setattr(wx, "export_buildings", lambda _: {"type": "FeatureCollection", "features": []})
+    monkeypatch.setattr(wx, "export_roads", lambda _: None)
+    summary = wx.export_web(config)
+    assert summary["total_bytes"] == sum(f.stat().st_size for f in tmp_path.glob("*.js"))
+    assert summary["total_bytes"] < config["web"]["size_budget_bytes"]
 
-    manifest = _read_global(WEB_DIR / "data" / "manifest.js")
+    manifest = _read_global(tmp_path / "manifest.js")
     grid = manifest["grid"]
 
     for entry in manifest["scenarios"]:
-        text = (WEB_DIR / "data" / entry["file"]).read_text(encoding="utf-8")
+        text = (tmp_path / entry["file"]).read_text(encoding="utf-8")
         payload = json.loads(text[text.rindex("] = ") + 4 :].strip().rstrip(";"))
         codes = np.frombuffer(base64.b64decode(payload["codes_base64"]), dtype=np.uint8)
 

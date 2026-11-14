@@ -33,7 +33,7 @@ async function setup() {
         throw new Error("offline");
       },
     },
-    ViewerGrid: require("../viewer-grid.js"),
+    ViewerGrid: require("../map/viewer-grid.js"),
     fetch() {},
     setTimeout: (fn) => {
       fn();

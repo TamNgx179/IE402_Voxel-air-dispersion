@@ -7,7 +7,7 @@ const {
   levelForZoom,
   controller,
   paddedBounds,
-} = require("../viewer-lod.js");
+} = require("../map/viewer-lod.js");
 const feature = (id, x) => ({
   type: "Feature",
   properties: { source_feature_id: id, height_m: 30 },
