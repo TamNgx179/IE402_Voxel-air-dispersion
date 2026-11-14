@@ -431,9 +431,10 @@
     });
     for (const id of ["corridor-distances", "corridor-min", "corridor-max", "corridor-threshold"])
       $(id).addEventListener("input", () => {
-        if (!result) return;
+        // Always invalidate: an in-flight request was built from the old inputs.
+        const stale = Boolean(result) || busy;
         clearResult();
-        status("corridor-note", "Bấm Phân tích hành lang để cập nhật.");
+        if (stale) status("corridor-note", "Bấm Phân tích hành lang để cập nhật.");
       });
     $("corridor-query").addEventListener("click", query);
     $("corridor-export").addEventListener("click", exportCsv);

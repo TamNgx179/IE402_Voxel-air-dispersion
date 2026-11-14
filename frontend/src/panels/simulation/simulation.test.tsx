@@ -1,7 +1,7 @@
 import { act, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { describe, expect, test } from 'vitest';
 import { App } from '../../App';
-import { ApiError, type RequestOptions } from '../../api/client';
+import { ApiError, request, type RequestOptions } from '../../api/client';
 import type { RunView } from '../../api/types';
 import type { ApiFn } from '../../store/controller';
 import { createViewerStore } from '../../store/store';
@@ -126,6 +126,35 @@ describe('simulation panel', () => {
     act(() => runButton().click());
     await waitFor(() => expect(sim.posts).toHaveLength(2));
     expect(sim.posts[1].request_id).toBe(requestId);
+  });
+
+  test('a proxy 504 with an HTML body on create is unconfirmed: request id kept, no second POST', async () => {
+    const posts: Array<Record<string, unknown>> = [];
+    const fn = (async (path: string, options?: RequestOptions) => {
+      if (path === '/runs' && options?.method === 'POST') {
+        posts.push(JSON.parse(String(options.body)) as Record<string, unknown>);
+        // Through the real client, so the status/body classification is exercised.
+        return request(
+          async () => new Response('<html><body>504 Gateway Time-out</body></html>', { status: 504, headers: { 'Content-Type': 'text/html' } }),
+          '/api/runs',
+          options,
+        );
+      }
+      return structuredClone(runView('queued'));
+    }) as ApiFn;
+    await renderPanel({ fn });
+    act(() => runButton().click());
+    await waitFor(() => expect(note()).toHaveTextContent('No confirmation received yet.'));
+    expect(note()).not.toHaveTextContent(/could not be created/i);
+    await act(async () => new Promise((resolve) => setTimeout(resolve, 20)));
+    expect(posts).toHaveLength(1);
+    const requestId = posts[0].request_id;
+    expect(typeof requestId).toBe('string');
+    // The stored request id survives, so a manual retry is de-duplicated server-side.
+    await waitFor(() => expect(runButton()).toBeEnabled());
+    act(() => runButton().click());
+    await waitFor(() => expect(posts).toHaveLength(2));
+    expect(posts[1].request_id).toBe(requestId);
   });
 
   test('shows progress, then adds the new run to the result list and selects it', async () => {

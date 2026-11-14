@@ -16,7 +16,9 @@ export default defineConfig({
   build: {
     outDir: 'dist',
     emptyOutDir: true,
-    sourcemap: true,
+    // Maps are generated for local debugging but not referenced from the bundles;
+    // the Dockerfile deletes them so they are never served from the image.
+    sourcemap: 'hidden',
     chunkSizeWarningLimit: 2500,
   },
   test: {

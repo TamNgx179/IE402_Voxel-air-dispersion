@@ -45,6 +45,26 @@ describe('API client', () => {
     expect((error as ApiError).kind).toBe('invalid');
   });
 
+  test('a failed response with a non-JSON body is classified by its status', async () => {
+    for (const [status, kind] of [
+      [502, 'server'],
+      [504, 'server'],
+      [404, 'not-found'],
+      [403, 'permission'],
+      [409, 'conflict'],
+      [400, 'validation'],
+    ] as const) {
+      const error = await request(
+        async () => new Response('<html>Gateway Timeout</html>', { status, headers: { 'Content-Type': 'text/html' } }),
+        '/api/runs',
+        { method: 'POST' },
+      ).catch((e: unknown) => e);
+      expect((error as ApiError).kind).toBe(kind);
+      expect((error as ApiError).status).toBe(status);
+      expect((error as ApiError).detail).toBe('');
+    }
+  });
+
   test('request timeout is recoverable', async () => {
     const fetcher: Fetcher = (_, options) =>
       new Promise((resolve, reject) => {

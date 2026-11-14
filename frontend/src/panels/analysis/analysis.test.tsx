@@ -9,6 +9,7 @@ import { App } from '../../App';
 import { ApiError } from '../../api/client';
 import { useReportSnapshot } from '../../export/ExportProvider';
 import type { Report } from '../../export/report';
+import { MapRegistry } from '../../map/registry';
 import { createViewerStore } from '../../store/store';
 import { routedApi } from '../../test/fixtures';
 import { createFakeMapFactory } from '../../test/fakeMap';
@@ -52,6 +53,8 @@ const comparisonData = {
     delta: { mean_ug_m3: 1, min_ug_m3: 0, max_ug_m3: 2 },
   },
 };
+
+const setLayers = MapRegistry.prototype.setLayers;
 
 let snapshot: (() => Report) | null = null;
 function Probe() {
@@ -167,6 +170,19 @@ describe('analysis panel: region', () => {
     expect(el('region-draw')).toHaveTextContent('Draw region');
     expect(layerIds(ui.fake.overlays[0])).not.toContain('analysis-region-outline');
     expect(ui.calls).toEqual([]);
+  });
+
+  test('the region outline stays on the map in other modes and with the panel closed (legacy)', async () => {
+    const ui = await setup(async () => regionData);
+    await chooseRegion(ui);
+    await frame();
+    expect(layerIds(ui.fake.overlays[0])).toContain('analysis-region-outline');
+    act(() => ui.panel().getByRole('button', { name: 'Compare results' }).click());
+    await frame();
+    expect(layerIds(ui.fake.overlays[0])).toContain('analysis-region-outline');
+    act(() => ui.store.dispatch({ type: 'panel/open', id: null }));
+    await frame();
+    expect(layerIds(ui.fake.overlays[0])).toContain('analysis-region-outline');
   });
 
   test('query shows metrics and table, sends one request, then CSV downloads; input change drops the result', async () => {
@@ -342,6 +358,43 @@ describe('analysis panel: compare and mode switching', () => {
     act(() => screen.getByRole('button', { name: 'Switch language to Vietnamese' }).click());
     expect(el('comparison-result')).toHaveTextContent('Kết quả so sánh cao hơn gốc 1 µg/m³ ở tầng này.');
     expect(snapshot!().notice).toMatch(/ Gió và khối nhà thuộc run gốc\.$/);
+  });
+
+  test('changing layer draws no comparison until the payload for the new height arrives', async () => {
+    const pending: Array<() => void> = [];
+    const ui = await setup(
+      (path) =>
+        new Promise((resolve) => {
+          const zm = Number(new URL(path, 'http://x').searchParams.get('z_m'));
+          pending.push(() => resolve({ ...comparisonData, z_center_m: zm }));
+        }),
+    );
+    act(() => ui.panel().getByRole('button', { name: 'Compare results' }).click());
+    fireEvent.change(screen.getByLabelText('Comparison result'), { target: { value: 'mock-run' } });
+    await waitFor(() => expect(pending).toHaveLength(1));
+    await act(async () => pending.shift()!());
+    await frame();
+    expect(layerIds(ui.fake.overlays[0])).toContain('analysis-comparison');
+
+    const overlay = ui.fake.overlays[0];
+    // Every registry update after the layer change, not only the last drawn frame.
+    const contributed: number[] = [];
+    const spy = vi.spyOn(MapRegistry.prototype, 'setLayers').mockImplementation(function (this: MapRegistry, id, c) {
+      if (id === 'analysis-comparison') contributed.push(c ? c.layers.filter(Boolean).length : 0);
+      return setLayers.call(this, id, c);
+    });
+    act(() => ui.store.dispatch({ type: 'layer/set', layer: 1 }));
+    await waitFor(() => expect(pending).toHaveLength(1));
+    await frame();
+    spy.mockRestore();
+    expect(contributed.length).toBeGreaterThan(0);
+    expect(contributed.every((n) => n === 0)).toBe(true);
+    expect(layerIds(overlay)).not.toContain('analysis-comparison');
+    expect(ui.calls.at(-1)?.[0]).toMatch(/z_m=3$/);
+
+    await act(async () => pending.shift()!());
+    await frame();
+    expect(layerIds(overlay)).toContain('analysis-comparison');
   });
 
   test('self comparison shows a zero scale without negative zero', async () => {

@@ -3,7 +3,8 @@ WORKDIR /opt/project/frontend
 COPY frontend/package*.json ./
 RUN npm ci --no-audit --no-fund
 COPY frontend/ ./
-RUN npm run build
+# Source maps (vite sourcemap: 'hidden') stay out of the runtime image.
+RUN npm run build && find dist -name '*.map' -delete
 
 FROM node:24.15.0-bookworm-slim AS app-build
 WORKDIR /opt/project/app

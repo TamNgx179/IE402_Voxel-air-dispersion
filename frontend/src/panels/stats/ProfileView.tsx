@@ -103,7 +103,8 @@ export function ProfileView({ i, j }: { i: number; j: number }) {
             {values.map((v, k) => (
               <tr key={k} aria-current={k === layer ? 'true' : undefined}>
                 <th scope="row">
-                  {k}
+                  {/* 1-based, like the height slider's "level {k+1}". */}
+                  {k + 1}
                   {k === layer && <span className="sr-only"> {t('stats.profileCurrent')}</span>}
                 </th>
                 <td>{formatNumber(grid.z_centres_m[k])}</td>

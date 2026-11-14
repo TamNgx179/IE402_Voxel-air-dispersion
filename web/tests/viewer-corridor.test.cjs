@@ -101,6 +101,20 @@ test('list selection is keyboard-accessible and stale or illustrated results nev
   ui.ctx.modified=true;ui.instance.sync();
   assert.equal(ui.els['corridor-query'].disabled,true);assert.match(ui.els['corridor-feedback'].textContent,/minh họa/);
 });
+test('editing an input while a corridor request is in flight drops the stale response',async()=>{
+  let resolve;let calls=0;const ui=mounted((path,options)=>{calls++;return new Promise(r=>resolve=()=>r(response(JSON.parse(options.body))));});
+  ui.els['analysis-corridor-mode'].click();
+  ui.els['corridor-road-list'].options[0].selected=true;ui.els['corridor-road-list'].dispatchEvent(new Event('change'));
+  ui.els['corridor-query'].click();
+  assert.equal(ui.els['corridor-query'].disabled,true);
+  ui.els['corridor-threshold'].value='30';ui.els['corridor-threshold'].dispatchEvent(new Event('input'));
+  assert.equal(ui.els['corridor-query'].disabled,false);
+  assert.match(ui.els['corridor-note'].textContent,/cập nhật/);
+  resolve();await tick();
+  assert.equal(ui.els['corridor-result'].hidden,true);
+  assert.equal(ui.instance.exportState().corridor,null);
+  assert.equal(calls,1);
+});
 test('invalid distances are reported in Vietnamese without calling the API, and leaving the mode stops picking',async()=>{
   let calls=0;const ui=mounted(async()=>{calls++;});
   ui.els['analysis-corridor-mode'].click();

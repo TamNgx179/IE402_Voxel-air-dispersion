@@ -17,7 +17,19 @@ function IllustrationPanel(_props: PanelProps) {
   const display = useViewer((s) => s.display);
   const exact = useViewer(selectExact);
   const [background, setBackground] = useState(String(display.background));
-  useEffect(() => setBackground(String(display.background)), [display.background]);
+  // Follow external changes (reset, …) without rewriting text that already means the value.
+  useEffect(
+    () => setBackground((text) => (text.trim() !== '' && Number(text) === display.background ? text : String(display.background))),
+    [display.background],
+  );
+  /** Legacy applied the value on `change` (spinner clicks, typing): commit valid values at once. */
+  const changeBackground = (text: string) => {
+    setBackground(text);
+    const v = Number(text);
+    if (text.trim() !== '' && Number.isFinite(v) && v >= 0 && v !== display.background)
+      dispatch({ type: 'display/set', display: { background: v } });
+  };
+  // Blur/Enter normalise empty or invalid text.
   const commitBackground = () => {
     const v = Number(background);
     const next = Number.isFinite(v) && v >= 0 ? v : 0;
@@ -56,7 +68,7 @@ function IllustrationPanel(_props: PanelProps) {
           step={1}
           inputMode="decimal"
           value={background}
-          onChange={(event) => setBackground(event.target.value)}
+          onChange={(event) => changeBackground(event.target.value)}
           onBlur={commitBackground}
           onKeyDown={(event) => event.key === 'Enter' && commitBackground()}
         />

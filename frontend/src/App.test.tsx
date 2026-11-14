@@ -1,4 +1,4 @@
-import { act, render, screen, waitFor, within } from '@testing-library/react';
+import { act, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import { useMemo } from 'react';
 import { describe, expect, test, vi } from 'vitest';
 import { PathLayer } from '@deck.gl/layers';
@@ -107,6 +107,29 @@ describe('viewer shell', () => {
     expect(screen.getByText('Estimate from the advanced adjustments')).toBeInTheDocument();
     act(() => screen.getByRole('button', { name: 'Back to original data' }).click());
     expect(store.getState().display).toEqual({ multiplier: 1, background: 0 });
+  });
+
+  test('background applies on change (spinner/typing) like legacy; blur normalises invalid text', async () => {
+    const { store } = await renderApp();
+    act(() => store.dispatch({ type: 'panel/open', id: 'illustration' }));
+    const input = screen.getByLabelText(/Background/) as HTMLInputElement;
+    fireEvent.change(input, { target: { value: '5' } });
+    expect(store.getState().display.background).toBe(5);
+    expect(input.value).toBe('5');
+    fireEvent.change(input, { target: { value: '7.5' } });
+    expect(store.getState().display.background).toBe(7.5);
+    // Empty or negative text is not applied while typing…
+    fireEvent.change(input, { target: { value: '' } });
+    expect(store.getState().display.background).toBe(7.5);
+    fireEvent.change(input, { target: { value: '-3' } });
+    expect(store.getState().display.background).toBe(7.5);
+    // …and is normalised to 0 on blur.
+    fireEvent.blur(input);
+    expect(store.getState().display.background).toBe(0);
+    expect(input.value).toBe('0');
+    fireEvent.change(input, { target: { value: '12' } });
+    act(() => screen.getByRole('button', { name: 'Back to original data' }).click());
+    expect(input.value).toBe('0');
   });
 
   test('a drawing claim disables the pan/cell switch and drag-pan; contributed layers render in their slot', async () => {

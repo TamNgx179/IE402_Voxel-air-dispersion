@@ -90,9 +90,9 @@ describe('stats panel', () => {
     expect(p.getByText('Queried data')).toBeInTheDocument();
     const rows = within(p.getByRole('table')).getAllByRole('row').slice(1);
     expect(rows.map((row) => Array.from(row.children).map((c) => c.textContent))).toEqual([
-      ['0 (current level)', '1', '12.5'],
-      ['1', '3', 'Building'],
-      ['2', '5', '3'],
+      ['1 (current level)', '1', '12.5'],
+      ['2', '3', 'Building'],
+      ['3', '5', '3'],
     ]);
     expect(rows[0]).toHaveAttribute('aria-current', 'true');
   });
@@ -153,6 +153,9 @@ describe('stats panel', () => {
     expect(p.getByRole('checkbox', { name: 'Tô vùng vượt WHO 24h: 15 µg/m³' })).toBeChecked();
     expect(p.getByText('Ô 1, 0 · cao nhất 12,5 µg/m³')).toBeInTheDocument();
     expect(p.getByText('Dữ liệu truy vấn')).toBeInTheDocument();
+    const table = p.getByRole('table');
+    expect(within(table).getAllByRole('columnheader')[0]).toHaveTextContent('Tầng');
+    expect(within(table).getAllByRole('row')[1].children[0]).toHaveTextContent('1 (tầng đang xem)');
     expect(store.getState().selectedCell).toEqual({ i: 1, j: 0 });
     expect(store.getState().thresholdsEnabled).toEqual({ who_24h: true });
   });

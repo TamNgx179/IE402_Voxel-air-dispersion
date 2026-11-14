@@ -27,7 +27,6 @@ import { useMapClick, useMapInstance, useMapLayers } from '../../../map/hooks';
 import { selectExact, selectGrid, selectZ } from '../../../store/selectors';
 import { useApi } from '../../../store/controller';
 import { useViewer } from '../../../store/store';
-import { useAnalysisMode } from '../context';
 import { useRenderMessage, type PanelMessage } from '../messages';
 import type { AnalysisModeDefinition, AnalysisModeProps } from '../modes';
 import { RegionSummary, type RegionResult } from './RegionSummary';
@@ -44,7 +43,6 @@ function RegionMode({ active }: AnalysisModeProps) {
   const { t } = useI18n();
   const render = useRenderMessage();
   const api = useApi();
-  const mode = useAnalysisMode();
   const instance = useMapInstance();
   const runId = useViewer((s) => s.selectedRunId);
   const runs = useViewer((s) => s.runs);
@@ -297,7 +295,8 @@ function RegionMode({ active }: AnalysisModeProps) {
       }),
     ];
   }, [drawing, points, polygon, z]);
-  useMapLayers('analysis-region', mode === 'region' ? layers : null);
+  // Legacy drew the outline in every mode (and with the tool panel closed).
+  useMapLayers('analysis-region', layers);
 
   const entry = runs.find((run) => run.id === result?.run);
   const shownNote = !runId ? { key: 'region.note.noRun' as const } : note;

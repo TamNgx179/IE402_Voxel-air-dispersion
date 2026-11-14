@@ -235,6 +235,24 @@ describe('CorridorPanel', () => {
     expect(snapshot.current!().metadata.road_corridor).toBeNull();
   });
 
+  test('editing settings while a request is in flight drops the stale response', async () => {
+    let resolve: () => void = () => {};
+    const ui = await setup((_p, body) => new Promise((r) => (resolve = () => r(response(body)))));
+    ui.choose(0);
+    fireEvent.change(screen.getByLabelText('To height (m)'), { target: { value: '6' } });
+    expect(text('corridor-note')).toBe('1 road segments selected.');
+    act(() => ui.button('Analyse corridor').click());
+    expect(ui.button('Analysing…')).toBeDisabled();
+    fireEvent.change(screen.getByLabelText('Reference threshold (µg/m³)'), { target: { value: '30' } });
+    expect(ui.button('Analyse corridor')).not.toBeDisabled();
+    expect(text('corridor-note')).toBe('Press Analyse corridor to update.');
+    resolve();
+    await tick();
+    expect(screen.queryByRole('region', { name: 'Road corridor result' })).toBeNull();
+    expect(snapshot.current!().metadata.road_corridor).toBeNull();
+    expect(ui.calls).toHaveLength(1);
+  });
+
   test('switching language keeps the selected roads and the result', async () => {
     const ui = await setup();
     ui.choose(0);

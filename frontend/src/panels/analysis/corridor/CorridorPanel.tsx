@@ -253,9 +253,10 @@ export function CorridorPanel({ active }: CorridorPanelProps) {
 
   function changeInput(setter: (value: string) => void, value: string) {
     setter(value);
-    if (!resultRef.current) return;
+    // Always invalidate: a request in flight was built from the old inputs.
+    const stale = Boolean(resultRef.current) || busy;
     clearResult();
-    setNote({ key: 'corridor.refresh' });
+    if (stale) setNote({ key: 'corridor.refresh' });
   }
 
   async function query() {

@@ -129,14 +129,15 @@ function CompareMode(_props: AnalysisModeProps) {
       : null;
 
   const layers = useMemo(() => {
-    if (!comparing || !payload) return null;
+    if (!valid) return null;
     const delta = view === 'delta';
     const field = FIELD[view as Exclude<ComparisonView, 'off'>];
-    const lo = delta ? (payload.stats.delta.min_ug_m3 ?? 0) : 0;
-    const hi = delta ? (payload.stats.delta.max_ug_m3 ?? 0) : concentrationMax(payload);
+    const lo = delta ? (valid.stats.delta.min_ug_m3 ?? 0) : 0;
+    const hi = delta ? (valid.stats.delta.max_ug_m3 ?? 0) : concentrationMax(valid);
+    // Built from `valid` only: a payload for another run/pair/layer is never drawn.
     const lifted = {
       type: 'FeatureCollection' as const,
-      features: payload.feature_collection.features.map((f) => ({
+      features: valid.feature_collection.features.map((f) => ({
         ...f,
         type: 'Feature' as const,
         geometry: { ...f.geometry, coordinates: f.geometry.coordinates.map((ring) => ring.map((p) => [p[0], p[1], z])) },
@@ -153,10 +154,10 @@ function CompareMode(_props: AnalysisModeProps) {
         pickable: !drawing,
         getFillColor: (f: { properties?: unknown }) =>
           color((f.properties as Record<string, number | null | undefined> | null)?.[field], lo, hi, delta),
-        updateTriggers: { getFillColor: [payload, view] },
+        updateTriggers: { getFillColor: [valid, view] },
       }),
     ];
-  }, [comparing, payload, view, z, drawing]);
+  }, [valid, view, z, drawing]);
   // Also hides the core legend (it describes the concentration layer).
   useMapLayers('analysis-comparison', layers, { suppressConcentration: comparing });
 

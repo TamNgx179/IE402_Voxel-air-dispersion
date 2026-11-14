@@ -95,6 +95,10 @@ export async function request<T = unknown>(fetcher: Fetcher, url: string, option
   try {
     payload = response.ok && responseType === 'text' ? await response.text() : await response.json();
   } catch {
+    // A failed response with a non-JSON body (e.g. a proxy 502/504 HTML page) is
+    // classified by its status: a 5xx must not read as "invalid" (the POST may
+    // still have created the run). Only a successful unreadable body is 'invalid'.
+    if (!response.ok) throw new ApiError(classify(response.status), response.status);
     throw new ApiError('invalid', response.status);
   }
   if (!response.ok) {
