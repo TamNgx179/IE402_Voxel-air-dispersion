@@ -6,6 +6,7 @@ import {
 } from '@nestjs/common';
 import type { ComparisonQueryDto } from '../dto/comparison-query.dto.js';
 import type { RegionQueryDto } from '../dto/region-query.dto.js';
+import type { RoadCorridorDto } from '../dto/road-corridor.dto.js';
 import { SimulationResultsRepository } from '../repositories/simulation-results.repository.js';
 import { SpatialAnalysisRepository } from '../repositories/spatial-analysis.repository.js';
 import type { PolygonSchema } from '../schemas/spatial-analysis.schema.js';
@@ -25,6 +26,46 @@ export class SpatialAnalysisService {
         `run ${id} is ${context.status}; analysis requires succeeded`,
       );
     return context;
+  }
+
+  async roadCorridor(id: string, query: RoadCorridorDto) {
+    const context = await this.context(id);
+    const { distances_m: distances, z_min_m: min, z_max_m: max } = query;
+    if (min >= max || max > context.grid.nz * context.grid.dz_m) {
+      throw new BadRequestException('Require 0 <= z_min_m < z_max_m <= domain height');
+    }
+    if (distances.some((distance, index) => index > 0 && distance <= distances[index - 1])) {
+      throw new BadRequestException('Distances must be strictly increasing');
+    }
+    const threshold = query.threshold_ug_m3 ?? 15;
+    const bands = await this.spatial.roadCorridor(
+      id, context.study_area_id, query.road_ids, distances, min, max, context.grid.dz_m, threshold,
+    );
+    if (!bands.length) {
+      throw new BadRequestException('One or more road IDs are absent from the run scene');
+    }
+    return {
+      run_id: id,
+      input_hash: context.input_hash,
+      model_version: context.model_version,
+      scene_version: context.scene_version,
+      units: 'ug m-3',
+      road_ids: query.road_ids,
+      z_min_m: min,
+      z_max_m: max,
+      threshold_ug_m3: threshold,
+      bands,
+    };
+  }
+
+  async roadCorridorCsv(id: string, query: RoadCorridorDto) {
+    const { bands, ...metadata } = await this.roadCorridor(id, query);
+    const rows = bands.map(({ geometry: _geometry, ...values }) => ({
+      ...metadata, road_ids: JSON.stringify(metadata.road_ids), ...values,
+    }));
+    return [Object.keys(rows[0]), ...rows.map(Object.values)]
+      .map((row) => row.map(csvValue).join(','))
+      .join('\r\n') + '\r\n';
   }
 
   async comparison(id: string, query: ComparisonQueryDto) {

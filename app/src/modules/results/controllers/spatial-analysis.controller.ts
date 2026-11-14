@@ -11,12 +11,26 @@ import {
 import { ApiOperation, ApiTags } from '@nestjs/swagger';
 import { ComparisonQueryDto } from '../dto/comparison-query.dto.js';
 import { RegionQueryDto } from '../dto/region-query.dto.js';
+import { RoadCorridorDto } from '../dto/road-corridor.dto.js';
 import { SpatialAnalysisService } from '../services/spatial-analysis.service.js';
 
 @ApiTags('spatial-analysis')
 @Controller('runs/:id')
 export class SpatialAnalysisController {
   constructor(private readonly analysis: SpatialAnalysisService) {}
+
+  @Post('road-corridor')
+  @ApiOperation({ summary: 'Analyze modeled concentration by road distance and altitude' })
+  roadCorridor(@Param('id', new ParseUUIDPipe()) id: string, @Body() query: RoadCorridorDto) {
+    return this.analysis.roadCorridor(id, query);
+  }
+
+  @Post('road-corridor/csv')
+  @Header('Content-Type', 'text/csv; charset=utf-8')
+  @Header('Content-Disposition', 'attachment; filename="road-corridor.csv"')
+  roadCorridorCsv(@Param('id', new ParseUUIDPipe()) id: string, @Body() query: RoadCorridorDto) {
+    return this.analysis.roadCorridorCsv(id, query);
+  }
 
   @Get('comparison')
   @ApiOperation({

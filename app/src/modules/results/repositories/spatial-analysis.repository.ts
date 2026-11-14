@@ -1,5 +1,6 @@
 import { Injectable } from '@nestjs/common';
 import { DatabaseService } from '../../../database/database.service.js';
+import { ROAD_CORRIDOR_SQL } from './road-corridor.sql.js';
 import type {
   ComparisonCellRow,
   RegionLayerRow,
@@ -9,6 +10,22 @@ import type {
 @Injectable()
 export class SpatialAnalysisRepository {
   constructor(private readonly db: DatabaseService) {}
+
+  async roadCorridor(run: string, area: string, roads: string[], distances: number[],
+    min: number, max: number, dz: number, threshold: number) {
+    const { rows } = await this.db.query<{
+      inner_m: number;
+      outer_m: number;
+      area_m2: number;
+      geometry: Record<string, unknown>;
+      air_volume_m3: number;
+      valid_volume_m3: number;
+      coverage: number | null;
+      mean_ug_m3: number | null;
+      exceedance_volume_m3: number;
+    }>(ROAD_CORRIDOR_SQL, [run, area, roads, distances, min, max, dz, threshold]);
+    return rows;
+  }
 
   async matchingMasks(
     baseline: string,

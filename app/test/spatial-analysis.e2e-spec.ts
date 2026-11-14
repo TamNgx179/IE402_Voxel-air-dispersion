@@ -75,6 +75,42 @@ describe.skipIf(!db.ok)('Spatial analysis with actual PostGIS', () => {
     await pool?.end();
   });
 
+  it('clips overlapping road buffers into disjoint bands and weights partial layers', async () => {
+    const roadIds = ['corridor-test-a', 'corridor-test-b'];
+    await pool.query(
+      `INSERT INTO road_segments(study_area_id, source_feature_id, geom)
+       SELECT $1, id, ST_GeomFromText('LINESTRING(685990 1191302.5,686020 1191302.5)',32648)
+       FROM unnest($2::text[]) AS id`,
+      [area, roadIds],
+    );
+    try {
+      const path = `/api/runs/${baseline}/road-corridor`;
+      const query = {
+        road_ids: roadIds, distances_m: [1, 2.5],
+        z_min_m: 1, z_max_m: 3, threshold_ug_m3: 5,
+      };
+      const { body } = await http().post(path).send(query).expect(201);
+      // Each band spans 10 m in X. Half its footprint is solid.
+      // On the air half, layers overlap by 1 m each, with values 10 and 5.
+      expect(body.bands).toHaveLength(2);
+      expect(body.bands[0]).toMatchObject({
+        inner_m: 0, outer_m: 1, area_m2: 20, air_volume_m3: 20,
+        valid_volume_m3: 20, coverage: 1, mean_ug_m3: 7.5, exceedance_volume_m3: 10,
+      });
+      expect(body.bands[1]).toMatchObject({
+        inner_m: 1, outer_m: 2.5, area_m2: 30, air_volume_m3: 30,
+        mean_ug_m3: 7.5, exceedance_volume_m3: 15,
+      });
+      const csv = await http().post(path + '/csv').send(query).expect(201);
+      const rows = parse(csv.text, { columns: true });
+      expect(rows.map((row: { mean_ug_m3: string }) => Number(row.mean_ug_m3))).toEqual([7.5, 7.5]);
+      await http().post(path).send({ ...query, distances_m: [2, 1] }).expect(400);
+      await http().post(path).send({ ...query, road_ids: [...roadIds, 'absent'] }).expect(400);
+    } finally {
+      await pool.query('DELETE FROM road_segments WHERE study_area_id = $1 AND source_feature_id = ANY($2)', [area, roadIds]);
+    }
+  });
+
   it('returns exact positive/negative deltas, identity and requested/centre altitude', async () => {
     const { body: r } = await http().get(pair()).expect(200);
     expect(r).toMatchObject({

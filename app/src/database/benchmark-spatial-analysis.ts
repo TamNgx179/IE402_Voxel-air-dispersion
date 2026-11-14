@@ -3,6 +3,7 @@ import { cpus, totalmem, platform } from 'node:os';
 import { mkdir, writeFile } from 'node:fs/promises';
 import { dirname, resolve } from 'node:path';
 import pg from 'pg';
+import { ROAD_CORRIDOR_SQL } from '../modules/results/repositories/road-corridor.sql.js';
 import {
   COMPARISON_SQL,
   REGION_SQL,
@@ -35,6 +36,12 @@ try {
     ],
   );
   const polygon = polygons[0].polygon;
+  const { rows: roads } = await pool.query<{ source_feature_id: string }>(
+    `SELECT DISTINCT source_feature_id FROM road_segments
+     WHERE study_area_id = $1 ORDER BY source_feature_id LIMIT 50`,
+    [run.study_area_id],
+  );
+  const roadIds = roads.map((road) => road.source_feature_id);
   const cases = [
     {
       name: 'comparison_sql_self',
@@ -55,6 +62,20 @@ try {
       ],
     },
   ];
+  if (roadIds.length) {
+    cases.push(
+      {
+        name: 'road_corridor_selective',
+        sql: ROAD_CORRIDOR_SQL,
+        values: [run.id, run.study_area_id, roadIds.slice(0, 1), [10, 25, 50], 1, 15, g.dz_m, 15],
+      },
+      {
+        name: 'road_corridor_broad',
+        sql: ROAD_CORRIDOR_SQL,
+        values: [run.id, run.study_area_id, roadIds, [10, 25, 50], 0, g.nz * g.dz_m, g.dz_m, 15],
+      },
+    );
+  }
   const queries: Record<string, unknown> = {};
   for (const item of cases) {
     for (let n = 0; n < 3; n++) await pool.query(item.sql, item.values);
@@ -94,6 +115,7 @@ try {
     samples: 20,
     warmup: 3,
     polygon,
+    corridor_road_ids: roadIds,
     z_min_m: 1,
     z_max_m: Math.min(15, g.nz * g.dz_m),
     queries,
