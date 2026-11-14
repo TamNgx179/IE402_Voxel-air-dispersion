@@ -31,6 +31,12 @@ export interface RunDetailRow {
   metrics: Record<string, unknown> | null;
 }
 
+/**
+ * Advisory-lock key that serialises run claims across every executor sharing
+ * the database (arbitrary constant; distinct from the migration lock 402_0001).
+ */
+export const CLAIM_LOCK_KEY = 402_0002;
+
 export type RetryResult =
   | { kind: 'not_found' }
   | { kind: 'not_retryable'; status: RunStatus }
@@ -182,23 +188,41 @@ export class SimulationRunsRepository {
     return rows.map((row) => row.id);
   }
 
-  async claimNext(): Promise<ClaimedRun | null> {
-    const { rows } = await this.db.query<ClaimedRun>(
-      `WITH next AS (
-         SELECT id FROM simulation_runs
-         WHERE status = 'queued'
-           AND NOT EXISTS (SELECT 1 FROM simulation_runs WHERE status = 'running')
-         ORDER BY created_at, id
-         LIMIT 1
-         FOR UPDATE SKIP LOCKED
-       )
-       UPDATE simulation_runs r
-       SET status = 'running', started_at = now(), finished_at = NULL, progress = 0,
-           error_kind = NULL, error_message = NULL
-       FROM next WHERE r.id = next.id
-       RETURNING r.id, r.scenario_id, r.model, r.attempt, r.config_snapshot`,
-    );
-    return rows[0] ?? null;
+  /**
+   * Claims the oldest queued run if fewer than `maxRunning` runs are running.
+   *
+   * Every claimer (any dispatcher, any process sharing the database) first
+   * takes one transaction-scoped advisory lock, so claims are serialised and
+   * the slot count cannot be exceeded. `FOR UPDATE SKIP LOCKED` on its own
+   * did not enforce the cap: two transactions could lock *different* queued
+   * rows while both still saw zero committed `running` rows. The count runs
+   * in a separate statement after the lock is granted, so under READ
+   * COMMITTED it sees the previous holder's committed claim. The lock is
+   * released at COMMIT; the solver runs outside this transaction.
+   */
+  async claimNext(maxRunning = 1): Promise<ClaimedRun | null> {
+    return this.db.transaction(async (client) => {
+      await client.query('SELECT pg_advisory_xact_lock($1)', [CLAIM_LOCK_KEY]);
+      const running = await client.query<{ n: number }>(
+        `SELECT count(*)::int AS n FROM simulation_runs WHERE status = 'running'`,
+      );
+      if ((running.rows[0]?.n ?? 0) >= maxRunning) return null;
+      const { rows } = await client.query<ClaimedRun>(
+        `WITH next AS (
+           SELECT id FROM simulation_runs
+           WHERE status = 'queued'
+           ORDER BY created_at, id
+           LIMIT 1
+           FOR UPDATE SKIP LOCKED
+         )
+         UPDATE simulation_runs r
+         SET status = 'running', started_at = now(), finished_at = NULL, progress = 0,
+             error_kind = NULL, error_message = NULL
+         FROM next WHERE r.id = next.id
+         RETURNING r.id, r.scenario_id, r.model, r.attempt, r.config_snapshot`,
+      );
+      return rows[0] ?? null;
+    });
   }
 
   updateSnapshot(id: string, snapshot: Record<string, unknown>) {

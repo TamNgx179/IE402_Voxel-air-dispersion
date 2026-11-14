@@ -92,7 +92,8 @@ YAML tại `PROJECT_CONFIG_PATH` (mặc định `<REPO_ROOT>/config/project.yaml
 `simulation_runs.config_snapshot` ngay lúc này, nên retry chạy lại đúng cấu hình cũ.
 
 Executor nội bộ (`SimulationExecutorService`, không broker) poll DB mỗi `EXECUTOR_POLL_MS`, nhận run
-`queued` cũ nhất bằng `FOR UPDATE SKIP LOCKED` (chỉ khi không có run nào `running`), ghi
+`queued` cũ nhất trong một transaction ngắn giữ `pg_advisory_xact_lock(4020002)`: đếm run `running`,
+chỉ nhận khi còn slot (mặc định 1), nên nhiều dispatcher/process cùng DB không vượt giới hạn; ghi
 `artifacts/<run_id>/config.yaml` rồi spawn
 
 ```text

@@ -143,7 +143,7 @@ sequenceDiagram
     API->>API: đọc PROJECT_CONFIG_PATH + tạo snapshot theo run_id
     API->>DB: INSERT simulation_runs status=queued + config_snapshot
     API-->>U: 202 {run_id}
-    EX->>DB: lấy run queued cũ nhất (concurrency = 1)
+    EX->>DB: lấy run queued cũ nhất (concurrency = 1; advisory lock theo transaction, đếm running rồi claim)
     EX->>DB: status=running (attempt giữ nguyên: 1 khi tạo, +1 mỗi lần retry)
     EX->>PY: spawn [-m src.solver run --run-id … --config … --out …]
     loop mỗi dòng stdout

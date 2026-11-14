@@ -44,7 +44,8 @@ const SHUTDOWN_WAIT_MS = 15_000;
 
 /**
  * Internal executor (BR-18, BR-19, BR-21): no broker, concurrency 1. Polls the
- * DB, claims the oldest queued run with FOR UPDATE SKIP LOCKED, writes the
+ * DB, claims the oldest queued run under a transaction-scoped advisory lock
+ * (so the cap holds across dispatchers and processes), writes the
  * config snapshot, spawns the solver with an argument array (no shell), turns
  * stdout progress lines into `progress`, and on exit applies the D2 exit-code
  * table and the manifest/checksum gate before marking the run succeeded.
