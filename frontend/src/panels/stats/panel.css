@@ -1,0 +1,46 @@
+/* Stats panel additions (legacy #analysis-details rules live in styles/viewer.css). */
+#analysis-details .profile-source {
+  margin: 0 0 6px;
+}
+
+#analysis-details .profile-table {
+  margin-top: 8px;
+  font-size: 13px;
+}
+
+#analysis-details .profile-table summary {
+  min-height: 32px;
+  padding: 6px 0;
+  cursor: pointer;
+  color: var(--tool-active);
+  font-weight: 600;
+}
+
+#analysis-details .profile-table summary:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+  border-radius: 4px;
+}
+
+#analysis-details .profile-table table {
+  width: 100%;
+  border-collapse: collapse;
+  font-variant-numeric: tabular-nums;
+}
+
+#analysis-details .profile-table th,
+#analysis-details .profile-table td {
+  padding: 4px 6px;
+  border-bottom: 1px solid var(--line);
+  text-align: right;
+}
+
+#analysis-details .profile-table thead th {
+  color: var(--helper);
+  font-weight: 600;
+}
+
+#analysis-details .profile-table tr[aria-current='true'] {
+  background: var(--tool-bg);
+  font-weight: 650;
+}
