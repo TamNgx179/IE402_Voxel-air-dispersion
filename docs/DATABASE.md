@@ -169,8 +169,10 @@ erDiagram
     }
 ```
 
-`concentration_columns` tham chiếu `grid_cells` qua `(study_area_id, i, j)`; `study_area_id`
-suy ra từ `simulation_runs → scenarios`, nên không lặp lại trong bảng lớn.
+`concentration_columns` nối với `grid_cells` khi truy vấn qua `(study_area_id, i, j)`.
+`study_area_id` được suy ra từ `simulation_runs → scenarios` và không lưu lặp trong
+bảng kết quả. Trigger kiểm giới hạn lưới, còn liên kết với từng hàng `grid_cells`
+được thực hiện bằng phép JOIN.
 
 ## 2 · Index
 
@@ -358,3 +360,62 @@ self-pair benchmark rằng đã so sánh khoa học hai scenario hoặc kiểm G
 comparison SQL self pair p50/p95 **124,94/146,43 ms**; region SQL
 **267,66/302,32 ms**. Report cùng đường dẫn trên đã cập nhật. Chênh lệch thời gian
 phản ánh môi trường/tải máy lúc đo, không phải thay đổi thuật toán hay SLA mới.
+## Part 1 normalization and physical design audit
+
+The audit uses the migration-defined keys and the single-scene seed policy. The
+functional dependencies below describe the documented domain rules and identify
+physical representations that need separate justification.
+
+| Relations | Candidate key and dependency | 1NF–3NF assessment |
+| --- | --- | --- |
+| `study_areas` | Both `id` and `name` determine the scene metadata for this deployment. | The relational identifiers are scalar and the scene has a single owner. Grid and provenance JSON package structured values. The fixed projected SRID is redundant with the geometry type and is retained for the API contract. |
+| `building_footprints`, `road_segments`, `water_features`, `green_features` | The generated `id` determines geometry, source identity and feature attributes. The same source identifier can occur in multiple road segments. | Under these dependencies the scalar attributes depend on the feature key. Study-area metadata lives behind the FK. Geometry is a PostGIS domain value. |
+| `grid_cells` | `(study_area_id,i,j)` determines geometry and the solid interval. | No partial dependency is required for the cell attributes. Footprint geometry is physically materialized from the grid and indices for spatial lookup. |
+| `scenarios`, `thresholds` | Scenario `id` determines its area and parameters. Threshold `key` determines the label, value and seed provenance. | Scalar catalogs use single-column keys. JSON parameters and the shared seed hash are explicit provenance/parameter representations. Threshold values are independent of the hash alone. |
+| `simulation_runs`, `run_metrics` | Run `id` determines execution metadata; `run_id` determines metrics. Equal input hashes can belong to several runs. | Scenario is referenced by FK, metrics by PK/FK. The immutable input snapshot intentionally records the exact parameters used for reproduction. |
+| `verification_checks`, `artifacts` | `(run_id,check_name)` and `(run_id,kind)` determine the check outcome and artifact metadata, respectively. | The recorded values depend on the whole key. Run metadata is kept in the run relation. |
+| `concentration_columns` | `(run_id,i,j)` determines one dense altitude profile. Logical `(run_id,i,j,k)` determines one concentration. | The logical per-voxel relation is the normalized representation. The physical `real[]` is a deliberate packed layout for profile access. The migration validates one-based, nonempty arrays and complete solid intervals. The existing trigger checks length against `nz` and the horizontal bounds. |
+
+Primary, foreign and unique keys already exist in the migrations. Validate geometric
+type/SRID, scenario and run references, grid bounds, array shape and nullable
+masks separately. The supported seed path locks run creation and refuses a
+different seed revision after a run exists. The real-PostGIS API regression
+checks that a changed config cannot overwrite the reference catalog. This policy
+assumes catalog changes go through the seeder. Versioned scenes in a shared database
+would require an explicit run-to-scene relationship.
+
+| Query path | Existing index and reason |
+| --- | --- |
+| Slice, region and corridor overlay | GiST `grid_cells_geom_gist` filters projected XY candidates. Exact geometry tests and partial-height weights follow candidate selection. |
+| Profile, transect samples and run comparison | `concentration_columns_pkey(run_id,i,j)` supports single profiles and run-bounded reads. `grid_cells_pkey(study_area_id,i,j)` supports the grid lookup. |
+| Selected roads | `road_segments_study_area_idx` supports area filtering. The measured narrow and broad corridor plans scanned the small road relation. An additional compound index needs evidence on a larger scene. |
+| Queue, historical runs and catalogs | `simulation_runs_status_created_idx` supports claim order and status filtering; scenario and input-hash indexes serve their respective lookups. |
+
+Reproduce the production plan with `npm run db:benchmark:spatial` in `app/`
+and set `BENCHMARK_RUN_ID` for a fixed non-mock run and `BENCHMARK_OUTPUT` for a
+separate report. The report stores actual index definitions and sizes, request
+parameters, returned rows, nearest-rank p50/p95 and JSON plans. Slice, profile
+and transect use the same SQL constants as their repositories.
+Transect SQL timings cover projection and the batched column query separately
+from the sample generation and response assembly in NestJS.
+
+The first corrected benchmark used FV run
+`2a3ab50e-2202-4b14-9209-3ab1fba4fd92` on the 100 × 100 × 50 grid.
+
+| Production SQL case | p50 (ms) | p95 (ms) |
+| --- | ---: | ---: |
+| Slice, viewport | 58 | 69 |
+| Slice, full domain | 75 | 102 |
+| Cell profile | 2.2 | 2.8 |
+| Transect projection | 2.4 | 2.7 |
+| Transect, 100 columns | 8.9 | 10.9 |
+| Comparison with itself | 78 | 100 |
+| Region | 267 | 564 |
+| Corridor, one road | 41 | 76 |
+| Corridor, 50 roads | 1,494 | 1,756 |
+
+Both corridor plans used the grid GiST and concentration primary key. The broad
+case visited about 11,655 grid candidates across three bands and expanded them
+across the requested altitude range. Review that workload before adding a road
+index. These measurements are SQL client timings with 20 samples and three
+warmups, and should be repeated on the release revision.

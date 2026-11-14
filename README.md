@@ -6,9 +6,9 @@ This project models PM2.5 dispersion around Nguyễn Huệ Walking Street in Ho 
 
 | Member | Responsibility | Deliverables |
 | --- | --- | --- |
-| **Tâm** | All four engineering upgrade phases | React migration, English-first localization with Vietnamese support, spatial SQL and CSV, run orchestration, Python gRPC service and worker, deployment, CI and end-to-end verification. |
+| **Tâm** | All four engineering upgrade phases | React migration, English-first localization with Vietnamese support, spatial SQL and CSV, run orchestration, Python subprocess reliability, deployment, CI and end-to-end verification. |
 | **Thanh** | GIS data and scientific verification | Dataset provenance and rights, independent spatial reference calculations, numerical parity review, sensitivity studies and scientific figures. |
-| **Both** | Release and course assessment | Review the evidence and align the demo, report and slides with one verified revision. |
+| **Both** | Release and course assessment | Align the demo and scientific artifacts with one verified revision. |
 
 See the [upgrade plan](docs/UPGRADE_PLAN.md) and [milestone roadmap](docs/ROADMAP.md).
 
@@ -28,7 +28,7 @@ docker compose ps
 - [API documentation](http://localhost:3000/api/docs)
 - [Health endpoint](http://localhost:3000/api/health)
 
-Startup verifies the input bundle, migrates PostGIS and loads the scene. Set `$env:APP_HOST_PORT = '3001'` before startup if port 3000 is in use. Use `docker compose logs --tail 100 app db` to inspect startup and `docker compose stop` to stop the stack while keeping volumes. Use a separate database for a different input revision once the existing database contains runs.
+Startup verifies the input bundle, migrates PostGIS and loads the scene. Set `$env:APP_HOST_PORT = '3001'` before startup if port 3000 is in use. Use `docker compose logs --tail 100 app db` to inspect startup and `docker compose stop` to stop the stack while keeping volumes. If startup reports a different seed revision, run `node scripts/rehearse.mjs --port 3107 --keep` to start an isolated demo with empty volumes. The rehearsal checks the real solver, spatial queries and React viewer.
 
 ## Explore the results
 
@@ -46,7 +46,7 @@ Concentrations are in µg/m³. Solid, missing and zero-valued cells have distinc
 
 ![Current IE402 deployment](docs/img/architecture-monolith.svg)
 
-The current demo serves the viewer and REST API from NestJS. NestJS launches Python as a subprocess, verifies its artifacts and imports results into PostgreSQL/PostGIS. The upgrade targets a React UI and a separate Python Solver Service with private gRPC. PostgreSQL owns the queue and GIS state. See [current and target architecture](docs/ARCHITECTURE.md).
+The current demo serves the viewer and REST API from NestJS. NestJS launches Python as a subprocess, verifies its artifacts and imports results into PostgreSQL/PostGIS. React WebGIS is served at `/` with English and Vietnamese. PostgreSQL owns the queue and GIS state. See the [submission architecture](docs/ARCHITECTURE.md).
 
 ```text
 app/src/modules/    NestJS scene, simulation, results and health modules

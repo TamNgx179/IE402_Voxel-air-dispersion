@@ -1,22 +1,21 @@
 # Kiến trúc hệ thống
 
-## Target deployment
+## Submission deployment
 
-The upgrade uses two application services. NestJS owns the public REST API, run lifecycle and spatial queries. A private Python gRPC service owns solver execution. PostgreSQL/PostGIS stores the queue and GIS data. React replaces the current viewer and is served with the API.
+NestJS serves the React WebGIS and REST API, owns run state and spatial queries, and supervises the Python solver as a child process. PostgreSQL/PostGIS stores the durable queue and GIS results.
 
 ```mermaid
 flowchart LR
-    Web["React WebGIS (EN / VI)"] -->|REST| Api["NestJS API"]
+    Web["React WebGIS (EN / VI)"] -->|REST| Api
+    subgraph App["Single application deployment"]
+        Api["NestJS API and background executor"] -->|Subprocess| Solver["Python solver"]
+        Solver --> Files["Attempt artifacts"]
+        Files -->|Verify and import| Api
+    end
     Api -->|SQL| DB["PostgreSQL / PostGIS"]
-    Api -->|Private gRPC| Solver["Python Solver Service"]
-    Solver --> Worker["Solver child processes (1 by default)"]
-    Worker --> Files["Attempt artifacts"]
-    Files -->|Verify and import| Api
 ```
 
-NestJS reserves capacity in PostgreSQL before dispatch. The Python supervisor starts one child per accepted attempt and tracks it until exit. The API reconciles ambiguous replies by attempt ID, verifies the manifest and imports results transactionally. The Spatial Analysis module queries PostGIS directly for slices, profiles, regions, transects, comparisons and the proposed road corridor analysis. See [worker and SQL contracts](UPGRADE_PLAN.md#service-ownership-and-worker).
-
-The sections below document the current demo and its scientific data model. Its diagram shows the existing subprocess deployment.
+The executor claims one run in a short database transaction, then releases the transaction while Python computes. It verifies the manifest and imports results transactionally. See [database and solver acceptance](UPGRADE_PLAN.md#database-normalization-and-index-acceptance).
 
 > Tài liệu này được dẫn xuất từ [`spec.md`](spec.md) và [`RESEARCH.md`](RESEARCH.md).
 > Spec quy định *điều gì phải đúng*; tài liệu này mô tả *các thành phần ghép với nhau như thế
