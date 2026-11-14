@@ -231,7 +231,7 @@ describe.skipIf(!db.ok)('Vertical transect with actual PostGIS', () => {
         .post(`/api/runs/${run}/transect/csv`)
         .send(b)
         .expect(200);
-      expect(parse(escaped.text, { columns: true })[0].model_version).toBe(
+      expect(parse<Record<string, string>>(escaped.text, { columns: true })[0].model_version).toBe(
         '\'=formula,"quoted"',
       );
     } finally {

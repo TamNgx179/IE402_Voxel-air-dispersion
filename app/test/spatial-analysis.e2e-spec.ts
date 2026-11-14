@@ -102,7 +102,7 @@ describe.skipIf(!db.ok)('Spatial analysis with actual PostGIS', () => {
         mean_ug_m3: 7.5, exceedance_volume_m3: 15,
       });
       const csv = await http().post(path + '/csv').send(query).expect(201);
-      const rows = parse(csv.text, { columns: true });
+      const rows = parse<{ mean_ug_m3: string }>(csv.text, { columns: true });
       expect(rows.map((row: { mean_ug_m3: string }) => Number(row.mean_ug_m3))).toEqual([7.5, 7.5]);
       await http().post(path).send({ ...query, distances_m: [2, 1] }).expect(400);
       await http().post(path).send({ ...query, road_ids: [...roadIds, 'absent'] }).expect(400);
@@ -423,7 +423,7 @@ describe.skipIf(!db.ok)('Spatial analysis with actual PostGIS', () => {
       .send(q)
       .expect(201)
       .expect('Content-Type', /text\/csv/);
-    const records = parse(csv.text, { columns: true });
+    const records = parse<Record<string, string>>(csv.text, { columns: true });
     expect(records).toHaveLength(json.body.layers.length);
     expect(records[0]).toMatchObject({
       run_id: baseline,
