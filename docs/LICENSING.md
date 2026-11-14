@@ -13,3 +13,16 @@ Project source, bundled datasets, dependencies and hosted map services have sepa
 | Runtime libraries and base images | Versions are pinned in the lockfiles or referenced in HTML and Docker configuration. | Inventory npm, Python, browser assets and container packages from the actual release. Include their license and notice files where required. |
 
 The [scene manifest](../db/seeds/scene/scene_manifest.json) and [demo input manifest](../deploy/demo-inputs/manifest.json) identify the packaged sources and checksums. Keep unresolved permissions visible in the release review. Lecture PDFs are references for the course mapping and are kept outside the repository.
+
+## Technical handoff inventory
+
+| Input | Frozen version and processing | Distribution status |
+| --- | --- | --- |
+| OSM scene | Buildings and roads retrieved 2026-09-30. Water and green areas retrieved 2026-10-06. Features clipped to the study area and projected to EPSG:32648. Per-file digests are in the scene manifest. | Preserve OSM attribution and ODbL notice. Confirm the terms and availability of the combined scene database before external publication. |
+| Google Open Buildings height | Height estimates joined to OSM footprints and rasterized at voxel centers. The scene records CC BY 4.0 and the retrieval date. The frozen CSV does not record the exact upstream raster year per feature. | Credit Google and describe the transformation. Do not infer the missing raster year or claim measured building heights. |
+| EDGAR PM2.5 | v8.1, 2022 TRO annual gridded flux. Area-weighted normalization and road proxy allocation produce the transport-ready voxel source. Archive URL, normalization factors and derived checksums are in the demo manifest. | Credit JRC and cite the exact release. The linked conditions require acknowledgment. The combined distribution decision is still open. |
+| Meteorology | The scenario parameters and aggregation settings for 2025-01-01 through 2025-12-31 are recorded in `config/project.yaml`. The demo package contains the prepared parameters, not raw meteorology downloads. | Credit Open-Meteo and upstream providers where applicable. |
+
+The technical handoff uses local verification artifacts. Publishing a downloadable
+combined data package requires resolving the open distribution decisions and
+confirming the project code license with its authors.

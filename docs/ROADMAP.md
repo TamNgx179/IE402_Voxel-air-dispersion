@@ -1,24 +1,24 @@
 # ROADMAP — 10 mốc tuần, 2 người, ứng dụng web GIS 3D
 
-## Remaining work for submission
+## Technical submission status
 
 Tâm owns all four engineering parts. The submission uses a modular monolith with a supervised Python child process. The original weekly milestones below retain their historical acceptance records.
 
 | Part | Current state | Tâm's remaining deliverable |
 | --- | --- | --- |
-| 1. PostgreSQL/PostGIS | 1NF–3NF audit, voxel integrity migration, historical seed regression and nine production SQL cases verified locally. | Compare corridor results with Thanh's independent reference and tie the accepted measurements to the release revision. See [database audit](DATABASE.md#part-1-normalization-and-physical-design-audit). |
-| 2. React WebGIS | Chromium smoke passed on Compose for real results, language switching with retained state, CSV, 2D camera and 390 px layout. | Repeat the browser acceptance on the pinned release revision. |
-| 3. Solver and queue | PostGIS tests cover claims, duplicate requests, timeout, restart, corrupt output, failed import and preserving published output after a lost commit reply. Six real solver fixture runs also pass. | Keep one active child for the submission and repeat the required suite from the release revision. |
-| 4. Release | Local clean Compose, full-grid FV runs, browser and restart have passed. | Verify the candidate revision with independent CI and archive technical artifacts and notices. |
+| 1. PostgreSQL/PostGIS | Schema audit, voxel constraints and nine production SQL measurements passed. Independent NetCDF/API/CSV comparison passed four requests per season. | Keep the plans and reference inputs with the release artifacts. |
+| 2. React WebGIS | Chromium smoke passed on the fresh Compose stack for real results, locale, CSV, 2D camera and 390 px layout. | Preserve browser artifacts with the local handoff. |
+| 3. Solver and queue | PostGIS tests cover claims, duplicate requests, timeout, restart, invalid output and transactional recovery. Both full-grid baseline runs passed again after the startup fix. | Deploy one active solver child. |
+| 4. Release | Independent CI covered the runtime tree from PR #1. A fresh local stack verified the subsequent TCP health-check fix. | Archive checksums and deployment evidence. Review distribution terms before publishing the combined archive. |
 
-| Thanh's remaining work | Deliverable |
+| Thanh's scientific work | Status |
 | --- | --- |
-| Data provenance and distribution | Inventory scene, heights, meteorology and emissions with version, CRS, checksum, transformation, attribution and redistribution status. Flag unresolved sources for the release review. |
-| Independent corridor verification | Extend the existing region reference with overlapping buffers, partial XY/z overlap, solid/missing/zero and strict threshold checks. Compare the independent results against the shipped API and CSV. |
-| B9.3–B9.4 scientific analysis | Align seasonal, altitude and FV/Gaussian comparisons to the release. Quantify height conflicts and upper-boundary sensitivity. Run the distance-band sensitivity with fixed inputs and units. |
-| B10.1 scientific bundle | Freeze final run IDs, manifests, checksums and scientific figures for the release. |
+| Data provenance and distribution | Source inventory recorded. The authors still need to resolve redistribution of the combined scene and select a project source license before external publication. |
+| Independent corridor verification | Hand calculation and eight production requests passed using the published solver's NetCDF and independently constructed geometry. |
+| B9.3–B9.4 scientific analysis | Recomputed seasonal and Gaussian fields, distance-band sensitivity and the 100-to-150 m top-boundary experiment. Historical OSM conflicts are documented. Original tags were not reverified in this checkout. |
+| B10.1 scientific bundle | Local candidate verified: six source-reduction runs, six FV production/sensitivity runs, two Gaussian fields, 350 height comparisons and an SHA-256 artifact index. |
 
-See [technical acceptance](UPGRADE_PLAN.md) and [licensing](LICENSING.md).
+See [technical handoff](TECHNICAL_HANDOFF.md), [technical acceptance](UPGRADE_PLAN.md) and [licensing](LICENSING.md).
 
 ## Baseline milestones
 
