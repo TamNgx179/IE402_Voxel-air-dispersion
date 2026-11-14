@@ -97,6 +97,8 @@ for (let j = 0; j < 2; j++) {
     const col = Array.from({ length: nz }, (_, k) =>
       solid && k < 2 ? 'NULL' : (10 / (k + 1)).toFixed(3),
     );
+    // The artifact has valid checksums, but the last profile has the wrong grid length.
+    if (behavior === 'invalid-column-length' && i === 1 && j === 1) col.pop();
     rows.push(`${i},${j},"{${col.join(',')}}"`);
   }
 }

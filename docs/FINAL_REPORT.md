@@ -30,11 +30,18 @@ Nguồn, CRS, checksum và giả định được lưu cùng config/manifest; xe
 
 ## 3. Kiến trúc và ánh xạ dữ liệu
 
-Web GIS gọi NestJS modular monolith. Backend ghi run_id và config snapshot,
+React WebGIS gọi REST của NestJS modular monolith. Backend ghi run_id và config snapshot,
 chạy Python subprocess ở nền, kiểm manifest/verification rồi nhập kết quả truy vấn
 vào PostgreSQL/PostGIS. Tensor đầy đủ lưu NetCDF; không chuyển mảng 3D qua JSON.
 Các cột kết quả trong DB phục vụ lát, profile, tuyến và polygon. Mask rắn phân biệt
 NULL trong nhà với nồng độ 0 hợp lệ; API/CSV giữ số đã lưu.
+
+Ở mô hình logic, khóa `(run_id,i,j,k)` xác định một giá trị nồng độ. Trong
+PostgreSQL, khóa `(run_id,i,j)` xác định một mảng theo độ cao. Migration kiểm
+mảng một chiều và chỉ số đầu bằng 1 để ánh xạ `k` sang `k+1`. GiST lọc
+footprint ứng viên cho truy vấn không gian, còn B-tree phục vụ ghép kết quả
+theo lượt chạy và tọa độ lưới. Truy vấn vùng đệm tính trọng số từ diện tích
+giao trên mặt bằng nhân với chiều dày phần cao độ giao nhau.
 
 Sơ đồ kiến trúc: [ARCHITECTURE](ARCHITECTURE.md). ERD, index, truy vấn và số đo:
 [DATABASE](DATABASE.md). Hợp đồng API/solver và ca nghiệm thu: [spec](spec.md).

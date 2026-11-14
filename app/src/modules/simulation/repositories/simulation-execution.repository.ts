@@ -71,14 +71,17 @@ export class SimulationExecutionRepository {
     manifest?: RunManifest,
   ): Promise<void> {
     await this.db.transaction(async (client) => {
-      await clearResults(client, runId);
-      if (manifest) await insertChecks(client, runId, manifest);
-      await client.query(
+      const failed = await client.query(
         `UPDATE simulation_runs
          SET status = 'failed', error_kind = $2, error_message = $3, finished_at = now()
          WHERE id = $1 AND status = 'running'`,
         [runId, kind, message.slice(0, 8192)],
       );
+      // A lost commit response can leave the previous success committed.
+      // Preserve all published results unless this transaction owns the transition.
+      if (failed.rowCount !== 1) return;
+      await clearResults(client, runId);
+      if (manifest) await insertChecks(client, runId, manifest);
     });
   }
 }
