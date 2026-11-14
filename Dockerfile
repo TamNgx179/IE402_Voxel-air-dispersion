@@ -1,3 +1,10 @@
+FROM node:24.15.0-bookworm-slim AS frontend-build
+WORKDIR /opt/project/frontend
+COPY frontend/package*.json ./
+RUN npm ci --no-audit --no-fund
+COPY frontend/ ./
+RUN npm run build
+
 FROM node:24.15.0-bookworm-slim AS app-build
 WORKDIR /opt/project/app
 COPY app/package*.json ./
@@ -30,6 +37,7 @@ COPY src/ ./src/
 COPY config/ ./config/
 COPY db/ ./db/
 COPY web/ ./web/
+COPY --from=frontend-build /opt/project/frontend/dist ./frontend/dist/
 COPY pyproject.toml ./
 COPY deploy/ ./deploy/
 COPY --from=app-build /opt/project/app/dist ./app/dist/

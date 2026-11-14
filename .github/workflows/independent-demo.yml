@@ -44,6 +44,13 @@ jobs:
           docker compose version > artifacts/independent-ci/compose-version.txt
       - name: Install locked test dependencies
         run: npm ci --prefix app --no-audit --no-fund
+      - name: React frontend tests and build
+        working-directory: frontend
+        run: |
+          set -o pipefail
+          npm ci --no-audit --no-fund
+          npm test 2>&1 | tee ../artifacts/independent-ci/frontend-test.log
+          npm run build
       - name: Web and script regression
         run: node --test web/tests/*.test.cjs scripts/tests/*.test.mjs 2>&1 | tee artifacts/independent-ci/regression.log
       - name: Verify packaged scientific inputs

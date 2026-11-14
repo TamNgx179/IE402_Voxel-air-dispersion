@@ -60,7 +60,8 @@ npm run start:dev                # watch mode
 
 | URL | Nội dung |
 |---|---|
-| `http://localhost:3000/` | Web viewer 3D (phục vụ từ `<REPO_ROOT>/web`) |
+| `http://localhost:3000/` | Web viewer React (`<REPO_ROOT>/frontend/dist`, build bằng `npm run build` trong `frontend/`; chưa build thì dùng viewer cũ) |
+| `http://localhost:3000/legacy/` | Web viewer cũ (phục vụ từ `<REPO_ROOT>/web`) |
 | `http://localhost:3000/api/health` | Trạng thái app, thư mục artifact, Python, DB (+ phiên bản PostGIS) |
 | `http://localhost:3000/api/docs` | Swagger UI |
 

@@ -112,7 +112,8 @@ export async function browserSmoke({ base, out, timeout = 120_000 }) {
     await client.send('Emulation.setDeviceMetricsOverride', {
       width: 1440, height: 1000, deviceScaleFactor: 1, mobile: false,
     });
-    await client.send('Page.navigate', { url: origin.href });
+    // The legacy viewer moved to /legacy/ when the React build took over "/".
+    await client.send('Page.navigate', { url: new URL('/legacy/', origin).href });
     await waitUntil(() => client.evaluate(`Boolean(document.querySelector('canvas') &&
       document.getElementById('scenario-list')?.options.length >= 2 &&
       !document.getElementById('height-slider').disabled &&

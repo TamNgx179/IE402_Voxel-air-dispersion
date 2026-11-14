@@ -7,6 +7,9 @@
 app/node_modules
 app/dist
 app/coverage
+frontend/node_modules
+frontend/dist
+frontend/coverage
 artifacts
 data
 output

@@ -1,6 +1,8 @@
 import type { INestApplication } from '@nestjs/common';
+import { existsSync } from 'node:fs';
+import { join } from 'node:path';
 import request from 'supertest';
-import { createTestApp } from './support/test-db.js';
+import { createTestApp, REPO_ROOT } from './support/test-db.js';
 
 /** HTTP shell of the app; passes with or without a database. */
 describe('API (e2e)', () => {
@@ -66,9 +68,23 @@ describe('API (e2e)', () => {
     await request(app.getHttpServer()).get('/api/nope').expect(404);
   });
 
-  it('GET / serves the static web viewer', async () => {
+  it('GET / serves the React viewer build, or the legacy viewer without a build', async () => {
     const page = await request(app.getHttpServer())
       .get('/')
+      .expect(200)
+      .expect('Content-Type', /html/);
+    const built = existsSync(join(REPO_ROOT, 'frontend', 'dist', 'index.html'));
+    expect(page.text).toContain(built ? 'id="root"' : 'id="scenario-list"');
+  });
+
+  it('GET /legacy redirects to /legacy/ so relative assets resolve', async () => {
+    const res = await request(app.getHttpServer()).get('/legacy').expect(301);
+    expect(res.headers.location).toBe('/legacy/');
+  });
+
+  it('GET /legacy/ serves the legacy static web viewer', async () => {
+    const page = await request(app.getHttpServer())
+      .get('/legacy/')
       .expect(200)
       .expect('Content-Type', /html/);
     for (const id of [
@@ -96,19 +112,30 @@ describe('API (e2e)', () => {
     'building-appearance.js',
     'styles.css',
     'vendor/bootstrap-icons/bootstrap-icons.min.css',
-  ])('serves viewer dependency %s rather than HTML fallback', async (asset) => {
-    const res = await request(app.getHttpServer()).get(`/${asset}`).expect(200);
-    expect(res.headers['content-type']).not.toMatch(/html/);
-    expect(res.text.length).toBeGreaterThan(50);
-  });
+  ])(
+    'serves legacy viewer dependency %s rather than HTML fallback',
+    async (asset) => {
+      const res = await request(app.getHttpServer())
+        .get(`/legacy/${asset}`)
+        .expect(200);
+      expect(res.headers['content-type']).not.toMatch(/html/);
+      expect(res.text.length).toBeGreaterThan(50);
+    },
+  );
 
-  it.each(['woff2', 'woff'])('serves the local icon font (%s)', async (format) => {
+  it.each(
+    ['', '/legacy'].flatMap((prefix) =>
+      ['woff2', 'woff'].map((format) => [prefix, format]),
+    ),
+  )('serves the local icon font (%s %s)', async (prefix, format) => {
     const res = await request(app.getHttpServer())
-      .get(`/vendor/bootstrap-icons/fonts/bootstrap-icons.${format}`)
+      .get(`${prefix}/vendor/bootstrap-icons/fonts/bootstrap-icons.${format}`)
       .expect(200);
     expect(res.headers['content-type']).not.toMatch(/html/);
     expect(Buffer.isBuffer(res.body)).toBe(true);
     expect(res.body.length).toBeGreaterThan(1000);
-    expect(res.body.subarray(0, 4).toString()).toBe(format === 'woff2' ? 'wOF2' : 'wOFF');
+    expect(res.body.subarray(0, 4).toString()).toBe(
+      format === 'woff2' ? 'wOF2' : 'wOFF',
+    );
   });
 });
