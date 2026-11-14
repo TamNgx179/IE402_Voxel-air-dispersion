@@ -248,6 +248,7 @@
     context,
     redraw,
     transectModule = root.ViewerTransect,
+    corridorModule = root.ViewerCorridor,
   }) {
     const $ = (id) => doc.getElementById(id);
     const compareTask = latestTask(),
@@ -275,6 +276,16 @@
       analysisError,
       color,
       activate: () => analysisMode("transect"),
+    });
+    const corridor = corridorModule?.mount({
+      document: doc,
+      map,
+      deck,
+      api,
+      context,
+      redraw,
+      latestTask,
+      analysisError,
     });
     const active = () => $("analysis-view").value !== "off";
     const view = () => $("analysis-view").value;
@@ -337,6 +348,7 @@
     }
     function cancelDrawing() {
       transect?.cancelDrawing();
+      corridor?.cancelDrawing();
       points = [];
       endDrawing();
       clearRegion();
@@ -346,6 +358,7 @@
     function sync() {
       const ctx = context();
       transect?.sync();
+      corridor?.sync();
       if (modified !== ctx.modified) {
         modified = ctx.modified;
         clearRegion();
@@ -626,6 +639,7 @@
     });
     $("region-draw").addEventListener("click", () => {
       if (drawing || regionBusy || !context().id) return;
+      corridor?.cancelDrawing();
       clearRegion();
       drawing = true;
       points = [];
@@ -639,6 +653,7 @@
     // Một map-click dispatcher cho cả vùng và tuyến; các lớp picking nhường quyền khi đang vẽ.
     map.on("click", (event) => {
       transect?.click(event);
+      corridor?.click(event);
       if (drawing) {
         if (points.length >= 499) {
           status("region-note", "Tối đa 499 đỉnh.");
@@ -681,6 +696,7 @@
     function analysisMode(mode) {
       const compare = mode === "compare";
       if (mode !== "region" && drawing) cancelDrawing();
+      if (mode !== "corridor") corridor?.cancelDrawing();
       if (!compare && active()) {
         $("analysis-view").value = "off";
         sync();
@@ -689,7 +705,13 @@
       $("compare-panel").hidden = !compare;
       $("region-panel").hidden = mode !== "region";
       $("transect-panel").hidden = mode !== "transect";
+      if ($("corridor-panel")) $("corridor-panel").hidden = mode !== "corridor";
       transect?.setVisible(mode === "transect");
+      corridor?.setVisible(mode === "corridor");
+      $("analysis-corridor-mode")?.setAttribute(
+        "aria-pressed",
+        String(mode === "corridor"),
+      );
       $("analysis-compare-mode").setAttribute("aria-pressed", String(compare));
       $("analysis-region-mode").setAttribute(
         "aria-pressed",
@@ -709,6 +731,9 @@
     );
     $("analysis-transect-mode").addEventListener("click", () =>
       analysisMode("transect"),
+    );
+    $("analysis-corridor-mode")?.addEventListener("click", () =>
+      analysisMode("corridor"),
     );
     $("region-query").addEventListener("click", queryRegion);
     $("region-export").addEventListener("click", async () => {
@@ -746,7 +771,10 @@
       }
     });
     function layers(z) {
-      const result = [...(transect?.layers(z) || [])];
+      const result = [
+        ...(corridor?.layers(z) || []),
+        ...(transect?.layers(z) || []),
+      ];
       if (active() && payload) {
         const values = payload.feature_collection.features.flatMap((f) => [
           f.properties.baseline_ug_m3,
@@ -823,13 +851,19 @@
         view: view(),
         region: regionResult ? {run:regionResult.run,request:regionResult.request} : null,
         transect: transect?.exportState?.() || null,
+        corridor: corridor?.exportState?.() || null,
       }),
       cancelDrawing,
-      isDrawing: () => drawing || Boolean(transect?.isDrawing()),
-      onToolChange: (id) =>
+      isDrawing: () =>
+        drawing || Boolean(transect?.isDrawing()) || Boolean(corridor?.isDrawing()),
+      onToolChange: (id) => {
         transect?.setVisible(
           id === "spatial-analysis" && !$("transect-panel").hidden,
-        ),
+        );
+        corridor?.setVisible(
+          id === "spatial-analysis" && $("corridor-panel") && !$("corridor-panel").hidden,
+        );
+      },
       tooltip: (feature) => {
         const p = feature.properties;
         return `Ô (${p.i}, ${p.j}) · dữ liệu gốc chính xác\nGốc ${number(p.baseline_ug_m3)} · so sánh ${number(p.comparison_ug_m3)}\nΔC ${number(p.delta_ug_m3)} µg/m³`;

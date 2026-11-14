@@ -26,7 +26,7 @@ A regular 3D array fits the FV stencil and altitude profiles. B-Rep is useful fo
 
 ## Priority analysis: road proximity and PM2.5 by altitude
 
-The first implementation exposes `POST /api/runs/:id/road-corridor` and the corresponding `/csv` route. Use road `source_feature_id` values from the run's scene and send increasing outer distances, a height interval and an optional threshold. Repeat the query at different height intervals to compare altitude bands. The response includes band geometry, valid coverage and volume-weighted statistics. The React panel is pending.
+The first implementation exposes `POST /api/runs/:id/road-corridor` and the corresponding `/csv` route. Use road `source_feature_id` values from the run's scene and send increasing outer distances, a height interval and an optional threshold. Repeat the query at different height intervals to compare altitude bands. The response includes band geometry, valid coverage and volume-weighted statistics. The current web viewer exposes it under Phân tích → Hành lang đường (`web/viewer-corridor.js`): roads are picked on the map or from a keyboard-accessible list, bands are drawn on the map with a per-band table and CSV download. A React version of this panel belongs to Phase 2.
 
 Run `npm run db:benchmark:spatial` from `app/` with a verified FV run in the target database. The benchmark uses the endpoint's SQL for one-road and broad corridor requests.
 

@@ -137,6 +137,7 @@ async function main() {
       id:state.scenario,z:GRID.z_centres_m[state.layer],height:GRID.nz*GRID.dz_m,
       modified:state.multiplier!==1 || state.background!==0,
       runs:M.scenarios.map(run=>({id:run.id,label:scenarioLabel(run)})),
+      roads:window.VOXEL_ROADS?.features || [],
     })});
   }
   if (state.scenario) {
@@ -498,6 +499,7 @@ function createMap() {
   overlay = new Overlay({ interleaved: false, layers: [],onAfterRender:()=>afterRenderCapture?.(),getCursor:()=>spatialAnalysis?.isDrawing()?'crosshair':state.mapMode==='cell'?'default':'grab',effects:[BuildingAppearance.lighting(deck)],getTooltip:info=>{
     // Chỉ xem thông tin ô sau khi bấm chọn, không bật bảng nổi khi rê chuột.
     if(info.layer?.id==='concentration' || info.layer?.id?.startsWith('analysis-comparison')) return null;
+    if(info.layer?.id==='corridor-bands' && info.object) return `Dải ${fmt(info.object.properties.inner_m)}–${fmt(info.object.properties.outer_m)} m · TB ${info.object.properties.mean_ug_m3==null?'không có dữ liệu':fmt(info.object.properties.mean_ug_m3)+' µg/m³'}`;
     const id=info.object?.properties?.source_feature_id || info.object?.id;
     const building=buildingAppearance?.features.get(id);
     return building ? `${id}\n${fmt(building.height)} m · Mặt đứng minh họa` : null;
@@ -875,6 +877,7 @@ function reportSnapshot() {
       selected_cell: state.selected ? { ...state.selected } : null,
       region: extra?.region || null,
       transect: extra?.transect || null,
+      road_corridor: extra?.corridor || null,
       render_lod: facadeLod
         ? {
             level: facadeLod(map).level,

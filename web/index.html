@@ -93,6 +93,7 @@
           <button id="analysis-region-mode" type="button" aria-pressed="true" aria-controls="region-panel">Theo vùng</button>
           <button id="analysis-transect-mode" type="button" aria-pressed="false" aria-controls="transect-panel">Mặt cắt đứng</button>
           <button id="analysis-compare-mode" type="button" aria-pressed="false" aria-controls="compare-panel">So sánh kết quả</button>
+          <button id="analysis-corridor-mode" type="button" aria-pressed="false" aria-controls="corridor-panel">Hành lang đường</button>
         </div>
         <section class="analysis-section" id="transect-panel" aria-labelledby="transect-heading" hidden>
           <div class="section-heading"><h2 id="transect-heading">Mặt cắt đứng</h2><button type="button" class="help-trigger" aria-label="Cách vẽ tuyến mặt cắt" data-help="Bấm từ 2 điểm trên bản đồ, rồi Hoàn tất tuyến để xem nồng độ theo khoảng cách và độ cao."><i class="bi bi-info-circle" aria-hidden="true"></i></button></div>
@@ -130,6 +131,25 @@
             <div class="section-heading"><h3>Kết quả trong vùng</h3><button type="button" class="help-trigger" aria-label="Cách đọc kết quả vùng" data-help="Trung bình tính theo thể tích không khí, bỏ ô rắn và ô thiếu dữ liệu. Đây không phải số đo không khí thực tế."><i class="bi bi-info-circle" aria-hidden="true"></i></button></div>
             <div id="region-result-content"></div>
             <button type="button" id="region-export" disabled hidden>Tải CSV</button>
+          </section>
+        </section>
+        <section class="analysis-section" id="corridor-panel" aria-labelledby="corridor-heading" hidden>
+          <div class="section-heading"><h2 id="corridor-heading">Hành lang đường</h2><button type="button" class="help-trigger" aria-label="Cách phân tích hành lang đường" data-help="Chọn đường trên bản đồ hoặc trong danh sách. Nồng độ được tính theo từng dải khoảng cách tới đường, trong khoảng cao độ đã chọn."><i class="bi bi-info-circle" aria-hidden="true"></i></button></div>
+          <div class="analysis-actions"><button type="button" id="corridor-pick">Chọn trên bản đồ</button><button type="button" id="corridor-pick-done" class="action-primary" hidden>Xong chọn đường</button><button type="button" id="corridor-clear" hidden>Bỏ chọn đường</button></div>
+          <p class="note" id="corridor-note" role="status"></p>
+          <label for="corridor-road-list">Đoạn đường (giữ Ctrl để chọn nhiều)</label>
+          <select id="corridor-road-list" multiple size="5"></select>
+          <div id="corridor-settings" hidden>
+            <div class="field-heading"><label for="corridor-distances">Mốc khoảng cách (m)</label><button type="button" class="help-trigger" aria-label="Giải thích mốc khoảng cách" data-help="Nhập 1–5 mốc tăng dần, ví dụ 10, 25, 50 tạo các dải 0–10, 10–25 và 25–50 m quanh đường."><i class="bi bi-info-circle" aria-hidden="true"></i></button></div><input id="corridor-distances" type="text" inputmode="decimal" value="10, 25, 50" />
+            <div class="analysis-height"><label for="corridor-min">Độ cao từ (m)<input id="corridor-min" type="number" min="0" step="any" value="0" /></label><label for="corridor-max">Đến độ cao (m)<input id="corridor-max" type="number" min="0" step="any" value="15" /></label></div>
+            <label for="corridor-threshold">Ngưỡng tham chiếu (µg/m³)</label><input id="corridor-threshold" type="number" min="0" step="any" value="15" />
+            <div class="analysis-actions"><button type="button" id="corridor-query" class="action-primary" disabled>Phân tích hành lang</button></div>
+          </div>
+          <p class="note analysis-feedback" id="corridor-feedback" role="status"></p>
+          <section id="corridor-result" class="analysis-result" aria-label="Kết quả hành lang đường" hidden>
+            <div class="section-heading"><h3>Kết quả theo dải</h3><button type="button" class="help-trigger" aria-label="Cách đọc kết quả hành lang" data-help="Trung bình tính theo thể tích khí giao với dải và khoảng cao độ; bỏ ô rắn và ô thiếu dữ liệu. Phủ dữ liệu là tỉ lệ thể tích khí có giá trị."><i class="bi bi-info-circle" aria-hidden="true"></i></button></div>
+            <div id="corridor-result-content"></div>
+            <button type="button" id="corridor-export" disabled hidden>Tải CSV</button>
           </section>
         </section>
       </section>
@@ -233,6 +253,7 @@
   <script src="./viewer-help.js"></script>
   <script src="./viewer-analysis.js"></script>
   <script src="./viewer-transect.js"></script>
+  <script src="./viewer-corridor.js"></script>
   <script src="./building-appearance.js"></script>
   <script src="./map/viewer-lod.js"></script>
   <script src="./viewer-export.js"></script>
