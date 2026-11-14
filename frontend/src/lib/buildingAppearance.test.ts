@@ -56,7 +56,7 @@ describe('building appearance', () => {
     const effect = lighting({
       AmbientLight: Light,
       DirectionalLight: Light,
-      LightingEffect: Effect as unknown as new (lights: Record<string, unknown>) => Effect,
+      LightingEffect: Effect as unknown as new (lights: { ambient: Light; key: Light; fill: Light }) => Effect,
     });
     expect(effect.props.key.props).toEqual(LIGHTS.key);
     const upperBound =

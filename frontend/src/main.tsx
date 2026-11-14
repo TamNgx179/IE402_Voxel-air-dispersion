@@ -1,9 +1,9 @@
 import { StrictMode } from 'react';
 import { createRoot } from 'react-dom/client';
-
-function App() {
-  return <p>Voxel PM2.5</p>;
-}
+import 'maplibre-gl/dist/maplibre-gl.css';
+import './styles/viewer.css';
+import './styles/app.css';
+import { App } from './App';
 
 createRoot(document.getElementById('root')!).render(
   <StrictMode>

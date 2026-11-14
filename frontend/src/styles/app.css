@@ -1,0 +1,69 @@
+/*
+ * Additions for the React viewer. viewer.css is a verbatim copy of web/styles.css
+ * (legacy ids/classes are kept so its rules apply); put new rules here.
+ */
+#root {
+  width: 100%;
+  height: 100%;
+}
+
+.panel-head-actions {
+  display: flex;
+  flex: none;
+  gap: 6px;
+  align-items: center;
+}
+
+.lang-switch {
+  display: inline-flex;
+  border: 1px solid var(--tool-border);
+  border-radius: 8px;
+  overflow: hidden;
+}
+
+.lang-switch button {
+  min-width: 34px;
+  height: 30px;
+  padding: 0 6px;
+  border: 0;
+  background: var(--panel);
+  color: var(--tool-text);
+  font: 600 11px/1 system-ui, sans-serif;
+  letter-spacing: 0.04em;
+  cursor: pointer;
+}
+
+.lang-switch button + button {
+  border-left: 1px solid var(--tool-border);
+}
+
+.lang-switch button[aria-pressed='true'] {
+  background: var(--tool-active);
+  color: #ffffff;
+}
+
+.lang-switch button:not([aria-pressed='true']):hover {
+  background: var(--tool-hover);
+}
+
+.lang-switch button:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: -2px;
+}
+
+/* Long words (Vietnamese labels, English compound phrases) must wrap, never overflow at 320 px. */
+.panel,
+.tool-panel,
+.cell-info,
+#status-box {
+  overflow-wrap: anywhere;
+}
+
+@media (max-width: 360px) {
+  .panel-head h1 {
+    font-size: 15px;
+  }
+  .lang-switch button {
+    min-width: 30px;
+  }
+}

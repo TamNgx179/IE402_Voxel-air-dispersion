@@ -126,6 +126,7 @@ export async function fetchRun(api: ApiFn, id: string): Promise<RunData> {
 export function createViewerActions(store: ViewerStore, api: ApiFn): ViewerActions & { scheduleQueries(): void; dispose(): void } {
   const inflight = new Map<string, Promise<RunData>>();
   let selection = 0;
+  let bootstrapToken = 0;
   let queryTimer: ReturnType<typeof setTimeout> | undefined;
   const { dispatch, getState } = store;
 
@@ -170,12 +171,14 @@ export function createViewerActions(store: ViewerStore, api: ApiFn): ViewerActio
   }
 
   async function loadBootstrap() {
+    const token = ++bootstrapToken;
     dispatch({ type: 'bootstrap/retry' });
     dispatch({ type: 'status/set', status: { message: { key: 'viewer.statusLoadingLibraries' }, kind: 'info' } });
     let result: Awaited<ReturnType<typeof fetchBootstrap>>;
     try {
       result = await fetchBootstrap(api);
     } catch (error) {
+      if (token !== bootstrapToken) return;
       dispatch({ type: 'bootstrap/failed', error });
       dispatch({
         type: 'status/set',
@@ -183,6 +186,7 @@ export function createViewerActions(store: ViewerStore, api: ApiFn): ViewerActio
       });
       return;
     }
+    if (token !== bootstrapToken) return;
     dispatch({ type: 'bootstrap/loaded', data: result.data, runs: result.runs });
     const id = defaultRunId(result.runs);
     if (id) await selectResult(id);

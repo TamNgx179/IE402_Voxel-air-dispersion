@@ -27,13 +27,13 @@ export const LIGHTS = Object.freeze({
 });
 
 /** The subset of @deck.gl/core used to build the lighting effect (injectable for tests). */
-export interface LightingClasses<E> {
-  LightingEffect: new (lights: Record<string, unknown>) => E;
-  AmbientLight: new (props: typeof LIGHTS.ambient) => unknown;
-  DirectionalLight: new (props: typeof LIGHTS.key) => unknown;
+export interface LightingClasses<E, A, D> {
+  LightingEffect: new (lights: { ambient: A; key: D; fill: D }) => E;
+  AmbientLight: new (props: typeof LIGHTS.ambient) => A;
+  DirectionalLight: new (props: typeof LIGHTS.key) => D;
 }
 
-export function lighting<E>(deck: LightingClasses<E>): E {
+export function lighting<E, A, D>(deck: LightingClasses<E, A, D>): E {
   return new deck.LightingEffect({
     ambient: new deck.AmbientLight(LIGHTS.ambient),
     key: new deck.DirectionalLight(LIGHTS.key),

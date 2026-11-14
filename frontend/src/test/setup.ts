@@ -59,3 +59,9 @@ if (!window.matchMedia) {
       dispatchEvent: () => false,
     }) as unknown as MediaQueryList;
 }
+
+// maplibre-gl creates its worker blob URL at import time; jsdom lacks createObjectURL.
+if (typeof URL.createObjectURL !== 'function') {
+  Object.defineProperty(URL, 'createObjectURL', { configurable: true, value: () => 'blob:test' });
+  Object.defineProperty(URL, 'revokeObjectURL', { configurable: true, value: () => {} });
+}

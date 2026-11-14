@@ -20,6 +20,7 @@ import enCompare from './en/compare';
 import enTransect from './en/transect';
 import enCorridor from './en/corridor';
 import enIllustration from './en/illustration';
+import enExport from './en/export';
 
 import viCommon from './vi/common';
 import viErrors from './vi/errors';
@@ -34,6 +35,7 @@ import viCompare from './vi/compare';
 import viTransect from './vi/transect';
 import viCorridor from './vi/corridor';
 import viIllustration from './vi/illustration';
+import viExport from './vi/export';
 
 export const en = {
   common: enCommon,
@@ -49,6 +51,7 @@ export const en = {
   transect: enTransect,
   corridor: enCorridor,
   illustration: enIllustration,
+  export: enExport,
 } as const;
 
 export type Dictionary = { readonly [NS in keyof typeof en]: Messages<(typeof en)[NS]> };
@@ -67,6 +70,7 @@ export const vi: Dictionary = {
   transect: viTransect,
   corridor: viCorridor,
   illustration: viIllustration,
+  export: viExport,
 };
 
 export type Namespace = keyof typeof en;
