@@ -1,9 +1,45 @@
 /**
- * Copy owned by the simulation panel (src/panels/). Add keys here; the vi file must
+ * Copy owned by the simulation panel (src/panels/simulation). The vi file must
  * mirror every key (enforced by the Messages<typeof en> type).
  */
 const simulation = {
   toolLabel: 'Simulation',
   title: 'Run a simulation',
+  helpLabel: 'How to run a simulation',
+  help: 'Choose a scenario, then press Run. The new result appears automatically when the simulation finishes.',
+  emission: 'Emission source',
+  emissionBaseline: 'Original source',
+  emissionReduced20: 'Reduced 20%',
+  emissionReduced40: 'Reduced 40%',
+  scenario: 'Simulation scenario',
+  scenarioOption: '{name} · {speed} m/s',
+  noScenarios: 'No runnable scenarios',
+  run: 'Run',
+  runBusy: 'A simulation is in progress',
+  progressLabel: 'Simulation progress',
+  'state.queued': 'Queued',
+  'state.running': 'Computing',
+  'state.succeeded': 'Finished',
+  'state.failed': 'Did not finish',
+  'state.stale': 'Interrupted',
+  noteProgress: '{state} · {percent}%',
+  noteReconnecting: 'Connection lost · reconnecting…',
+  noteSucceeded: 'Finished · the new result is shown on the map.',
+  noteFailed: 'Did not finish. You can run it again.',
+  noteStale: 'Interrupted. You can run it again.',
+  noteCreateUnconfirmed: 'No confirmation received yet. Keep the same scenario and source level, then press Run to try again.',
+  noteCreateFailed: 'The simulation could not be created. Please check and try again.',
+  noteRunNotFound: 'The saved run was not found. You can choose another result or start a new simulation.',
+  noteConnectionLost: 'Connection temporarily lost. The simulation may still be running; keep tracking it instead of starting a new run.',
+  noteLoadFailed: 'The simulation finished but its result could not be loaded. Choose it again in the list.',
+  'reason.input': 'The input data is not suitable. Check the scenario before running again.',
+  'reason.model': 'The result did not pass the computation checks. The model needs checking before running again.',
+  'reason.timeout': 'The simulation exceeded the allowed time. Try again or choose another scenario.',
+  'reason.system': 'The application hit an error while computing. Please try again later.',
+  'reason.other': 'The simulation was interrupted. You can try again.',
+  errorDetails: 'Error details',
+  keepTracking: 'Keep tracking',
+  statusTracking: 'Tracking the simulation…',
+  statusSucceeded: 'Simulation finished',
 } as const;
 export default simulation;
