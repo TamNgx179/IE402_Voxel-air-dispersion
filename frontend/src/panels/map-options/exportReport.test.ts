@@ -138,8 +138,8 @@ describe('PNG report', () => {
 
   function fakeInstance(options: { loaded?: boolean; moving?: boolean } = {}) {
     const listeners: Record<string, () => void> = {};
-    let onAfterRender: (() => void) | undefined;
     const mapCanvas = canvas(800, 400);
+    const cancel = vi.fn();
     const instance = {
       map: {
         loaded: () => options.loaded ?? true,
@@ -149,36 +149,44 @@ describe('PNG report', () => {
         triggerRepaint: () => listeners.render?.(),
         getCanvas: () => mapCanvas,
       },
-      overlay: {
-        setProps: vi.fn((props: { onAfterRender?: () => void }) => (onAfterRender = props.onAfterRender)),
-        getCanvas: () => canvas(800, 400),
-      },
-      redraw: () => onAfterRender?.(),
+      overlay: {},
+      // Like MapView: the frame callback runs during the forced deck draw.
+      captureFrame: vi.fn((onFrame: (deckCanvas: HTMLCanvasElement | null) => void) => {
+        onFrame(canvas(800, 400));
+        return cancel;
+      }),
+      redraw: () => {},
       resetView: () => {},
       renderLod: () => ({ level: 'near', vertices: 0 }),
     };
-    return instance as unknown as MapInstance & { overlay: { setProps: ReturnType<typeof vi.fn> } };
+    return { instance: instance as unknown as MapInstance, captureFrame: instance.captureFrame, cancel };
   }
 
-  test('capture composes after the overlay rendered and restores onAfterRender', async () => {
+  test('capture composes after the overlay rendered through captureFrame', async () => {
     stubContext();
-    const instance = fakeInstance();
+    const { instance, captureFrame } = fakeInstance();
     const r = report();
     const out = await captureReport(instance, r, () => r, t);
     expect(out.width).toBe(1000);
-    await new Promise((resolve) => setTimeout(resolve, 0));
-    const calls = instance.overlay.setProps.mock.calls.map((c) => c[0] as { onAfterRender: () => void });
-    expect(calls).toHaveLength(2);
-    expect(calls.every((props) => Object.keys(props).join() === 'onAfterRender')).toBe(true);
-    expect(calls[1].onAfterRender).not.toBe(calls[0].onAfterRender);
+    expect(captureFrame).toHaveBeenCalledTimes(1);
+  });
+
+  test('a capture that times out cancels its pending frame callback', async () => {
+    stubContext();
+    const { instance, cancel } = fakeInstance();
+    (instance as unknown as { captureFrame: () => () => void }).captureFrame = () => cancel;
+    await expect(captureReport(instance, report(), report, t, document, 5)).rejects.toMatchObject({
+      messageKey: 'mapOptions.error.captureTimeout',
+    });
+    expect(cancel).toHaveBeenCalledTimes(1);
   });
 
   test('capture rejects while the map moves and when the selection changed', async () => {
     stubContext();
-    await expect(captureReport(fakeInstance({ moving: true }), report(), report, t)).rejects.toMatchObject({
+    await expect(captureReport(fakeInstance({ moving: true }).instance, report(), report, t)).rejects.toMatchObject({
       messageKey: 'mapOptions.error.mapBusy',
     });
-    const changed = captureReport(fakeInstance(), report(), () => report({}, { z_center_m: 9 }), t);
+    const changed = captureReport(fakeInstance().instance, report(), () => report({}, { z_center_m: 9 }), t);
     await expect(changed).rejects.toBeInstanceOf(AppError);
     await expect(changed).rejects.toMatchObject({ messageKey: 'mapOptions.error.changed' });
   });

@@ -122,6 +122,8 @@ export function MapView({ bootstrap, factory = createMapLibre }: MapViewProps) {
     let tileErrors = 0;
     let basemapTimer: ReturnType<typeof setTimeout> | undefined;
     let appliedBasemap = store.getState().basemap;
+    /** Pending captureFrame() callbacks, run after the next deck frame. */
+    const frameCallbacks = new Set<(deckCanvas: HTMLCanvasElement | null) => void>();
 
     const { map, overlay } = factory({
       container,
@@ -130,6 +132,13 @@ export function MapView({ bootstrap, factory = createMapLibre }: MapViewProps) {
         interleaved: false,
         layers: [],
         effects: [lighting({ LightingEffect, AmbientLight, DirectionalLight })],
+        onAfterRender: () => {
+          if (!frameCallbacks.size) return;
+          const pending = [...frameCallbacks];
+          frameCallbacks.clear();
+          const deckCanvas = overlay.getCanvas();
+          pending.forEach((callback) => callback(deckCanvas));
+        },
         getCursor: ({ isDragging }) =>
           registry.isDrawing() ? 'crosshair' : store.getState().mapMode === 'cell' ? 'default' : isDragging ? 'grabbing' : 'grab',
         getTooltip: (info: PickingInfo) => {
@@ -157,6 +166,16 @@ export function MapView({ bootstrap, factory = createMapLibre }: MapViewProps) {
         return { level: plan.level, vertices: plan.vertices };
       },
       redraw: () => render(),
+      captureFrame: (onFrame) => {
+        frameCallbacks.add(onFrame);
+        render();
+        // Unchanged layers may not schedule a deck frame: force one draw so
+        // onAfterRender runs now (MapboxOverlay keeps its Deck in `_deck`).
+        (overlay as unknown as { _deck?: { redraw?(reason?: string): void } })._deck?.redraw?.('capture-frame');
+        return () => {
+          frameCallbacks.delete(onFrame);
+        };
+      },
     };
 
     function resetView(duration = 450) {
@@ -373,6 +392,7 @@ export function MapView({ bootstrap, factory = createMapLibre }: MapViewProps) {
 
     return () => {
       disposed = true;
+      frameCallbacks.clear();
       controlsRef.current = null;
       setInstance(null);
       stopWind();

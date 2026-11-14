@@ -1,10 +1,10 @@
 import { act, render, screen, waitFor, within } from '@testing-library/react';
 import { useMemo } from 'react';
-import { describe, expect, test } from 'vitest';
+import { describe, expect, test, vi } from 'vitest';
 import { PathLayer } from '@deck.gl/layers';
 import { App } from './App';
 import { ApiError, api as realApi } from './api/client';
-import { useMapClick, useMapLayers } from './map/hooks';
+import { useMapClick, useMapInstance, useMapLayers, type MapInstance } from './map/hooks';
 import { PANELS } from './panels';
 import type { PanelDefinition, PanelProps } from './panels/types';
 import { useApi, type ApiFn } from './store/controller';
@@ -166,6 +166,26 @@ describe('viewer shell', () => {
     }
     render(<Outside />);
     expect(seen).toBe(realApi);
+  });
+
+  test('captureFrame forces one deck frame and calls back once with the deck canvas', async () => {
+    let instance: MapInstance | null = null;
+    const probe: PanelDefinition = { id: 'map-probe', icon: 'x', labelKey: 'common.close', Component: () => ((instance = useMapInstance()), null) };
+    const { fake } = await renderApp([probe]);
+    const onFrame = vi.fn();
+    const cancel = instance!.captureFrame(onFrame);
+    expect(fake.overlays[0]._deck.redraw).toHaveBeenCalledTimes(1);
+    expect(onFrame).toHaveBeenCalledTimes(1);
+    expect(onFrame.mock.calls[0][0]).toBeInstanceOf(HTMLCanvasElement);
+    // Later frames do not call it again; a cancelled callback never runs.
+    fake.overlays[0]._deck.redraw();
+    expect(onFrame).toHaveBeenCalledTimes(1);
+    cancel();
+    const cancelled = vi.fn();
+    fake.overlays[0]._deck.redraw.mockImplementationOnce(() => {});
+    instance!.captureFrame(cancelled)();
+    fake.overlays[0]._deck.redraw();
+    expect(cancelled).not.toHaveBeenCalled();
   });
 
   test('unmount removes the map and finalizes the overlay', async () => {

@@ -42,7 +42,7 @@ export function PanelHost({ panels }: { panels: readonly PanelDefinition[] }) {
       {panels.map((panel) => {
         const { Component } = panel;
         return (
-          <section key={panel.id} className="tool-panel" id={panelElementId(panel)} aria-label={t(panel.labelKey)} hidden={active !== panel.id}>
+          <section key={panel.id} className="tool-panel" id={panelElementId(panel)} aria-label={t(panel.ariaLabelKey ?? panel.labelKey)} hidden={active !== panel.id}>
             <Component active={active === panel.id} />
           </section>
         );

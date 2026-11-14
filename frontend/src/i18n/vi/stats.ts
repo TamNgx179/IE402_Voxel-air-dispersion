@@ -3,6 +3,7 @@ import type en from '../en/stats';
 
 const stats: Messages<typeof en> = {
   toolLabel: 'Thống kê',
+  panelLabel: 'Thống kê và ô được chọn',
   title: 'Nồng độ tầng đang xem',
   helpLabel: 'Cách đọc thống kê nồng độ',
   help: 'Số liệu thuộc tầng đang xem. Trung bình tính trên các ô không khí có dữ liệu; cao nhất là giá trị lớn nhất trong tầng.',

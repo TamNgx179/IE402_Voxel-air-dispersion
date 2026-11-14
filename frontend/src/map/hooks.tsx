@@ -22,6 +22,13 @@ export interface MapInstance {
   renderLod(): { level: string; vertices: number };
   /** Re-render deck layers now (normally automatic on store/registry changes). */
   redraw(): void;
+  /**
+   * Re-render now, force one deck frame and call `onFrame` right after deck drew it
+   * (inside deck's draw, so the deck canvas still holds that frame; copy it there).
+   * `deckCanvas` is the overlay canvas, or null. Called at most once; the returned
+   * function cancels a pending callback. Used by the PNG export.
+   */
+  captureFrame(onFrame: (deckCanvas: HTMLCanvasElement | null) => void): () => void;
 }
 
 interface MapContextValue {

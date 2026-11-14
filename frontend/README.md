@@ -128,7 +128,22 @@ retryQueries(): void                    // re-run failed exceedance/profile quer
 Exceedance areas for the current layer and the selected cell's profile are fetched
 automatically (debounced 180 ms) in exact mode.
 
+### `useApi(): ApiFn` (`store/controller.tsx`)
+
+```ts
+import { useApi } from '../../store/controller';
+const api = useApi();
+const result = await api<RegionResult>(`/runs/${id}/region`, { method: 'POST', body });
+```
+
+The REST function given to `<App api>` / `<ViewerActionsProvider api>` (tests pass
+`fakeApi()` or `routedApi(…)`), else the real client from `api/client.ts` (also
+outside the provider). Panels use `useApi()` instead of importing `api` directly, so
+tests inject endpoints through the App rather than `vi.mock`.
+
 ## REST client (`api/client.ts`)
+
+In panels get the function with `useApi()` (above); its call signature is `api`'s:
 
 ```ts
 import { api, request, ApiError, AppError, errorMessage } from '../../api/client';
@@ -178,7 +193,8 @@ interface PanelProps { active: boolean }
 interface PanelDefinition {
   id: string;                      // 'simulation' | 'map-options' | 'stats' | 'analysis' | 'illustration'
   icon: string;                    // bootstrap icon without 'bi-', e.g. 'play-fill'
-  labelKey: TranslationKey;        // tool button label
+  labelKey: TranslationKey;        // tool button label (and the section aria-label by default)
+  ariaLabelKey?: TranslationKey;   // section aria-label when it differs (stats: legacy "Statistics and selected cell")
   Component: ComponentType<PanelProps>;
   elementId?: string;              // DOM id of the <section class="tool-panel">; default `panel-<id>`
   Persistent?: ComponentType;      // always-visible content below the panels (e.g. run progress)
@@ -214,7 +230,7 @@ import { useMapLayers, useMapClick, useIsDrawing, useMapInstance } from '../../m
 type LayerList = ReadonlyArray<Layer | null | false | undefined>;
 interface MapLayersOptions {
   slot?: 'below-concentration' | 'above-concentration' | 'top';   // default 'above-concentration'
-  suppressConcentration?: boolean;   // hide the core concentration layer (e.g. comparison view)
+  suppressConcentration?: boolean;   // hide the core concentration layer and its legend (e.g. comparison view)
   tooltip?: (info: PickingInfo) => string | null;                  // hover text for your objects
 }
 ```
@@ -255,11 +271,15 @@ to export. Typical drawing panel:
 useMapClick((e) => setPoints((p) => [...p, e.lngLat]), { enabled: active && drawing, drawing: true });
 ```
 
-Disable double-click zoom while drawing yourself if needed:
+Disable double-click zoom while drawing yourself if needed (the test fake map has a
+`doubleClickZoom` stub with `isEnabled/enable/disable`):
 `useMapInstance()?.map.doubleClickZoom.disable()` (restore on finish/cancel). Handle
 Escape in your panel (the help tooltip consumes Escape first when it is open).
 
-### `useIsDrawing(): boolean` and `useMapInstance(): MapInstance | null`
+### `useIsDrawing(): boolean`, `useConcentrationSuppressed(): boolean` and `useMapInstance(): MapInstance | null`
+
+`useConcentrationSuppressed()` is true while any contribution passes
+`suppressConcentration`; the core legend in `ResultCard` hides itself then.
 
 ```ts
 interface MapInstance {
@@ -268,8 +288,13 @@ interface MapInstance {
   resetView(duration?: number): void;
   renderLod(): { level: string; vertices: number };
   redraw(): void;
+  /** Re-render, force one deck frame, call onFrame once right after deck drew it. Returns cancel. */
+  captureFrame(onFrame: (deckCanvas: HTMLCanvasElement | null) => void): () => void;
 }
 ```
+
+`captureFrame` is how the PNG export copies the deck canvas while it still holds the
+frame (copy inside the callback). Do not set `onAfterRender` on the overlay yourself.
 
 `null` before the map exists and after unmount — always null-check. Do not call
 `map.remove()`, `overlay.setProps({layers})` or replace the style yourself (use
@@ -294,7 +319,9 @@ useReportSnapshot(): () => Report;   // throws AppError('export.noRun' | 'export
   `units`, `exported_at`, `locale`, `grid`, `provenance`, `scene_quality`, `camera`,
   `illustration`, `thresholds`, `basemap`, `selected_cell`, `render_lod`, `layers`, +
   contributions), `attribution`, `notice`, `legend`. Only `title`, `mode`, `notice` and
-  `legend` text follow the UI language. `reportKey(report)` gives a stable identity
+  `legend` text follow the UI language. When a `comparison` is contributed (report
+  target), `buildReport` appends `export.comparisonNotice` to the notice itself and
+  skips the threshold notice/legend; contributors override only `mode`/`legend`. `reportKey(report)` gives a stable identity
   (without `exported_at`) for PNG capture consistency checks.
 - File/CSV helpers: `lib/export.ts`.
 
@@ -310,9 +337,17 @@ npx tsc --noEmit
   appearance, evidence, milestones) — numerical behaviour is unchanged.
 - `src/test/fixtures.ts` → `fakeApi(overrides)`: an in-memory API (2×2×3 grid, two runs,
   one threshold). Override a route with a value or an `Error` instance.
+  `routedApi(match, handler, base = fakeApi())` sends paths matching a RegExp (or
+  `(path, options) => boolean`) to `handler` and the rest to `base`; pass it as
+  `<App api>` to serve a panel's endpoints (reached through `useApi()`).
 - `src/test/fakeMap.ts` → `createFakeMapFactory()`: a MapLibre/deck stand-in; render
   `<App store={createViewerStore()} api={fakeApi()} mapFactory={fake.factory} panels={[...]}/>`
   and inspect `fake.overlays[0].setProps` calls for layer ids. See `src/App.test.tsx`.
+  `fake.maps[0].doubleClickZoom` is a stateful stub (`isEnabled()`, `enable`/`disable`
+  spies); `fake.overlays[0]._deck.redraw()` runs the overlay's `onAfterRender` like
+  a deck frame (drives `captureFrame`).
+- Simulation tests: `configureSimulationTracker(store, { sleep })` injects the poll
+  delay before the tracker is first used; the tracker's API is the App's `useApi()`.
 - jsdom has no WebGL; never instantiate the real map in tests.
 - Legacy tests stay in `web/tests` (`node --test web/tests/*.test.cjs scripts/tests/*.test.mjs`).
 

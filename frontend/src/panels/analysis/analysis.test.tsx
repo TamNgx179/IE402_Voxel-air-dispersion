@@ -81,18 +81,12 @@ async function setup(handler: Handler) {
   render(<App store={store} api={api} mapFactory={fake.factory} panels={panels} />);
   await waitFor(() => expect(store.getState().selectedRunId).toBe('real-run'));
   await frame();
-  let zoom = true;
   const map = fake.maps[0];
-  map.doubleClickZoom = {
-    isEnabled: () => zoom,
-    enable: () => (zoom = true),
-    disable: () => (zoom = false),
-  };
   act(() => store.dispatch({ type: 'panel/open', id: 'analysis' }));
   const click = (lng: number, lat: number) =>
     act(() => map.fire('click', { lngLat: { lng, lat }, point: { x: 1, y: 1 }, originalEvent: undefined }));
   const panel = () => within(document.getElementById('spatial-analysis') as HTMLElement);
-  return { store, fake, map, calls, click, panel, zoom: () => zoom };
+  return { store, fake, map, calls, click, panel, zoom: () => map.doubleClickZoom.isEnabled() };
 }
 
 const el = (id: string) => document.getElementById(id) as HTMLElement;

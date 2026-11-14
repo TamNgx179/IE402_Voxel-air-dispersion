@@ -4,6 +4,7 @@
  */
 const stats = {
   toolLabel: 'Statistics',
+  panelLabel: 'Statistics and selected cell',
   title: 'Concentration at the current level',
   helpLabel: 'How to read the concentration statistics',
   help: 'Figures belong to the level being viewed. The mean is taken over air cells with data; the maximum is the largest value in the level.',

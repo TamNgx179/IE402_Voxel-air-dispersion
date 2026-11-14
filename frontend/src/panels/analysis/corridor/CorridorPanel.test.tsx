@@ -77,13 +77,9 @@ async function setup(handler: (path: string, body: Body) => Promise<unknown> = a
   );
   const store = createViewerStore();
   const fake = createFakeMapFactory();
-  let zoom = true;
   const factory: MapFactory = (options) => {
     const made = fake.factory(options);
-    Object.assign(made.map as object, {
-      getZoom: () => 18,
-      doubleClickZoom: { isEnabled: () => zoom, enable: () => (zoom = true), disable: () => (zoom = false) },
-    });
+    Object.assign(made.map as object, { getZoom: () => 18 });
     return made;
   };
   render(<App store={store} api={api} mapFactory={factory} panels={panels} />);
@@ -98,7 +94,7 @@ async function setup(handler: (path: string, body: Body) => Promise<unknown> = a
   const click = (lng: number, lat: number) =>
     act(() => fake.maps[0].fire('click', { lngLat: { lng, lat }, point: { x: 0, y: 0 } }));
   const button = (name: string | RegExp) => screen.getByRole('button', { name });
-  return { store, fake, calls, list, choose, click, button, zoom: () => zoom, overlay: () => fake.overlays[0] };
+  return { store, fake, calls, list, choose, click, button, zoom: () => fake.maps[0].doubleClickZoom.isEnabled(), overlay: () => fake.overlays[0] };
 }
 
 const text = (id: string) => document.getElementById(id)!.textContent ?? '';

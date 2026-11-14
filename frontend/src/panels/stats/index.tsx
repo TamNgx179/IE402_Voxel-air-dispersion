@@ -167,6 +167,7 @@ export const statsPanel: PanelDefinition = {
   id: 'stats',
   icon: 'bar-chart-line',
   labelKey: 'stats.toolLabel',
+  ariaLabelKey: 'stats.panelLabel',
   elementId: 'analysis-details',
   Component: StatsPanel,
 };

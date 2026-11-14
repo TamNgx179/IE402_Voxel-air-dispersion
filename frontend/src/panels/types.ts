@@ -11,8 +11,10 @@ export interface PanelDefinition {
   id: string;
   /** Bootstrap icon name without the `bi-` prefix, e.g. `'play-fill'`. */
   icon: string;
-  /** Tool button label. */
+  /** Tool button label (also the panel section's aria-label unless `ariaLabelKey` is set). */
   labelKey: TranslationKey;
+  /** aria-label of the panel section when it differs from the button label (legacy copy). */
+  ariaLabelKey?: TranslationKey;
   /** Panel body, rendered inside `<section class="tool-panel" hidden={!active}>`. */
   Component: ComponentType<PanelProps>;
   /** DOM id of the panel section (keeps legacy CSS hooks). Defaults to `panel-<id>`. */

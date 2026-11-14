@@ -9,12 +9,19 @@ export interface FakeMap {
   bearing: number;
   remove: ReturnType<typeof vi.fn>;
   dragPan: { enable: ReturnType<typeof vi.fn>; disable: ReturnType<typeof vi.fn>; enabled: boolean };
+  doubleClickZoom: { isEnabled(): boolean; enable: ReturnType<typeof vi.fn>; disable: ReturnType<typeof vi.fn>; enabled: boolean };
   [key: string]: unknown;
 }
 
 export function createFakeMapFactory() {
   const maps: FakeMap[] = [];
-  const overlays: Array<{ setProps: ReturnType<typeof vi.fn>; finalize: ReturnType<typeof vi.fn>; props: Record<string, unknown> }> = [];
+  const overlays: Array<{
+    setProps: ReturnType<typeof vi.fn>;
+    finalize: ReturnType<typeof vi.fn>;
+    props: Record<string, unknown>;
+    /** Stand-in for MapboxOverlay's private Deck: `redraw()` runs `onAfterRender` like a frame. */
+    _deck: { redraw: ReturnType<typeof vi.fn> };
+  }> = [];
   const factory: MapFactory = ({ container, overlayProps }) => {
     const handlers = new Map<string, Set<(event: unknown) => void>>();
     const canvas = document.createElement('canvas');
@@ -49,6 +56,12 @@ export function createFakeMapFactory() {
         enable: vi.fn(() => (map.dragPan.enabled = true)),
         disable: vi.fn(() => (map.dragPan.enabled = false)),
       },
+      doubleClickZoom: {
+        enabled: true,
+        isEnabled: () => map.doubleClickZoom.enabled,
+        enable: vi.fn(() => (map.doubleClickZoom.enabled = true)),
+        disable: vi.fn(() => (map.doubleClickZoom.enabled = false)),
+      },
       queryRenderedFeatures: () => [1],
       isStyleLoaded: () => true,
       areTilesLoaded: () => true,
@@ -61,11 +74,14 @@ export function createFakeMapFactory() {
       removeControl: vi.fn(),
       remove: vi.fn(),
     };
+    const deckCanvas = document.createElement('canvas');
     const overlay = {
       props: overlayProps as Record<string, unknown>,
       setProps: vi.fn((props: Record<string, unknown>) => Object.assign(overlay.props, props)),
       pickObject: vi.fn(() => null),
+      getCanvas: () => deckCanvas,
       finalize: vi.fn(),
+      _deck: { redraw: vi.fn(() => (overlay.props.onAfterRender as (() => void) | undefined)?.()) },
     };
     maps.push(map);
     overlays.push(overlay);

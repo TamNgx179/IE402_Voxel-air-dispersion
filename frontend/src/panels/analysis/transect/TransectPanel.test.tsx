@@ -3,7 +3,6 @@ import { act, fireEvent, render, screen, waitFor } from '@testing-library/react'
 import { afterEach, beforeEach, describe, expect, test, vi } from 'vitest';
 import { App } from '../../../App';
 import { ApiError } from '../../../api/client';
-import type { MapFactory } from '../../../map/MapView';
 import type { PanelDefinition, PanelProps } from '../../types';
 import { createViewerStore } from '../../../store/store';
 import { routedApi } from '../../../test/fixtures';
@@ -85,15 +84,7 @@ async function setup(handler: Handler = async () => structuredClone(result)) {
   });
   const store = createViewerStore();
   const fake = createFakeMapFactory();
-  let zoom = true;
-  const factory: MapFactory = (options) => {
-    const made = fake.factory(options);
-    Object.assign(made.map as object, {
-      doubleClickZoom: { isEnabled: () => zoom, enable: () => (zoom = true), disable: () => (zoom = false) },
-    });
-    return made;
-  };
-  render(<App store={store} api={api} mapFactory={factory} panels={[transectTestPanel, exporterPanel]} />);
+  render(<App store={store} api={api} mapFactory={fake.factory} panels={[transectTestPanel, exporterPanel]} />);
   await waitFor(() => expect(store.getState().selectedRunId).toBe('real-run'));
   act(() => store.dispatch({ type: 'panel/open', id: 'transect-test' }));
   await frame();
@@ -107,7 +98,7 @@ async function setup(handler: Handler = async () => structuredClone(result)) {
     act(() => button('Finish line').click());
     fireEvent.change(screen.getByLabelText('End height (m)'), { target: { value: '3' } });
   };
-  return { store, fake, calls, point, button, choose, zoom: () => zoom, overlay: () => fake.overlays[0] };
+  return { store, fake, calls, point, button, choose, zoom: () => fake.maps[0].doubleClickZoom.isEnabled(), overlay: () => fake.overlays[0] };
 }
 
 const reading = () => document.getElementById('transect-reading')!.textContent;

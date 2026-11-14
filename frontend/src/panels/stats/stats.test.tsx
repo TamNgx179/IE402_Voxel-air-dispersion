@@ -54,6 +54,8 @@ describe('stats panel', () => {
   test('renders current-layer statistics and the exact exceedance area', async () => {
     await renderStats();
     const p = within(panel());
+    // Legacy section label (differs from the tool button "Statistics").
+    expect(panel()).toHaveAttribute('aria-label', 'Statistics and selected cell');
     expect(p.getByRole('heading', { name: 'Concentration at the current level' })).toBeInTheDocument();
     expect(document.getElementById('stats-context')).toHaveTextContent('Level 0–2 m');
     expect(document.getElementById('stat-mean')).toHaveTextContent('30');
@@ -145,6 +147,7 @@ describe('stats panel', () => {
 
     act(() => screen.getByRole('button', { name: 'Switch language to Vietnamese' }).click());
     const p = within(panel());
+    expect(panel()).toHaveAttribute('aria-label', 'Thống kê và ô được chọn');
     expect(p.getByRole('heading', { name: 'Nồng độ tầng đang xem' })).toBeInTheDocument();
     expect(document.getElementById('stats-context')).toHaveTextContent('Tầng 0–2 m');
     expect(p.getByRole('checkbox', { name: 'Tô vùng vượt WHO 24h: 15 µg/m³' })).toBeChecked();
