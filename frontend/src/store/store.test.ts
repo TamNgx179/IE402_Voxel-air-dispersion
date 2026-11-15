@@ -25,7 +25,6 @@ describe('viewer store', () => {
     const state = store.getState();
     expect(state.bootstrap.status).toBe('ready');
     expect(state.bootstrap.data!.grid.z_centres_m).toEqual([1, 3, 5]);
-    expect(state.thresholdsEnabled).toEqual({ who_24h: false });
     expect(state.selectedRunId).toBe('real-run');
     expect(selectCurrentRun(state)!.volume.codes.length).toBe(12);
     expect(state.status.kind).toBe('pass');
@@ -89,19 +88,22 @@ describe('viewer store', () => {
     expect(store.getState().layer).toBe(0);
   });
 
-  test('exact queries load exceedance areas and the selected profile (debounced)', async () => {
+  test('exact queries only load the selected profile (debounced)', async () => {
     vi.useFakeTimers();
     try {
       const store = createViewerStore();
-      const actions = createViewerActions(store, fakeApi());
+      const api = fakeApi();
+      const actions = createViewerActions(store, api);
       await actions.loadBootstrap();
+      actions.scheduleQueries();
+      await vi.advanceTimersByTimeAsync(200);
+      expect(api.calls.some((path) => path.includes('exceedance') || path === '/thresholds')).toBe(false);
       store.dispatch({ type: 'cell/select', cell: { i: 1, j: 0 } });
       actions.scheduleQueries();
       expect(store.getState().queries.status).toBe('loading');
       await vi.advanceTimersByTimeAsync(200);
       const state = store.getState();
       expect(state.queries.status).toBe('idle');
-      expect(state.queries.areas['real-run:0']).toEqual({ who_24h: 25 });
       expect(state.queries.profiles['real-run:1:0'].levels[0].concentration_ug_m3).toBe(12);
     } finally {
       vi.useRealTimers();

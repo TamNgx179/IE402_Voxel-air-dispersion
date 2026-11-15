@@ -3,7 +3,7 @@ import { DatabaseService } from '../../../database/database.service.js';
 import type { SceneFeatureRow } from '../schemas/study-area.schema.js';
 
 @Injectable()
-export class StudyAreasRepository {
+export class StudyAreasModel {
   constructor(private readonly db: DatabaseService) {}
 
   async findAll() {

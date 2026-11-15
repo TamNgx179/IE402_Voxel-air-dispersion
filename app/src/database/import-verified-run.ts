@@ -10,8 +10,8 @@ import { sha256Hex } from '../common/hash.js';
 import {
   compileManifestSchema,
   verifyRunOutput,
-} from '../modules/simulation/infrastructure/manifest-verifier.js';
-import { SimulationExecutionRepository } from '../modules/simulation/repositories/simulation-execution.repository.js';
+} from '../modules/simulation/services/manifest-verifier.js';
+import { SimulationExecutionModel } from '../modules/simulation/models/simulation-execution.model.js';
 
 const envFile = join(APP_ROOT, '.env');
 if (existsSync(envFile)) process.loadEnvFile(envFile);
@@ -87,7 +87,7 @@ try {
     ],
   );
   try {
-    await new SimulationExecutionRepository(db).persistSuccess({
+    await new SimulationExecutionModel(db).persistSuccess({
       runId: output.manifest.run_id,
       runDir: target,
       manifest: copied.manifest,
@@ -95,7 +95,7 @@ try {
       metrics: JSON.parse(await readFile(join(target, 'metrics.json'), 'utf8')),
     });
   } catch (error) {
-    await new SimulationExecutionRepository(db).persistFailure(
+    await new SimulationExecutionModel(db).persistFailure(
       output.manifest.run_id,
       'system',
       String(error),

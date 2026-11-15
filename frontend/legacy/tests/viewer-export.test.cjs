@@ -2,7 +2,7 @@ const { test } = require("node:test");
 const assert = require("node:assert/strict");
 const { createRequire } = require("node:module");
 const { join } = require("node:path");
-const { parse } = createRequire(join(__dirname, "../../app/package.json"))(
+const { parse } = createRequire(join(__dirname, "../../../app/package.json"))(
   "csv-parse/sync",
 );
 const {

@@ -9,7 +9,7 @@ Project source, bundled datasets, dependencies and hosted map services have sepa
 | EDGAR v8.1 2022 road transport PM2.5 | Credit European Commission, Joint Research Centre, and link the dataset. [Data use conditions](https://edgar.jrc.ec.europa.eu/dataset_ap81). | Verify the exact archive and terms for the derived NetCDF. Keep archive URL, sector and transformation metadata. |
 | Open-Meteo historical inputs | API data are offered under CC BY 4.0. [Data license](https://open-meteo.com/en/license). | Credit Open-Meteo and applicable upstream providers. Describe aggregation and preserve the source period. |
 | OpenFreeMap and fallback basemaps | Preserve source-specific credits for tiles and screenshots. [OpenFreeMap](https://openfreemap.org/). | Review each tile provider's conditions separately before bundling or caching tiles for distribution. |
-| Bootstrap Icons | Preserve the notices in the [React viewer](../frontend/public/vendor/bootstrap-icons/LICENSE) and [legacy viewer](../web/vendor/bootstrap-icons/LICENSE). | Verify both copies when inspecting the release image. |
+| Bootstrap Icons | Preserve the notices in the [React viewer](../frontend/public/vendor/bootstrap-icons/LICENSE) and [legacy viewer](../frontend/legacy/vendor/bootstrap-icons/LICENSE). | Verify both copies when inspecting the release image. |
 | Source Sans 3 | The React build bundles Source Sans 3 Variable from Fontsource. Preserve its [SIL Open Font License notice](../frontend/public/vendor/source-sans-3/LICENSE). | Include the notice with the built frontend. |
 | Runtime libraries and base images | Versions are pinned in the lockfiles or referenced in HTML and Docker configuration. | Inventory npm, Python, browser assets and container packages from the actual release. Include their license and notice files where required. |
 
@@ -27,3 +27,13 @@ The [scene manifest](../db/seeds/scene/scene_manifest.json) and [demo input mani
 The technical handoff uses local verification artifacts. Publishing a downloadable
 combined data package requires resolving the open distribution decisions and
 confirming the project code license with its authors.
+
+## Phạm vi phát hành của bản nghiệm thu
+
+Đối chiếu nguồn ngày 15/11/2026. Gói phục vụ nghiệm thu giữ manifest gốc,
+hash, thông báo nguồn và thông tin phiên bản. Kết quả kiểm tra nguồn nằm ở
+[kiểm dữ liệu đầu vào](reviews/THANH_SCIENCE_AUDIT.md). Tách code, cơ sở dữ liệu
+cảnh và tệp nghiên cứu khi xác định điều kiện phân phối. Vẫn cần xác nhận
+giấy phép mã nguồn với các tác giả và điều kiện của cơ sở dữ liệu cảnh ghép
+trước khi cấp quyền phân phối lại. Xem [hướng dẫn OSMF](https://osmfoundation.org/wiki/Licence/Attribution_Guidelines)
+và [điều kiện EDGAR v8.1 của JRC](https://edgar.jrc.ec.europa.eu/dataset_ap81).

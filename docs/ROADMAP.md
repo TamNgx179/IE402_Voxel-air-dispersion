@@ -108,7 +108,7 @@ không sửa geometry solver. Địa hình vẫn phẳng `z=0` và phải đư�
 
 ### Luồng dữ liệu ra web
 
-![Kiến trúc modular monolith](./img/architecture-monolith.svg)
+![Kiến trúc modular monolith](./img/architecture-monolith-en.svg)
 
 1. Web gửi `POST /runs`.
 2. `SimulationModule` validate, ghi run `queued` và trả `202`.
@@ -417,7 +417,7 @@ Chi tiết kiểm thử và lệnh tái lập: [README – chạy và kiểm th�
 
 | ID | Công việc | Đầu ra | Tiêu chí đạt |
 |---|---|---|---|
-| `A6.1` | Chuyển viewer từ file tĩnh sang API | API client | Không đọc `web/data/*.js` làm nguồn chính |
+| `A6.1` | Chuyển viewer từ file tĩnh sang API | API client | Không đọc `frontend/legacy/data/*.js` làm nguồn chính |
 | `A6.2` | Render cảnh đô thị thực tế | Building/road/water/green layers | Nhà extrude đúng footprint/height, các lớp khớp basemap |
 | `A6.3` | Height slider + legend | UI | Layer đổi đúng `z_m` |
 | `A6.4` | Scenario/run selector + threshold | UI/map layer | Đổi run không trộn dữ liệu, hiện units |

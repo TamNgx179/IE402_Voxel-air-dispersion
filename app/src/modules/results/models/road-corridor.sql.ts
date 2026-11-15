@@ -15,7 +15,9 @@ WITH selected AS (
   FROM cumulative b LEFT JOIN cumulative p ON p.n = b.n - 1
 ), cells AS MATERIALIZED (
   SELECT b.n, g.i, g.j, g.solid_from_k, g.solid_to_k,
-    ST_Area(ST_Intersection(b.geom, g.geom)) AS area
+    -- Interior cells already contribute their full footprint.
+    CASE WHEN ST_ContainsProperly(b.geom, g.geom) THEN ST_Area(g.geom)
+         ELSE ST_Area(ST_Intersection(b.geom, g.geom)) END AS area
   FROM bands b JOIN grid_cells g ON g.study_area_id = $2 AND ST_Intersects(g.geom, b.geom)
 ), weighted AS (
   SELECT cells.n, c.c_ug_m3[k + 1]::double precision AS value,

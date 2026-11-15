@@ -362,12 +362,6 @@ describe('analysis panel: compare and mode switching', () => {
     expect(report.legend.title).toBe('ΔC (µg/m³, symmetric linear scale)');
     expect(report.notice).toMatch(/ Wind and buildings belong to the baseline run\.$/);
     expect(report.notice.startsWith('Model illustration; does not replace the original CSV data or monitoring. Wind ')).toBe(true);
-    // Threshold colouring is not shown while comparing: no threshold notice/legend.
-    act(() => ui.store.dispatch({ type: 'threshold/toggle', key: 'who_24h', enabled: true }));
-    const withThreshold = snapshot!();
-    expect(withThreshold.notice).toBe(report.notice);
-    expect(withThreshold.legend).toEqual(report.legend);
-
     act(() => screen.getByRole('button', { name: 'Switch language to Vietnamese' }).click());
     expect(el('comparison-result')).toHaveTextContent('Kết quả so sánh cao hơn gốc 1 µg/m³ ở tầng này.');
     expect(snapshot!().notice).toMatch(/ Gió và khối nhà thuộc run gốc\.$/);

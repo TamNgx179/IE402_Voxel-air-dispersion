@@ -1,7 +1,7 @@
 import { Module } from '@nestjs/common';
 import { SimulationRunsController } from './controllers/simulation-runs.controller.js';
-import { SimulationRunsRepository } from './repositories/simulation-runs.repository.js';
-import { SimulationExecutionRepository } from './repositories/simulation-execution.repository.js';
+import { SimulationRunsModel } from './models/simulation-runs.model.js';
+import { SimulationExecutionModel } from './models/simulation-execution.model.js';
 import { SimulationExecutorService } from './services/simulation-executor.service.js';
 import { SimulationRunsService } from './services/simulation-runs.service.js';
 
@@ -9,8 +9,8 @@ import { SimulationRunsService } from './services/simulation-runs.service.js';
 @Module({
   controllers: [SimulationRunsController],
   providers: [
-    SimulationRunsRepository,
-    SimulationExecutionRepository,
+    SimulationRunsModel,
+    SimulationExecutionModel,
     SimulationRunsService,
     SimulationExecutorService,
   ],

@@ -91,11 +91,11 @@ output/analysis/*
 # Generated web data
 # ============================================================
 
-web/data/scenarios/*
-web/data/buildings/*
+frontend/legacy/data/scenarios/*
+frontend/legacy/data/buildings/*
 
-!web/data/scenarios/.gitkeep
-!web/data/buildings/.gitkeep
+!frontend/legacy/data/scenarios/.gitkeep
+!frontend/legacy/data/buildings/.gitkeep
 
 
 # ============================================================

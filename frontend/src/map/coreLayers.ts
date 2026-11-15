@@ -3,7 +3,7 @@ import type { Layer, PickingInfo } from '@deck.gl/core';
 import { GeoJsonLayer, PathLayer, SolidPolygonLayer } from '@deck.gl/layers';
 import type { FeatureCollection } from '../api/types';
 import { WALL_MATERIAL, detailOpacity, material, type Appearance, type FacadePolygon } from '../lib/buildingAppearance';
-import { activeThresholds, cellColour, colourScale, valueAt } from '../lib/concentration';
+import { cellColour, colourScale, valueAt } from '../lib/concentration';
 import { advance, createField, createParticles, streamlet, type FlowField, type Particle } from '../lib/flow';
 import { geoAt, outline, type Cell, type GridLine, type NodeFn } from '../lib/grid';
 import type { LodController, LodCamera } from '../lib/lod';
@@ -33,9 +33,8 @@ export function concentrationLayer(ctx: CoreContext): Layer | null {
   const grid = bootstrap.grid;
   const z = grid.z_centres_m[state.layer];
   const scale = colourScale(run.volume.scale, state.display);
-  const thresholds = activeThresholds(bootstrap.thresholds, state.thresholdsEnabled);
   const k = state.layer;
-  const key = [run.id, state.layer, state.display.multiplier, state.display.background, thresholds.map((t) => t.key).join()];
+  const key = [run.id, state.layer, state.display.multiplier, state.display.background];
   return new SolidPolygonLayer<Cell>({
     id: 'concentration',
     data: ctx.cells,
@@ -47,7 +46,7 @@ export function concentrationLayer(ctx: CoreContext): Layer | null {
       [...ctx.node(cell.i + 1, cell.j + 1), z],
       [...ctx.node(cell.i, cell.j + 1), z],
     ],
-    getFillColor: (cell) => cellColour(valueAt(run.volume, grid, state.display, k, cell.j, cell.i), scale, thresholds),
+    getFillColor: (cell) => cellColour(valueAt(run.volume, grid, state.display, k, cell.j, cell.i), scale),
     updateTriggers: { getPolygon: [z], getFillColor: key },
     onClick: (info: PickingInfo<Cell>) => {
       if (state.mapMode !== 'cell' || ctx.drawing) return;

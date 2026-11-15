@@ -1,5 +1,4 @@
 /** Concentration statistics and the vertical profile of the selected cell. */
-import { useMemo } from 'react';
 import { HelpTrigger } from '../../shared/ui/Help';
 import { useI18n } from '../../i18n';
 import { layerStats } from '../../lib/concentration';
@@ -11,13 +10,9 @@ import './panel.css';
 
 function useLayerStats() {
   const run = useViewer(selectCurrentRun);
-  const grid = useViewer(selectGrid);
   const display = useViewer((s) => s.display);
   const layer = useViewer((s) => s.layer);
-  return useMemo(() => {
-    if (!run || !grid) return null;
-    return layerStats({ volume: run.volume, summary: run.summary, grid, thresholds: {}, display, k: layer, exactAreas: undefined });
-  }, [run, grid, display, layer]);
+  return run ? layerStats(run.summary, layer, display) : null;
 }
 
 function LayerSummary({ mean, max }: { mean: number; max: number }) {

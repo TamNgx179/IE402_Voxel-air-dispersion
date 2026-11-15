@@ -1,6 +1,6 @@
 # frontend — React + TypeScript WebGIS viewer
 
-Phase 2 rewrite of the vanilla viewer in `web/` (see `docs/UPGRADE_PLAN.md`). Same
+Phase 2 rewrite of the vanilla viewer in `legacy/` (see `docs/UPGRADE_PLAN.md`). Same
 rendering stack (MapLibre GL 5.24.0 + deck.gl 9.4.0, bundled from npm so the demo
 works offline) and the same REST contract under `/api`.
 
@@ -48,7 +48,7 @@ src/
 ├── styles/viewer.css          # workspace visual tokens and component styles
 ├── styles/app.css             # React-only additions
 └── test/                      # setup, fixtures (fakeApi), fakeMap
-public/vendor/bootstrap-icons  # copied from web/vendor (offline icon font)
+public/vendor/bootstrap-icons  # copied from legacy/vendor (offline icon font)
 ```
 
 Shared files that panel work should **not** need to touch: `app/App.tsx`, `store/*`,
@@ -177,7 +177,7 @@ formatInteger(12345.6);                // en "12,346", vi "12.346"
 - Keys are flat within a namespace and may contain dots (`'api.timeout'`); reference them as `'<namespace>.<key>'`. `TranslationKey` is the union of all keys, so `t()` is type-checked. For computed keys, cast: ``t(`evidence.quality.all.${k}` as TranslationKey)``.
 - Placeholders: `{name}`; pass already formatted numbers (`formatNumber`) as params.
 - Namespaces already registered: `common`, `errors`, `viewer`, `evidence`, `export`, `simulation`, `mapOptions`, `stats`, `analysis`, `region`, `compare`, `transect`, `corridor`, `illustration`. Panel namespaces currently contain `toolLabel`/`modeLabel` and `title`; add your keys to your own pair of files. A new namespace needs two import lines + two entries in `i18n/dictionaries.ts`.
-- Vietnamese copy: port the existing text from `web/` verbatim; write proper English for `en`.
+- Vietnamese copy: port the existing text from `legacy/` verbatim; write proper English for `en`.
 - **Machine-readable output is never translated**: CSV headers, JSON metadata keys, units (`µg/m³`, `ug m-3`, `_m`, `_m2`, `_m3` suffixes), run ids and numeric values in files stay identical in both languages. Use `lib/export.ts` (`csv`, `layerCsv`, `csvBlob`, `jsonBlob`, `download`) — numbers in CSV are raw `String(value)`, never `formatNumber`.
 - Language changes must not reset panel state: keep state keyed by data, not by translated strings.
 
@@ -336,7 +336,7 @@ npx vitest run src/lib   # one folder
 npx tsc --noEmit
 ```
 
-- `src/lib/*.test.ts` are ports of `web/tests/*.test.cjs` (grid, flow, LoD, building
+- `src/lib/*.test.ts` are ports of `frontend/legacy/tests/*.test.cjs` (grid, flow, LoD, building
   appearance, evidence, milestones) — numerical behaviour is unchanged.
 - `src/test/fixtures.ts` → `fakeApi(overrides)`: an in-memory API (2×2×3 grid, two runs,
   one threshold). Override a route with a value or an `Error` instance.
@@ -352,13 +352,13 @@ npx tsc --noEmit
 - Simulation tests: `configureSimulationTracker(store, { sleep })` injects the poll
   delay before the tracker is first used; the tracker's API is the App's `useApi()`.
 - jsdom has no WebGL; never instantiate the real map in tests.
-- Legacy tests stay in `web/tests` (`node --test web/tests/*.test.cjs scripts/tests/*.test.mjs`).
+- Legacy tests stay in `frontend/legacy/tests` (`node --test frontend/legacy/tests/*.test.cjs scripts/tests/*.test.mjs`).
 
 ## Accessibility and layout
 
 Legacy labels, `aria-*` and ids are kept. All controls are native buttons/inputs and
 keyboard operable; the help tooltip opens on focus and closes on Escape. The layout
-reuses `web/styles.css`; at 390 px and 320 px the panel docks to the bottom without
+reuses `legacy/styles.css`; at 390 px and 320 px the panel docks to the bottom without
 horizontal scroll (checked with headless Chrome in both languages).
 
 ## Viewer facade

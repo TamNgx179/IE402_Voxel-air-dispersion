@@ -5,8 +5,8 @@ import {
   NotFoundException,
 } from '@nestjs/common';
 import type { TransectQueryDto } from '../dto/transect-query.dto.js';
-import { SimulationResultsRepository } from '../repositories/simulation-results.repository.js';
-import { TransectRepository } from '../repositories/transect.repository.js';
+import { SimulationResultsModel } from '../models/simulation-results.model.js';
+import { TransectModel } from '../models/transect.model.js';
 import type {
   Position,
   TransectLayer,
@@ -22,13 +22,13 @@ const BOUNDARY_EPS_M = 1e-7;
 /**
  * Truy vấn mặt cắt từ kết quả đã lưu; không chạy solver hoặc sửa tensor.
  * Luồng: kiểm run → chiếu tuyến → lấy mẫu theo mét → tra voxel → gắn trạng thái/metadata.
- * Repository giữ SQL; service quyết định quy tắc cao độ, chỉ số và dữ liệu hợp lệ.
+ * Model giữ SQL; service quyết định quy tắc cao độ, chỉ số và dữ liệu hợp lệ.
  */
 @Injectable()
 export class TransectService {
   constructor(
-    private readonly results: SimulationResultsRepository,
-    private readonly repository: TransectRepository,
+    private readonly results: SimulationResultsModel,
+    private readonly model: TransectModel,
   ) {}
 
   async query(id: string, input: TransectQueryDto) {
@@ -58,7 +58,7 @@ export class TransectService {
       throw new BadRequestException(
         `Bước lấy mẫu phải lớn hơn 0 và không quá ${Math.min(g.dx_m, g.dy_m)} m.`,
       );
-    const projected = await this.repository.projectLine(
+    const projected = await this.model.projectLine(
       JSON.stringify(line),
       ctx.study_area_id,
       ctx.projected_srid,
@@ -147,7 +147,7 @@ export class TransectService {
       });
     }
     // Đọc theo lô: một lần lấy các cột z thay vì một query cho mỗi ô trên biểu đồ.
-    const columns = await this.repository.columns(
+    const columns = await this.model.columns(
       id,
       ctx.study_area_id,
       ctx.projected_srid,

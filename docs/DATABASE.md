@@ -26,7 +26,7 @@ Không cần thêm bảng cho từng lần vẽ; chỉ đọc không tạo run. 
 parameterize dữ liệu và kiểm query plan/runtime trên dataset baseline. Không gọi tập
 mẫu theo đường là thể tích; không nội suy mặc định hoặc nhân đôi thống kê do ô bị lấy lặp.
 
-`TransectRepository.projectLine` dùng PostGIS để chiếu tuyến và kiểm toàn tuyến nằm trong
+`TransectModel.projectLine` dùng PostGIS để chiếu tuyến và kiểm toàn tuyến nằm trong
 study area; service tính khoảng cách dọc tuyến trong CRS mét, lấy mẫu đều gồm hai đầu.
 `columns` dùng arrays tham số/ordinality và join khóa run/i/j để lấy slice mảng z và
 solid range. Tối đa 20.000 mẫu vị trí × tầng; thiếu cột nồng độ trả no-data, thiếu grid
@@ -395,7 +395,7 @@ Reproduce the production plan with `npm run db:benchmark:spatial` in `app/`
 and set `BENCHMARK_RUN_ID` for a fixed non-mock run and `BENCHMARK_OUTPUT` for a
 separate report. The report stores actual index definitions and sizes, request
 parameters, returned rows, nearest-rank p50/p95 and JSON plans. Slice, profile
-and transect use the same SQL constants as their repositories.
+and transect use the same SQL constants as their models.
 Transect SQL timings cover projection and the batched column query separately
 from the sample generation and response assembly in NestJS.
 
@@ -419,3 +419,38 @@ case visited about 11,655 grid candidates across three bands and expanded them
 across the requested altitude range. Review that workload before adding a road
 index. These measurements are SQL client timings with 20 samples and three
 warmups, and should be repeated on the release revision.
+
+## Đối chiếu lưới và benchmark 15/11/2026
+
+Từ gốc lưới EPSG:32648 (686012,538 E và 1191324,79 N), với dx = dy = 5 m,
+dz = 2 m, điểm (686015,038 E và 1191332,29 N) ở z = 15 m thuộc
+`(i,j,k) = (0,1,7)`: tính floor của độ lệch chia cho bước lưới theo từng trục.
+Lấy `c_ug_m3[8]` từ cột `(run_id,0,1)` do mảng PostgreSQL bắt đầu tại 1.
+Một ô giao 10 m² ở mặt bằng và giao 1 m theo cao độ đóng góp 10 m³.
+Phần thể tích thiếu dữ liệu được tính vào độ phủ và được loại khỏi mẫu nồng độ.
+
+Mô hình logic dùng khóa `(run_id,i,j,k)`. Bảng lưu mảng có khóa vật lý
+`(run_id,i,j)`, và dùng ràng buộc chỉ số bắt đầu tại 1. Lựa chọn lưu mảng
+giảm số hàng cho truy vấn profile. Phạm vi chuẩn hóa được phân tích ở cấp
+quan hệ logic. Cột mảng là đánh đổi vật lý được thiết kế cho dữ liệu 3D Array.
+
+| Truy vấn mốc `6b27847` (PostGIS 3.4.3) | p50 (ms) | p95 (ms) |
+| --- | ---: | ---: |
+| Lát ngang toàn miền | 61,89 | 79,15 |
+| Profile | 1,25 | 2,10 |
+| Mặt cắt, truy xuất 100 cột | 6,64 | 8,60 |
+| Vùng | 232,48 | 303,40 |
+| Hành lang, 1 đường | 38,79 | 69,60 |
+| Hành lang, 50 đường | 1.764,88 | 2.071,69 |
+
+Đo SQL với 20 mẫu và 3 lượt làm nóng trên lượt mùa khô
+`1502de2c-3d55-4698-8be8-549f307dc58e`. Xem tham số và execution plan trong
+`query-benchmark.json` của bản chạy sạch. GiST lọc ứng viên mặt bằng.
+Khóa chính kết quả phục vụ join `run_id,i,j`. Các thời gian này dành cho SQL.
+
+Thử nghiệm A/B 10 lần trên cùng DB cho thấy dùng
+[`ST_ContainsProperly`](https://postgis.net/docs/manual-3.4/ST_ContainsProperly.html)
+để lấy diện tích nguyên ô khi ô nằm hoàn toàn bên trong dải làm giảm trung
+vị từ 37,44 xuống 32,46 ms (1 đường) và từ 1.608,27 xuống 1.102,89 ms (50 đường).
+Ô chạm biên vẫn qua `ST_Intersection`. Hình học trả về và tám trường số ở
+cả hai ca khớp kết quả gốc. Không cần thêm chỉ mục cho thay đổi này.

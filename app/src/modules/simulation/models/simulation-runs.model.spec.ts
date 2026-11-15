@@ -2,8 +2,8 @@ import type pg from 'pg';
 import type { DatabaseService } from '../../../database/database.service.js';
 import {
   CLAIM_LOCK_KEY,
-  SimulationRunsRepository,
-} from './simulation-runs.repository.js';
+  SimulationRunsModel,
+} from './simulation-runs.model.js';
 
 /**
  * In-memory stand-in for PostgreSQL that models just what claimNext relies
@@ -89,10 +89,10 @@ class FakeDb {
   }
 }
 
-describe('SimulationRunsRepository.claimNext', () => {
+describe('SimulationRunsModel.claimNext', () => {
   it('takes the claim lock before counting running runs', async () => {
     const db = new FakeDb(1);
-    await new SimulationRunsRepository(db.service()).claimNext();
+    await new SimulationRunsModel(db.service()).claimNext();
     expect(db.queries[0]).toMatch(/pg_advisory_xact_lock/);
     expect(db.queries[1]).toMatch(/count\(\*\)/);
     expect(db.queries[2]).toMatch(/UPDATE simulation_runs/);
@@ -100,7 +100,7 @@ describe('SimulationRunsRepository.claimNext', () => {
 
   it('claims the oldest queued run and returns null once the cap is reached', async () => {
     const db = new FakeDb(3);
-    const repo = new SimulationRunsRepository(db.service());
+    const repo = new SimulationRunsModel(db.service());
     expect((await repo.claimNext())?.id).toBe('q00');
     expect(await repo.claimNext()).toBeNull();
     // At the cap no UPDATE is even attempted.
@@ -109,14 +109,14 @@ describe('SimulationRunsRepository.claimNext', () => {
 
   it('returns null when nothing is queued', async () => {
     const db = new FakeDb(0);
-    expect(await new SimulationRunsRepository(db.service()).claimNext()).toBeNull();
+    expect(await new SimulationRunsModel(db.service()).claimNext()).toBeNull();
   });
 
   it.each([1, 2, 3])(
     'concurrent claimers never exceed a cap of %i',
     async (cap) => {
       const db = new FakeDb(10);
-      const repo = new SimulationRunsRepository(db.service());
+      const repo = new SimulationRunsModel(db.service());
       const claims = await Promise.all(
         Array.from({ length: 8 }, () => repo.claimNext(cap)),
       );
@@ -129,7 +129,7 @@ describe('SimulationRunsRepository.claimNext', () => {
 
   it('does not claim when runs are already running at the cap', async () => {
     const db = new FakeDb(5, 1);
-    const repo = new SimulationRunsRepository(db.service());
+    const repo = new SimulationRunsModel(db.service());
     const claims = await Promise.all(Array.from({ length: 4 }, () => repo.claimNext()));
     expect(claims.every((c) => c === null)).toBe(true);
     expect(db.runningCount()).toBe(1);

@@ -1,12 +1,12 @@
 import { Module } from '@nestjs/common';
 import { TransectController } from './controllers/transect.controller.js';
 import { TransectService } from './services/transect.service.js';
-import { TransectRepository } from './repositories/transect.repository.js';
+import { TransectModel } from './models/transect.model.js';
 import { SimulationResultsController } from './controllers/simulation-results.controller.js';
-import { SimulationResultsRepository } from './repositories/simulation-results.repository.js';
+import { SimulationResultsModel } from './models/simulation-results.model.js';
 import { SimulationResultsService } from './services/simulation-results.service.js';
 import { SpatialAnalysisController } from './controllers/spatial-analysis.controller.js';
-import { SpatialAnalysisRepository } from './repositories/spatial-analysis.repository.js';
+import { SpatialAnalysisModel } from './models/spatial-analysis.model.js';
 import { SpatialAnalysisService } from './services/spatial-analysis.service.js';
 
 @Module({
@@ -17,10 +17,10 @@ import { SpatialAnalysisService } from './services/spatial-analysis.service.js';
   ],
   providers: [
     TransectService,
-    TransectRepository,
-    SimulationResultsRepository,
+    TransectModel,
+    SimulationResultsModel,
     SimulationResultsService,
-    SpatialAnalysisRepository,
+    SpatialAnalysisModel,
     SpatialAnalysisService,
   ],
   exports: [SimulationResultsService],

@@ -6,13 +6,13 @@ import {
   type ManifestArtifact,
   metricsRow,
   type RunManifest,
-} from '../infrastructure/manifest-verifier.js';
-import { importConcentrationColumns } from '../infrastructure/result-importer.js';
-import type { ErrorKind } from '../infrastructure/solver-protocol.js';
+} from '../services/manifest-verifier.js';
+import { importConcentrationColumns } from '../services/result-importer.js';
+import type { ErrorKind } from '../services/python-solver.adapter.js';
 
 /** Atomic persistence boundary for executor completion/failure. */
 @Injectable()
-export class SimulationExecutionRepository {
+export class SimulationExecutionModel {
   constructor(private readonly db: DatabaseService) {}
 
   get configured(): boolean {

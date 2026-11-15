@@ -8,7 +8,7 @@ import type {
 
 /** Read-only exact queries. No client-side uint8 codes enter these calculations. */
 @Injectable()
-export class SpatialAnalysisRepository {
+export class SpatialAnalysisModel {
   constructor(private readonly db: DatabaseService) {}
 
   async roadCorridor(run: string, area: string, roads: string[], distances: number[],

@@ -23,11 +23,6 @@ export interface RunEntry {
   warnings: string[];
 }
 
-export interface ThresholdDef {
-  value: number;
-  label: string;
-}
-
 /** Everything loaded once at start-up. Immutable afterwards. */
 export interface BootstrapData {
   area: StudyArea;
@@ -35,7 +30,6 @@ export interface BootstrapData {
   corners: Corners;
   /** Scenarios that can be run (POST /api/runs). */
   scenarios: Scenario[];
-  thresholds: Record<string, ThresholdDef>;
   scene: Scene;
   provenance: StudyArea['provenance'];
   quality: DataQuality;
@@ -80,8 +74,6 @@ export interface StatusState {
 }
 
 export interface ExactQueries {
-  /** `${runId}:${k}` → exceedance area m² per threshold key. */
-  areas: Record<string, Record<string, number>>;
   /** `${runId}:${i}:${j}` → vertical profile. */
   profiles: Record<string, ProfileResult>;
   status: 'idle' | 'loading' | 'error';
@@ -99,7 +91,6 @@ export interface ViewerState {
   /** Height layer index k (0..nz-1). */
   layer: number;
   display: Display;
-  thresholdsEnabled: Record<string, boolean>;
   selectedCell: Cell | null;
   /** Building clicked on the map (map-options shows its height). */
   selectedBuildingId: string | null;

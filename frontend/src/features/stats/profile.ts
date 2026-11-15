@@ -40,7 +40,6 @@ export interface ProfileChart {
   path: string;
   /** Building levels drawn as grey bands. */
   solids: Array<{ y: number; height: number }>;
-  thresholds: Array<{ key: string; x: number }>;
   currentY: number;
   /** Decade ticks on the x axis. */
   xTicks: Array<{ x: number; exponent: number }>;
@@ -56,15 +55,14 @@ export function profileChart(args: {
   dz: number;
   nz: number;
   scale: ColourScale;
-  thresholds: ReadonlyArray<{ key: string; value: number }>;
   layer: number;
 }): ProfileChart {
-  const { values, zCentres: z, dz, nz, scale, thresholds, layer } = args;
+  const { values, zCentres: z, dz, nz, scale, layer } = args;
   const width = 320;
   const height = 280;
   const pad = { l: 60, r: 24, t: 20, b: 58 };
   const finite = values.filter((v) => Number.isFinite(v) && v > 0);
-  const hi = Math.max(scale.hi, ...finite, ...thresholds.map((t) => t.value)) * 1.2;
+  const hi = Math.max(scale.hi, ...finite) * 1.2;
   const lo = Math.min(scale.lo, ...(finite.length ? finite : [scale.lo]));
   const X = (v: number) => pad.l + ((Math.log10(v) - Math.log10(lo)) / (Math.log10(hi) - Math.log10(lo))) * (width - pad.l - pad.r);
   const top = nz * dz;
@@ -74,7 +72,7 @@ export function profileChart(args: {
   const solids: ProfileChart['solids'] = [];
   values.forEach((v, k) => {
     if (Number.isNaN(v)) {
-      solids.push({ y: Y(z[k] + 1), height: Y(z[k] - 1) - Y(z[k] + 1) });
+      solids.push({ y: Y(z[k] + dz / 2), height: Y(z[k] - dz / 2) - Y(z[k] + dz / 2) });
       return;
     }
     if (v <= 0) return;
@@ -95,7 +93,6 @@ export function profileChart(args: {
     pad,
     path: path.trim(),
     solids,
-    thresholds: thresholds.map((t) => ({ key: t.key, x: X(t.value) })),
     currentY: Y(z[layer] ?? 0),
     xTicks,
     yTicks: [0, top / 2, top].map((value) => ({ y: Y(value), value })),

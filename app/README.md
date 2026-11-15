@@ -1,182 +1,99 @@
-# app — NestJS modular monolith
+# NestJS backend
 
-Ứng dụng deployable duy nhất của dự án (ROADMAP A1.3): phục vụ API dưới `/api` và web viewer
-tĩnh tại `/`. Python solver **không** phải service; `SimulationModule` spawn nó như một tiến
-trình con (BR-18), mỗi lúc một tiến trình (BR-19).
+The application serves the WebGIS and the REST API on the same origin. PostGIS stores the study area, run state and concentration arrays. The internal executor launches one Python solver child process at a time.
 
-## Contract hiện hành và hướng mở rộng — 27/10/2026
-
-Spec §4 (BR-44–45) mô tả yêu cầu và comparison/region hiện có. Profile dùng chỉ số `i,j`,
-không phải query `x,y`. Các truy vấn đọc kết quả gốc đã lưu; volume uint8 chỉ dùng render.
-Baseline projected CRS hiện là EPSG:32648, không tuyên bố API đã hỗ trợ mọi CRS.
-
-Transect (spec BR-46–48) đã có `POST /api/runs/:id/transect` và `/transect/csv`, đều trả 200,
-chỉ đọc DB. Body gồm `line` WGS84 LineString, `z_min_m`, `z_max_m`, `step_m` tùy chọn.
-Tối đa 100 đỉnh/20.000 mẫu vị trí × tầng, bước mặc định min(dx,dy), không nội suy.
-Export ảnh có chú giải (A9.2) và LoD render giảm geometry theo zoom/vùng nhìn (A9.4)
-đã triển khai ở client, không đổi tensor/query. Xem README gốc để chạy benchmark và demo.
-Transect nằm trong Results module theo cấu trúc dưới đây; không tách Python
-HTTP service. Vẽ tuyến không tạo simulation run. Giữ guard run readiness/grid/mask,
-giới hạn tải và validation phía server; lỗi UI hiển thị tiếng Việt, không đẩy SQL/JSON
-kỹ thuật cho người sử dụng. LoD render ở client không sửa DB/tensor/mask.
-Test tham chiếu và tình trạng coverage ở [spec §5–6](../docs/spec.md); không coi
-route đề xuất trong tài liệu là route có trong OpenAPI đang chạy.
-
-## Cấu trúc module
-
-Mỗi feature dùng cùng một quy ước để tránh trộn HTTP, nghiệp vụ và SQL:
+## Module layout
 
 ```text
 src/modules/<feature>/
-├── <feature>.module.ts       # đăng ký dependency của feature
-├── controllers/             # route, pipe và HTTP status; không chứa SQL
-├── dto/                     # validate request/query bằng class-validator
-├── schemas/                 # kiểu domain/response và state contract
-├── services/                # use case và quy tắc nghiệp vụ
-├── repositories/            # toàn bộ SQL/PostGIS và transaction persistence
-└── infrastructure/          # adapter solver/file/manifest nếu feature cần
+├── controllers/  HTTP routes and response status
+├── dto/          validated request and query inputs
+├── models/       SQL, typed database access and transactions
+├── schemas/      TypeScript contracts for domain and response data
+└── services/     use cases and boundary adapters
 ```
 
-Tên file/lớp phải nêu rõ đối tượng, ví dụ `SimulationRunsService`,
-`SimulationResultsRepository`, không dùng tên chung như `RunsService`. Dự án dùng PostgreSQL
-thuần nên `schemas/` không phải Mongoose schema; database schema thật nằm trong
-`db/migrations/`.
+Each feature declares its providers in its Nest module. Folders are present where the feature needs them. SQL migrations in [db/migrations](../db/migrations) define the database schema. PostgreSQL access uses `pg` and parameterized SQL.
 
-## Chạy
+| Module | Responsibility |
+| --- | --- |
+| Health | Application, artifact storage, Python and database diagnostics |
+| Study areas | Study grid and vector scene layers |
+| Scenarios | Seasonal wind and emission configuration |
+| Simulation | Run creation, idempotency, status, retry, executor and artifact verification |
+| Results | Slices, profiles, regions, vertical sections, road corridors, comparisons and downloads |
+
+## Run locally
+
+From the repository root, start PostGIS and build the viewer. The default database listener is port 5433.
 
 ```bash
-# 1. PostGIS (repo root). Mật khẩu ie402/ie402 chỉ dùng cho máy dev.
-docker compose up -d db          # cổng host mặc định 5433 (đổi bằng DB_HOST_PORT)
-
-# 2. App
+docker compose up -d --wait db
+npm ci --prefix frontend
+npm --prefix frontend run build
 cd app
-npm install
-cp .env.example .env             # DATABASE_URL trỏ tới container ở trên
-npm run db:reset                 # xoá schema public + chạy mọi migration (máy dev)
-npm run db:seed                  # nạp db/seeds/scene/ + config/project.yaml
-npm run start:dev                # watch mode
-# hoặc: npm run build && npm run start:prod
+npm ci
+cp .env.example .env
+npm run db:migrate
+npm run db:seed
+npm run start:dev
 ```
 
-| URL | Nội dung |
-|---|---|
-| `http://localhost:3000/` | Web viewer React (`<REPO_ROOT>/frontend/dist`, build bằng `npm run build` trong `frontend/`; chưa build thì dùng viewer cũ) |
-| `http://localhost:3000/legacy/` | Web viewer cũ (phục vụ từ `<REPO_ROOT>/web`) |
-| `http://localhost:3000/api/health` | Trạng thái app, thư mục artifact, Python, DB (+ phiên bản PostGIS) |
-| `http://localhost:3000/api/docs` | Swagger UI |
+In PowerShell, use `Copy-Item .env.example .env` for the environment file. Use `npm run build` and `npm run start:prod` to run the compiled server. The root [README](../README.md) covers the full Docker setup and Python dependencies for real simulations.
 
-`/api/health` luôn trả HTTP 200; `status` là `degraded` nếu Python không chạy được, thư mục
-artifact chưa tồn tại / không ghi được, hoặc `DATABASE_URL` đã đặt mà DB không kết nối được
-(`database.status = 'down'`). Không đặt `DATABASE_URL` thì `database.status = 'not_configured'`,
-các route cần DB trả `503` và executor đứng yên.
+| URL | Purpose |
+| --- | --- |
+| `http://localhost:3000/` | React build from `frontend/dist`, or the fallback viewer before a build |
+| `http://localhost:3000/legacy/` | Compatibility viewer from `frontend/legacy` |
+| `http://localhost:3000/api/health` | Health details returned as HTTP 200 with `ok` or `degraded` status |
+| `http://localhost:3000/api/docs` | Swagger UI and request schemas |
 
-## Cơ sở dữ liệu
+With no database configured, the health response reports `not_configured`, database routes return HTTP 503, and the executor remains idle.
 
-SQL thuần, driver `pg`, không ORM (để `EXPLAIN` đúng câu query đã viết, BR-27). Schema:
-[`docs/DATABASE.md`](../docs/DATABASE.md); migration: `db/migrations/NNNN_*.sql`.
+## Database commands
 
-| Lệnh | Việc |
-|---|---|
-| `npm run db:migrate` | áp các migration chưa chạy; ghi vào `schema_migrations` kèm checksum; chạy lại là no-op; từ chối nếu file migration đã áp bị sửa |
-| `npm run db:reset` | `DROP SCHEMA public CASCADE` rồi migrate — "dựng lại sạch", **xoá mọi dữ liệu** |
-| `npm run db:seed` | nạp scene package (`db/seeds/scene/`, kiểm SHA-256 từng file theo `scene_manifest.json`, sai là từ chối) và `scenarios`/`thresholds` từ `config/project.yaml` (`config_hash` = SHA-256 của file). Idempotent |
-| `npm run db:seed -- --scene test/fixtures/scene` | nạp scene giả 2 × 2 ô dùng cho test |
+- `npm run db:migrate` applies pending migrations and checks the hashes of applied files.
+- `npm run db:seed` verifies scene checksums, then upserts the scene, scenarios and thresholds.
+- `npm run db:seed -- --scene test/fixtures/scene` loads the small test scene.
+- `npm run db:reset` drops and recreates the public schema. It deletes all data in the selected development database.
+- `npm run db:benchmark:spatial` records PostGIS plans and timings when `BENCHMARK_RUN_ID` points to a completed run.
 
-Các lệnh đọc `app/.env` (biến môi trường thật được ưu tiên). Trong image production (không có
-`tsx`): `node dist/database/cli.js migrate|reset|seed`.
+The runtime image runs `node dist/database/cli.js migrate|reset|seed`. See the [database design](../docs/DATABASE.md) for tables, vertical arrays and spatial indexes.
 
-## Vòng đời một run
+## Simulation and result queries
 
-`POST /api/runs {scenario_id, model?}` → `202 {run_id, status: "queued", attempt: 1}`; snapshot
-YAML tại `PROJECT_CONFIG_PATH` (mặc định `<REPO_ROOT>/config/project.yaml`) + khối
-`run: {run_id, scenario_id, model}` được lưu vào
-`simulation_runs.config_snapshot` ngay lúc này, nên retry chạy lại đúng cấu hình cũ.
+`POST /api/runs` returns HTTP 202 and saves the configuration snapshot before the executor claims the run. Reuse the same `request_id` and body after a lost response. The executor claims the oldest queued run under a transaction-scoped advisory lock. The [Python adapter](src/modules/simulation/services/python-solver.adapter.ts) launches the configured CLI with an argument array and translates its progress and exit status.
 
-Executor nội bộ (`SimulationExecutorService`, không broker) poll DB mỗi `EXECUTOR_POLL_MS`, nhận run
-`queued` cũ nhất trong một transaction ngắn giữ `pg_advisory_xact_lock(4020002)`: đếm run `running`,
-chỉ nhận khi còn slot (mặc định 1), nên nhiều dispatcher/process cùng DB không vượt giới hạn; ghi
-`artifacts/<run_id>/config.yaml` rồi spawn
+The executor verifies the manifest, run identity, configuration hash and artifact checksums before publishing. Column import, metrics, checks, artifact records and success state are persisted in one transaction. A timeout records a timeout failure. A run interrupted by restart can become stale. Only failed and stale runs can be retried, using the stored snapshot.
 
-```text
-<SOLVER_CMD…> run --run-id <uuid> --config <artifacts/<id>/config.yaml> --out <artifacts/<id>> [--mock]
-```
+The results modules read saved values. A profile uses indices `i,j`. A transect accepts a WGS84 LineString and a height interval, samples the line at metric spacing and looks up the containing voxel. Region and corridor statistics use horizontal intersection area and vertical overlap. The [specification](../docs/spec.md) covers limits and response contracts.
 
-với `cwd = REPO_ROOT`, `shell: false`. Mỗi dòng stdout JSON `{"event":"progress","stage","fraction"}`
-cập nhật `progress` (fraction theo từng stage `setup|wind|transport|export`, quy về một thanh
-0–1 không lùi); dòng không phải JSON bị bỏ qua. Lỗi dùng 4 KB cuối của stderr (hoặc `solver.log`).
+## Environment variables
 
-| Kết thúc | Trạng thái |
-|---|---|
-| exit 0 + manifest khớp `config/manifest.schema.json` + `run_id`/model/scenario khớp + mọi artifact nằm trong thư mục run, đúng size và SHA-256 + `config.yaml` không bị đổi + `verification.status = pass` | `succeeded`; `run_metrics`, `verification_checks`, `artifacts` (kể cả `manifest`) ghi trong **một** transaction |
-| exit 0 nhưng manifest/checksum sai | `failed` · `system` |
-| exit 0 nhưng verification `fail` | `failed` · `model` |
-| exit 2 / 3 / 4 hoặc khác | `failed` · `input` / `model` / `system` (exit 3 vẫn lưu các check để biết gate nào trượt) |
-| quá `SOLVER_TIMEOUT_S` | process bị kill → `failed` · `timeout` |
-| app khởi động lại khi run đang `running` | `stale` (BR-21) |
+The application reads `app/.env` and process environment variables. Relative paths resolve from `app/`.
 
-`POST /api/runs/:id/retry`: chỉ từ `failed`/`stale` → `queued`, `attempt + 1`; còn lại `409`.
-`columns.csv.gz` được kiểm tra checksum rồi nạp theo batch vào `concentration_columns` trong
-cùng transaction với metrics, verification checks và artifacts. Run chỉ chuyển sang
-`succeeded` khi toàn bộ bước persist hoàn tất.
+| Variable | Default or purpose |
+| --- | --- |
+| `PORT` | `3000` |
+| `REPO_ROOT` | `..` |
+| `PROJECT_CONFIG_PATH` | `<REPO_ROOT>/config/project.yaml` |
+| `ARTIFACT_DIR` | `<REPO_ROOT>/artifacts` |
+| `PYTHON_BIN` | Python executable in the repository's `.venv` |
+| `DATABASE_URL` | PostgreSQL connection URL |
+| `TEST_DATABASE_URL` | Integration database whose name must end in `_test` |
+| `SOLVER_MODE` | `mock` locally. Docker sets `real`. |
+| `SOLVER_MOCK_FAIL` | Optional `input`, `model` or `system` failure in mock mode |
+| `SOLVER_CMD` | JSON array defaulting to `[PYTHON_BIN, "-m", "src.solver"]` |
+| `SOLVER_TIMEOUT_S` | `900` seconds |
+| `EXECUTOR_ENABLED` | `true` |
+| `EXECUTOR_POLL_MS` | `1000` milliseconds |
 
-## Biến môi trường
-
-Sao chép `.env.example` thành `.env` (đã gitignore). Cấu hình được kiểm tra khi khởi động
-(`src/config/env.validation.ts`); giá trị sai sẽ dừng app với thông báo lỗi rõ ràng. Đường dẫn
-tương đối được tính từ thư mục `app/`.
-
-| Biến | Mặc định | Ghi chú |
-|---|---|---|
-| `PORT` | `3000` | số nguyên 1–65535 |
-| `REPO_ROOT` | `..` | phải là thư mục tồn tại |
-| `PROJECT_CONFIG_PATH` | `<REPO_ROOT>/config/project.yaml` | config duy nhất được snapshot cho mỗi run; real E2E dùng fixture riêng |
-| `ARTIFACT_DIR` | `<REPO_ROOT>/artifacts` | không bắt buộc tồn tại lúc khởi động |
-| `PYTHON_BIN` | `<REPO_ROOT>/.venv/Scripts/python.exe` (Windows), `<REPO_ROOT>/.venv/bin/python` (khác) | |
-| `DATABASE_URL` | — | `postgres://` / `postgresql://`; compose dev: `postgres://ie402:ie402@localhost:5433/ie402` |
-| `TEST_DATABASE_URL` | `<DATABASE_URL>` đổi tên DB thành `<tên>_test` | chỉ dùng cho e2e; DB được tạo nếu chưa có |
-| `SOLVER_MODE` | `mock` | `mock` thêm `--mock`; `real` chạy solver thật |
-| `SOLVER_MOCK_FAIL` | — | chỉ với `mock`: `input`/`model`/`system` → `--mock-fail …` |
-| `SOLVER_TIMEOUT_S` | `900` | giây, > 0 |
-| `SOLVER_CMD` | `[PYTHON_BIN, "-m", "src.solver"]` | mảng JSON; chỉ từ môi trường, không bao giờ từ request |
-| `EXECUTOR_ENABLED` | `true` | `false`: chỉ API, run nằm ở `queued` |
-| `EXECUTOR_POLL_MS` | `1000` | ≥ 10 |
-
-## Cấu trúc
-
-```text
-src/
-├── main.ts, setup.ts        bootstrap, prefix /api, ValidationPipe toàn cục, Swagger
-├── config/                  validate() cho biến môi trường
-├── common/                  hash, đọc config/project.yaml
-├── database/                Pool (pg), migrate.ts, seed.ts, scene-package.ts, cli.ts (db:*)
-└── modules/
-    ├── health/              GET /api/health
-    ├── study-areas/         GET /api/study-areas
-    ├── scenarios/           GET /api/scenarios
-    ├── simulation/          POST /api/runs, GET /api/runs/:id, POST /api/runs/:id/retry,
-    │                        executor, kiểm manifest/checksum
-    └── results/             DTO → controller → service cho slices, exceedance, profile,
-                             summary, volume và artifact download
-test/
-├── fixtures/scene/          scene package giả 2 × 2 ô (checksum thật; .gitattributes -text)
-├── fixtures/fake-solver.mjs solver giả cùng CLI/contract (FAKE_SOLVER_BEHAVIOR, FAKE_SOLVER_DELAY_MS)
-├── support/test-db.ts       tạo/reset/migrate/seed DB test, dựng app
-└── *.e2e-spec.ts            e2e (supertest) + tích hợp PostGIS
-```
-
-## Kiểm tra
+## Tests
 
 ```bash
-npm test           # unit (vitest)
-npm run test:e2e   # e2e; các suite DB cần `docker compose up -d db`, nếu không sẽ skip kèm lý do
-npm run lint       # oxlint
+npm test
 npm run build
+npm run test:e2e:required
 ```
 
-Candidate tuần 7 đã có image monolith/Python và Compose app + PostGIS. Tại
-repo root chạy `docker compose up -d --build --wait`; startup tự verify input,
-migrate và seed, không reset dữ liệu. `/api/runs/:id/artifacts` trả
-`size_bytes` dạng JSON number dù PostgreSQL lưu bigint.
-
-Required regression và clean-room nằm ở `scripts/week7-checks.mjs` và
-`scripts/rehearse.mjs`. Hướng dẫn đầy đủ: [README – demo và kiểm thử](../README.md).
+The required integration suite uses PostGIS, Supertest and the Python test fixture. It rebuilds a separate test database and fails when database-dependent tests are skipped. See the root [README](../README.md#verify-and-reproduce) for the clean Compose rehearsal.

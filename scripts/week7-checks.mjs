@@ -30,8 +30,8 @@ try {
   report.dirty = Boolean(status.stdout.trim());
   const deps = await run('python-dependencies', values.python, ['-m', 'pip', 'list', '--format=json']);
   if (deps.code === 0) await writeJson(join(out, 'python-dependencies.json'), JSON.parse(deps.stdout));
-  const webFiles = (await readdir(join(root, 'web/tests'))).filter((name) => name.endsWith('.test.cjs')).sort();
-  await run('web', process.execPath, ['--test', '--test-reporter=tap', ...webFiles.map((name) => join(root, 'web/tests', name))]);
+  const webFiles = (await readdir(join(root, 'frontend/legacy/tests'))).filter((name) => name.endsWith('.test.cjs')).sort();
+  await run('web', process.execPath, ['--test', '--test-reporter=tap', ...webFiles.map((name) => join(root, 'frontend/legacy/tests', name))]);
   await run('python', values.python, ['-m', 'pytest', '-p', 'no:cacheprovider',
     `--basetemp=${join(out, `pytest-temp-${Date.now()}`)}`, `--junitxml=${join(out, 'python-junit.xml')}`, '--tb=short'],
   { env: { MPLBACKEND: 'Agg' }, timeout: 600_000 });

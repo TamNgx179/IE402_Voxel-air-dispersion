@@ -1,10 +1,10 @@
 import { Module } from '@nestjs/common';
 import { StudyAreasController } from './controllers/study-areas.controller.js';
-import { StudyAreasRepository } from './repositories/study-areas.repository.js';
+import { StudyAreasModel } from './models/study-areas.model.js';
 import { StudyAreasService } from './services/study-areas.service.js';
 
 @Module({
   controllers: [StudyAreasController],
-  providers: [StudyAreasRepository, StudyAreasService],
+  providers: [StudyAreasModel, StudyAreasService],
 })
 export class StudyAreasModule {}

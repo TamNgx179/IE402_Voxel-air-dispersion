@@ -21,7 +21,7 @@ import { StudyAreasModule } from './modules/study-areas/study-areas.module.js';
       validate: (env) => validate(env),
     }),
     // Static viewers on the same origin as the API (BR-28):
-    //   /legacy/  the vanilla viewer from <REPO_ROOT>/web (kept for comparison)
+    //   /legacy/  the vanilla viewer from <REPO_ROOT>/frontend/legacy (kept for comparison)
     //   /         the React viewer built to <REPO_ROOT>/frontend/dist
     // Without a frontend build (fresh checkout, API-only tests) "/" falls back to
     // the legacy viewer so the app stays usable.
@@ -29,7 +29,7 @@ import { StudyAreasModule } from './modules/study-areas/study-areas.module.js';
       inject: [ConfigService],
       useFactory: (config: ConfigService<AppConfig, true>) => {
         const repoRoot = config.get('REPO_ROOT', { infer: true });
-        const legacy = join(repoRoot, 'web');
+        const legacy = join(repoRoot, 'frontend', 'legacy');
         const frontend = join(repoRoot, 'frontend', 'dist');
         return [
           {

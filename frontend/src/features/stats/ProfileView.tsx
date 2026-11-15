@@ -36,7 +36,6 @@ export function ProfileView({ i, j }: { i: number; j: number }) {
       dz: grid.dz_m,
       nz: grid.nz,
       scale: colourScale(run.volume.scale, display),
-      thresholds: [],
       layer,
     });
   }, [values, run, grid, display, layer]);

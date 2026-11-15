@@ -237,7 +237,7 @@ describe('viewer shell', () => {
   test('bootstrap failure shows a translated error with retry and no map', async () => {
     const store = createViewerStore();
     const fake = createFakeMapFactory();
-    render(<App store={store} api={fakeApi({ '/thresholds': new ApiError('network') })} mapFactory={fake.factory} />);
+    render(<App store={store} api={fakeApi({ '/study-areas': new ApiError('network') })} mapFactory={fake.factory} />);
     await waitFor(() => expect(screen.getByText('The application data could not be loaded.')).toBeInTheDocument());
     expect(screen.getByRole('button', { name: 'Retry' })).toBeVisible();
     expect(fake.maps).toHaveLength(0);

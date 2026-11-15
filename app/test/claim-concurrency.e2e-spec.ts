@@ -1,7 +1,7 @@
 import type { ConfigService } from '@nestjs/config';
 import type { AppConfig } from '../src/config/env.validation.js';
 import { DatabaseService } from '../src/database/database.service.js';
-import { SimulationRunsRepository } from '../src/modules/simulation/repositories/simulation-runs.repository.js';
+import { SimulationRunsModel } from '../src/modules/simulation/models/simulation-runs.model.js';
 import { prepareTestDatabase } from './support/test-db.js';
 
 /**
@@ -14,17 +14,17 @@ const db = await prepareTestDatabase();
 const DISPATCHERS = 6;
 const CLAIMS_PER_DISPATCHER = 4;
 
-describe.skipIf(!db.ok)('SimulationRunsRepository.claimNext (e2e, concurrent dispatchers)', () => {
+describe.skipIf(!db.ok)('SimulationRunsModel.claimNext (e2e, concurrent dispatchers)', () => {
   const pool = db.ok ? db.pool : (undefined as never);
   let services: DatabaseService[] = [];
-  let repos: SimulationRunsRepository[] = [];
+  let repos: SimulationRunsModel[] = [];
 
   beforeAll(() => {
     const config = {
       get: (key: string) => (key === 'DATABASE_URL' && db.ok ? db.url : undefined),
     } as unknown as ConfigService<AppConfig, true>;
     services = Array.from({ length: DISPATCHERS }, () => new DatabaseService(config));
-    repos = services.map((s) => new SimulationRunsRepository(s));
+    repos = services.map((s) => new SimulationRunsModel(s));
   });
 
   afterAll(async () => {

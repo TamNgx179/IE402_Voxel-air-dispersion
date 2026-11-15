@@ -40,7 +40,7 @@ The executor claims one run in a short database transaction, then releases the t
 **Cập nhật 28/10/2026:** sơ đồ tổng quan dưới đây mô tả monolith hiện có; mục luồng phân tích/xuất kết quả ghi nhận A9.2–A9.4 đã triển khai. Đối chiếu yêu cầu giảng viên và trạng thái qua
 spec §4–6, không suy ra tính năng đã có từ một node trên sơ đồ.
 
-![Kiến trúc modular monolith GIS 3D](img/architecture-monolith.svg)
+![Kiến trúc modular monolith GIS 3D](img/architecture-monolith-en.svg)
 
 Sơ đồ tổng quan nhóm theo người dùng, ứng dụng NestJS, lưu trữ và nguồn ngoài.
 Python nằm trong ranh giới ứng dụng dưới dạng tiến trình con; PostgreSQL/PostGIS
@@ -55,13 +55,15 @@ flowchart TB
 
     subgraph APP["NestJS modular monolith — một ứng dụng triển khai"]
         API["DTO validation → Controllers"]
-        DOMAIN["StudyArea · Scenario · Simulation · Results services"]
+        DOMAIN["Study areas, scenarios, simulation and results services"]
+        MODEL["Feature models and transactions"]
         EXEC["Internal simulation executor<br/>spawn Python CLI · one run at a time"]
-        STATIC["Serve web/static assets"]
+        STATIC["Serve React build and compatibility viewer"]
         API --> DOMAIN
-        DOMAIN --> EXEC
+        DOMAIN --> MODEL
+        EXEC --> MODEL
         STATIC --> WEB
-        subgraph PY["Python solver subprocess — không phải service"]
+        subgraph PY["Python solver subprocess"]
             VOX["GIS preparation + voxelisation"]
             WIND["corrected face wind · Poisson CG / SOR"]
             TR["FV advection–diffusion"]
@@ -80,12 +82,11 @@ flowchart TB
     ART["Local artifact directory<br/>NetCDF · CSV.gz · JSON · logs · manifest"]
 
     WEB -->|"same-origin HTTP/JSON"| API
-    DOMAIN -->|"SQL/PostGIS"| PG
+    MODEL -->|"SQL/PostGIS"| PG
     EXEC -->|"child process + run_id/config path"| PY
     PY -->|"exit code · metrics · manifest"| EXEC
     PY --> ART
     ART -->|"verified files"| EXEC
-    EXEC -->|"status + metrics + concentration columns"| PG
     API --> ART
 ```
 
@@ -104,17 +105,17 @@ PostgreSQL/PostGIS là cơ sở dữ liệu của monolith; NetCDF là định d
 đời deployment riêng.
 
 Trong mỗi NestJS feature, dependency đi một chiều:
-`controller → service → repository → DatabaseService`. DTO chỉ validate input; `schemas/` giữ
-domain/response contract; adapter file/solver/manifest nằm trong `infrastructure/`. Controller và
-service không chứa SQL, còn repository không ném HTTP exception.
+`controller → service → model → DatabaseService`. DTO chỉ validate input; `schemas/` giữ
+domain/response contract; adapter file/solver/manifest nằm trong `services/`. Controller và
+service không chứa SQL, còn model không ném HTTP exception.
 
 Phân tích tuần 8 nằm trong `SimulationResultsModule`, không thêm service triển
 khai độc lập: `SpatialAnalysisController → SpatialAnalysisService →
-SpatialAnalysisRepository → DatabaseService`. DTO comparison/region validate
-input, `schemas/spatial-analysis.schema.ts` giữ kiểu dữ liệu; repository dùng SQL
+SpatialAnalysisModel → DatabaseService`. DTO comparison/region validate
+input, `schemas/spatial-analysis.schema.ts` giữ kiểu dữ liệu; model dùng SQL
 tham số hóa và index GiST/PK hiện có, không cần migration hay bảng tensor mới.
 Service kiểm pair/mask trước khi trả ΔC, kiểm polygon và tổng hợp mean theo thể
-tích khí. `web/viewer-analysis.js` giữ trạng thái/lỗi/race của UI và overlay trong
+tích khí. `frontend/legacy/viewer-analysis.js` giữ trạng thái/lỗi/race của UI và overlay trong
 cùng MapLibre/deck.gl; `viewer-api.js` nhận JSON hoặc CSV. Gió/profile hiện hữu
 vẫn thuộc run gốc. Không đổi pipeline Python, phương trình hoặc dữ liệu nguồn.
 
@@ -231,7 +232,7 @@ Báo cáo/slide A4 cần dẫn từ mô hình khái niệm (đối tượng/quan
 | Internal Python contract | CLI arguments + versioned manifest schema | không có network contract; NestJS kiểm exit code, checksum và schema |
 | 3D city scene | versioned scene package derived from GIS sources | building IDs, footprints, `height_m`, roads, water/green and CRS match the voxel input; no hand-placed buildings |
 
-Ngoại hình viewer nằm tại `web/building-appearance.js`: palette ngà/pearl, kính minh họa,
+Ngoại hình viewer nằm tại `frontend/src/lib/buildingAppearance.ts`: palette ngà/pearl, kính minh họa,
 material và preset ambient + key/fill cho deck.gl 9.4.0. Chi tiết mặt đứng rõ dần theo
 zoom; không tải ảnh texture, không đưa cửa sổ/vật liệu/ánh sáng vào DB hay solver.
 Đây là cấu hình trực quan, không phải mô phỏng mặt trời. Nguồn tham khảo ở RESEARCH §9.
@@ -403,7 +404,7 @@ flowchart LR
   subgraph APP["Một NestJS monolith"]
     CTRL["Results controller + DTO"]
     SVC["Results service + response schema"]
-    REPO["Results repository / SQL"]
+    REPO["Results model / SQL"]
     EXEC["SimulationModule / executor hiện có"]
     PY["Python child process: voxel → wind → FV → verification"]
   end
@@ -425,7 +426,7 @@ broker hoặc dịch vụ transect riêng. API vùng/comparison/transect hiện 
 |---|---|---|
 | DTO/controller | Validate tuyến/z/bước lấy mẫu/giới hạn tải, status và OpenAPI | Không chạy solver hoặc nhét SQL trong controller |
 | Service/schema | Run readiness, georeference, null/solid, response/provenance | Không dùng pixel màu để suy nồng độ |
-| Repository | Tra grid/cột nồng độ, giao XY và khoảng z, query có giới hạn | Không coi ST_Intersects XY là phép giao thể tích XYZ |
+| Model | Tra grid/cột nồng độ, giao XY và khoảng z, query có giới hạn | Không coi ST_Intersects XY là phép giao thể tích XYZ |
 | Client | Vẽ tuyến, trục khoảng cách–z, legend, bỏ kết quả stale; LoD render | Không thay đổi tensor/height/mask khi zoom; không tính chính xác từ uint8 |
 | Python/offline study | Analytic/grid/dt study, đối chiếu trên miền vật lý chung | Không so trực tiếp cùng chỉ số ở hai grid khác nhau |
 
@@ -448,10 +449,10 @@ mask/run mới; API comparison A8 tiếp tục chặn mask/grid không khớp. C
 và 3D Tiles chưa là dependency hiện hành; không thêm máy chủ tile hay migration chỉ
 để có tên chuẩn. Kiểm metadata NetCDF không tự chứng nhận tuân thủ CF.
 
-**Kiểm thử:** TC-CUT ở repository/API/UI; TC-LOD đo render và bất biến query; TC-GRID
+**Kiểm thử:** TC-CUT ở model/API/UI; TC-LOD đo render và bất biến query; TC-GRID
 ở Python/offline study; TC-EXP kiểm artifact/data/legend. Cấu trúc module giữ
-`dto/`, `schemas/`, `controllers/`, `services/`, `repositories/`, adapter ở
-`infrastructure/`; không tạo một file service gom mọi phép phân tích.
+`dto/`, `schemas/`, `controllers/`, `services/`, `models/`, adapter ở
+`services/`; không tạo một file service gom mọi phép phân tích.
 
 ### Cổng đóng gói cuối
 
@@ -459,7 +460,7 @@ Luồng giảm nguồn B8.4/B9.2/A9.1 tái sử dụng `POST /runs`: DTO kiểm 
 service ghi `run.emission_multiplier` trong config snapshot JSONB. Executor dùng snapshot
 đó cho cả lần đầu và retry, Python nhân S trước FV/mass ledger, không sửa input NetCDF.
 Manifest mang hệ số trong scenario; verifier đối chiếu config đã checksum trước persistence.
-Repository đọc hệ số từ snapshot (run cũ mặc định 1), không thêm bảng/scenario hoặc service.
+Model đọc hệ số từ snapshot (run cũ mặc định 1), không thêm bảng/scenario hoặc service.
 Summary/comparison và export cung cấp hệ số; web dùng select có nhãn và tên run giảm nguồn.
 Script nghiên cứu gọi cùng API cho hai mùa × ba preset, kiểm artifacts và so toàn trường;
 không dùng volume uint8 hay slider Minh họa làm số liệu nghiên cứu. Contract/tolerance ở spec BR-63–66.

@@ -1,5 +1,5 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
-import { StudyAreasRepository } from '../repositories/study-areas.repository.js';
+import { StudyAreasModel } from '../models/study-areas.model.js';
 import type {
   SceneFeatureRow,
   StudyAreaSchema,
@@ -7,7 +7,7 @@ import type {
 
 @Injectable()
 export class StudyAreasService {
-  constructor(private readonly studyAreas: StudyAreasRepository) {}
+  constructor(private readonly studyAreas: StudyAreasModel) {}
 
   async list(): Promise<StudyAreaSchema[]> {
     const rows = await this.studyAreas.findAll();

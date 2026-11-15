@@ -1,7 +1,6 @@
-/**
- * Pure helpers for the monolith ↔ Python solver contract (docs/spec.md D2).
- * No I/O here, so every rule is unit-tested directly.
- */
+import { spawn } from 'node:child_process';
+
+/** Translate the Python CLI, progress events and exit codes into executor inputs. */
 
 export type ErrorKind = 'input' | 'model' | 'system' | 'timeout';
 
@@ -122,6 +121,21 @@ export function buildSolverInvocation(options: {
     if (options.mockFail) args.push('--mock-fail', options.mockFail);
   }
   return { command, args };
+}
+
+/** Run the Python CLI as a child process with the same UTF-8 contract on every host. */
+export function startSolver({ command, args }: SolverInvocation, cwd: string) {
+  return spawn(command, args, {
+    cwd,
+    shell: false,
+    windowsHide: true,
+    stdio: ['ignore', 'pipe', 'pipe'],
+    env: {
+      ...process.env,
+      PYTHONUNBUFFERED: '1',
+      PYTHONIOENCODING: 'utf-8',
+    },
+  });
 }
 
 /** Keeps only the last `max` characters written to it (stderr tail). */

@@ -12,7 +12,7 @@ key/fill được cấu hình riêng để không trắng chói hay tối xám; 
 Cửa sổ thưa hơn, ít biến thiên màu; chi tiết mờ khi zoom xa và rõ dần khi zoom gần.
 Ánh sáng cố định chỉ phục vụ đọc bản đồ, không phải mô hình ánh sáng mặt trời.
 Nguồn và lập luận tham khảo Esri/Cesium/MapLibre/CityOnStats/VoxCity ở
-[RESEARCH.md §9](../../../docs/RESEARCH.md).
+[RESEARCH.md §9](../../../../docs/RESEARCH.md).
 Màu/cửa sổ sinh ổn định theo building ID, chỉ là minh họa ngoại hình, **không phải**
 ảnh khảo sát, số tầng thật hay mô hình LoD2/LoD3. Footprint/chiều cao GIS, solid mask,
 DB và kết quả solver không đổi. Mặt đứng lệch ra ngoài 8 cm chỉ để tránh z-fighting.
