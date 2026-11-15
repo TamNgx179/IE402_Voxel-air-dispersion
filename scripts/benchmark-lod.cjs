@@ -2,9 +2,9 @@
 const { performance } = require("node:perf_hooks");
 const { mkdirSync, writeFileSync } = require("node:fs");
 const { join } = require("node:path");
-const { build } = require("../web/building-appearance.js");
-const { prepare, select } = require("../web/map/viewer-lod.js");
-const { layerCsv } = require("../web/viewer-export.js");
+const { build } = require("../frontend/legacy/building-appearance.js");
+const { prepare, select } = require("../frontend/legacy/map/viewer-lod.js");
+const { layerCsv } = require("../frontend/legacy/viewer-export.js");
 async function main() {
   const base = process.env.VIEWER_URL || "http://127.0.0.1:3001";
   async function get(path) {

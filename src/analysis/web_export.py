@@ -192,7 +192,7 @@ def scenario_payload(field_: ConcentrationField, config: dict[str, Any]) -> tupl
 
 
 def export_web(config: dict[str, Any]) -> dict[str, Any]:
-    """Write every web/data file and return a summary including the byte count."""
+    """Write every frontend/legacy/data file and return a summary including the byte count."""
 
     out_dir = (REPO_ROOT / get_required(config, "web.output_dir")).resolve()
     out_dir.mkdir(parents=True, exist_ok=True)
@@ -265,6 +265,6 @@ def export_web(config: dict[str, Any]) -> dict[str, Any]:
     total = int(sum(sizes.values()))
 
     if total >= budget:
-        raise ValueError(f"web/data is {total:,} bytes, over the {budget:,}-byte budget")
+        raise ValueError(f"frontend/legacy/data is {total:,} bytes, over the {budget:,}-byte budget")
 
     return {"output_dir": str(out_dir), "bytes": sizes, "total_bytes": total, "budget_bytes": budget}

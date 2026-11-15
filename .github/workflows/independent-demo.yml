@@ -52,7 +52,7 @@ jobs:
           npm test 2>&1 | tee ../artifacts/independent-ci/frontend-test.log
           npm run build
       - name: Web and script regression
-        run: node --test web/tests/*.test.cjs scripts/tests/*.test.mjs 2>&1 | tee artifacts/independent-ci/regression.log
+        run: node --test frontend/legacy/tests/*.test.cjs scripts/tests/*.test.mjs 2>&1 | tee artifacts/independent-ci/regression.log
       - name: Verify packaged scientific inputs
         run: python3 -m src.demo_bundle verify
       - name: Clean build, seed, two real runs, downloads, queries and restart

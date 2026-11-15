@@ -1,5 +1,5 @@
 """
-Export every configured scenario to web/data/ for the 3D viewer.
+Export every configured scenario to frontend/legacy/data/ for the 3D viewer.
 
     python src/06_export_web.py --config config/project.yaml
 
@@ -23,7 +23,7 @@ from project_config import load_project_config  # noqa: E402
 
 
 def main() -> None:
-    parser = argparse.ArgumentParser(description="netCDF -> web/data for the 3D viewer")
+    parser = argparse.ArgumentParser(description="netCDF -> frontend/legacy/data for the 3D viewer")
     parser.add_argument("--config", required=True)
     args = parser.parse_args()
 
@@ -33,7 +33,7 @@ def main() -> None:
         print(f"  {name:<40} {size / 1e3:9.1f} kB")
 
     print(
-        f"web/data total {summary['total_bytes'] / 1e6:.2f} MB "
+        f"frontend/legacy/data total {summary['total_bytes'] / 1e6:.2f} MB "
         f"of a {summary['budget_bytes'] / 1e6:.0f} MB budget -> {summary['output_dir']}"
     )
 

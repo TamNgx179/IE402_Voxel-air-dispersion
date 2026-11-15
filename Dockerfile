@@ -37,7 +37,7 @@ WORKDIR /opt/project
 COPY src/ ./src/
 COPY config/ ./config/
 COPY db/ ./db/
-COPY web/ ./web/
+COPY frontend/legacy/ ./frontend/legacy/
 COPY --from=frontend-build /opt/project/frontend/dist ./frontend/dist/
 COPY pyproject.toml ./
 COPY deploy/ ./deploy/

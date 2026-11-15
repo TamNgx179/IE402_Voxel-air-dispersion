@@ -473,12 +473,12 @@ analysis:
 
 
 # ============================================================
-# WEB EXPORT (src/06_export_web.py) AND VIEWER (web/)
+# WEB EXPORT (src/06_export_web.py) AND VIEWER (frontend/legacy/)
 # ============================================================
 
 web:
 
-  output_dir: "web/data"
+  output_dir: "frontend/legacy/data"
 
   # Every file is a <script> assigning a global, so the viewer also
   # opens from file:// where fetch() of local JSON is refused.
