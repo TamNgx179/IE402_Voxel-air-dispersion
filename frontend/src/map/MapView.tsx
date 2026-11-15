@@ -13,7 +13,7 @@ import { build as buildAppearance, lighting } from '../lib/buildingAppearance';
 import { rasterStyle } from '../lib/flow';
 import { buildCells, buildNodes, lines, validCell } from '../lib/grid';
 import { controller as lodController, prepare as prepareLod } from '../lib/lod';
-import { usePrefersReducedMotion } from '../components/usePrefersReducedMotion';
+import { usePrefersReducedMotion } from '../shared/hooks/usePrefersReducedMotion';
 import { useViewerStore } from '../store/store';
 import { selectCurrentRun } from '../store/selectors';
 import type { BootstrapData } from '../store/types';
@@ -63,7 +63,7 @@ export const createMapLibre: MapFactory = ({ container, centre, overlayProps }) 
   });
   map.dragRotate.enable();
   map.touchZoomRotate?.enableRotation?.();
-  map.addControl(new maplibregl.NavigationControl({ visualizePitch: true }), 'top-right');
+  map.addControl(new maplibregl.NavigationControl({ showCompass: false }), 'top-right');
   map.addControl(new maplibregl.ScaleControl({ unit: 'metric', maxWidth: 120 }), 'bottom-left');
   const overlay = new MapboxOverlay(overlayProps);
   map.addControl(overlay);
@@ -140,7 +140,7 @@ export function MapView({ bootstrap, factory = createMapLibre }: MapViewProps) {
           pending.forEach((callback) => callback(deckCanvas));
         },
         getCursor: ({ isDragging }) =>
-          registry.isDrawing() ? 'crosshair' : store.getState().mapMode === 'cell' ? 'default' : isDragging ? 'grabbing' : 'grab',
+          registry.isDrawing() ? 'pointer' : store.getState().mapMode === 'cell' ? 'default' : isDragging ? 'grabbing' : 'grab',
         getTooltip: (info: PickingInfo) => {
           // Cell values are shown only after a click, never as a hover tooltip.
           const layerId = info.layer?.id ?? '';
@@ -196,7 +196,6 @@ export function MapView({ bootstrap, factory = createMapLibre }: MapViewProps) {
       if (registry.isDrawing()) return;
       if (!selectCurrentRun(store.getState()) || !validCell(bootstrap.grid, cell.i, cell.j)) return;
       store.dispatch({ type: 'cell/select', cell: { i: cell.i, j: cell.j } });
-      store.dispatch({ type: 'panel/open', id: 'stats' });
     }
 
     function onBuildingClick(id: string) {
@@ -227,10 +226,10 @@ export function MapView({ bootstrap, factory = createMapLibre }: MapViewProps) {
       return [
         waterLayer(ctx),
         greenLayer(ctx),
-        roadLayer(ctx),
         ...registry.layers('below-concentration'),
         concentrationLayer(ctx),
         ...registry.layers('above-concentration'),
+        roadLayer(ctx),
         voxelGridLayer(ctx),
         buildingLayer(ctx),
         ...facadeLayers(ctx),
@@ -250,7 +249,7 @@ export function MapView({ bootstrap, factory = createMapLibre }: MapViewProps) {
       const picking = state.mapMode === 'cell';
       if (picking || drawing) map.dragPan.disable();
       else map.dragPan.enable();
-      map.getCanvas().style.cursor = drawing ? 'crosshair' : picking ? 'default' : '';
+      map.getCanvas().style.cursor = drawing ? 'pointer' : picking ? 'default' : '';
     }
 
     function render() {

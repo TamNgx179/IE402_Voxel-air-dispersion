@@ -20,14 +20,14 @@ export function isMockRun(entry: Pick<RunEntry, 'warnings'>): boolean {
   return entry.warnings.some((warning) => /mock run/.test(warning));
 }
 
-/** e.g. "Dry season · Voxel · Reduced 20% · 2a3a". The 4-char id suffix is not translated. */
+/** e.g. "Dry season, Voxel, Reduced 20%, 2a3a". The 4-char id suffix is not translated. */
 export function runLabel(entry: RunEntry, t: Translate): string {
   const scenarioId = entry.scenario_id || entry.id;
   const key = seasonKey(scenarioId);
   const name = key ? t(key) : entry.name || scenarioId;
   const kind = isMockRun(entry) ? t('viewer.labelMock') : entry.model === 'fv' ? t('viewer.labelVoxel') : t('viewer.labelGaussian');
   const reduction = Math.round((1 - (entry.emission_multiplier ?? 1)) * 100);
-  return `${name} · ${kind}${reduction ? ` · ${t('viewer.labelReduction', { percent: reduction })}` : ''} · ${entry.id.slice(0, 4)}`;
+  return `${name}, ${kind}${reduction ? `, ${t('viewer.labelReduction', { percent: reduction })}` : ''}, ${entry.id.slice(0, 4)}`;
 }
 
 export function modelNoteKey(model: string | undefined): TranslationKey {

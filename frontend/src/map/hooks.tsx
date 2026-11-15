@@ -98,7 +98,7 @@ export interface MapClickOptions {
   enabled?: boolean;
   /**
    * While true (and enabled), the map is in drawing mode: cell picking, building
-   * picks, the pan/cell switch, exports and drag-pan are disabled, cursor is a crosshair.
+   * picks, the pan/cell switch, exports and drag-pan are disabled, cursor is a pointer.
    */
   drawing?: boolean;
 }

@@ -66,7 +66,7 @@ const analysis = {
   'transect.readingSolid': 'Building',
   'transect.readingNoData': 'No data',
   'transect.readingAir': '{value} µg/m³',
-  'transect.reading': '{distance} m from the line start · layer centre {z} m · cell ({i}, {j}, {k}): {reading}',
+  'transect.reading': '{distance} m from the line start, layer centre {z} m, cell ({i}, {j}, {k}): {reading}',
 
   // Road corridor request validation and labels.
   'corridor.distanceCount': 'Enter 1–{max} distance marks, for example 10, 25, 50.',
@@ -75,7 +75,7 @@ const analysis = {
   'corridor.noRoads': 'Select at least one road segment.',
   'corridor.maxRoads': 'Select at most {max} road segments.',
   'corridor.noRun': 'There is no baseline result yet.',
-  'corridor.roadLabel': 'Segment {index} · {kind} · {length} m',
+  'corridor.roadLabel': 'Segment {index}, {kind}, {length} m',
   'corridor.class.primary': 'primary road',
   'corridor.class.secondary': 'secondary road',
   'corridor.class.tertiary': 'tertiary road',
@@ -88,7 +88,7 @@ const analysis = {
   'legend.compareEmptyTitle': 'No comparison data at this layer',
   'legend.compareEmptyLabel': 'No shared air cells with data',
   'legend.deltaZeroTitle': 'Difference equals 0 (µg/m³)',
-  'legend.deltaZeroLabel': '0 · No difference at this layer',
+  'legend.deltaZeroLabel': '0, No difference at this layer',
   'legend.deltaTitle': 'ΔC (µg/m³, symmetric linear scale)',
   'legend.concentrationTitle': 'Concentration (µg/m³, shared linear scale)',
 

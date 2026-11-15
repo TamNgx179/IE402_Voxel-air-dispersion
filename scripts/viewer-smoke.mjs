@@ -132,10 +132,32 @@ export async function browserSmoke({ base, out, timeout = 120_000, legacy = fals
         document.querySelector('#scenario-list').value === ${JSON.stringify(initial)} &&
         document.querySelector('#height-slider').value === '12'`), Boolean, { name: 'Vietnamese and retained result' });
       checks('Changing language retains the run and 25 m layer');
+      await evaluate(`document.querySelector('[data-tool-panel="analysis"]').click()`);
+      for (const mode of ['region', 'transect', 'compare', 'corridor']) {
+        await evaluate(`document.getElementById('analysis-${mode}-mode').click()`);
+        await waitUntil(() => evaluate(`!document.getElementById('analysis-mode-${mode}').hidden`),
+          Boolean, { name: `Analysis mode ${mode}` });
+      }
+      checks('All four analysis modes open in the live workspace');
+      await evaluate(`document.querySelector('#corridor-road-list input[type="checkbox"]').click()`);
+      await waitUntil(() => evaluate(`Boolean(document.querySelector('#corridor-query:not(:disabled)'))`),
+        Boolean, { name: 'road corridor ready' });
+      await evaluate(`document.querySelector('#corridor-query').click()`);
+      await waitUntil(() => evaluate(`Boolean(document.querySelector('#corridor-result:modal')) &&
+        document.querySelectorAll('#corridor-result tbody tr').length > 0`),
+      Boolean, { name: 'server-backed road corridor result' });
+      checks('Road corridor renders real PostGIS results');
+      await client.screenshot(join(out, 'analysis-desktop.png'));
+      await evaluate(`document.querySelector('#corridor-close').click()`);
+      await waitUntil(() => evaluate(`!document.querySelector('#corridor-result:modal')`),
+        Boolean, { name: 'corridor result closed' });
       await client.send('Browser.setDownloadBehavior', { behavior: 'allow', downloadPath: out });
       await evaluate(`document.querySelector('[data-tool-panel="map-options"]').click()`);
       await waitUntil(() => evaluate(`Boolean(document.querySelector('#export-data:not(:disabled)'))`),
         Boolean, { name: 'CSV export ready' });
+      assert(await evaluate(`!document.querySelector('#result-info-content') &&
+        Boolean(document.querySelector('#export-metadata:not(:disabled)'))`),
+        'Downloads remain available with the result information card removed');
       await evaluate(`document.querySelector('#export-data').click()`);
       const csv = await waitUntil(async () => {
         const names = await readdir(out);
@@ -147,8 +169,101 @@ export async function browserSmoke({ base, out, timeout = 120_000, legacy = fals
       await waitUntil(() => evaluate(`document.querySelector('#toggle-3d').getAttribute('aria-pressed') === 'false'`),
         Boolean, { name: '2D camera' });
       checks('Camera switches to 2D');
+      assert(await evaluate(`document.querySelector('#camera-rotation').hidden &&
+        !document.querySelector('.maplibregl-ctrl-compass')`), 'Secondary camera controls should start hidden');
+      const bearing = await evaluate(`document.querySelector('#reset-camera').dataset.bearing`);
+      await evaluate(`document.querySelector('#camera-rotation-toggle').click();
+        document.querySelector('#rotate-right').click()`);
+      await waitUntil(() => evaluate(`!document.querySelector('#camera-rotation').hidden &&
+        document.querySelector('#reset-camera').dataset.bearing !== ${JSON.stringify(bearing)}`),
+        Boolean, { name: 'rotation controls move the camera' });
+      await evaluate(`document.querySelector('#camera-rotation-toggle').click();
+        document.querySelector('[data-tool-panel="simulation"]').click()`);
+      assert(await evaluate(`document.querySelector('#camera-rotation').hidden &&
+        !document.querySelector('#simulation-options').hidden`), 'Camera disclosure closes and Simulation restores the run form');
+      assert(await evaluate(`(() => {
+        const rect = (selector) => document.querySelector(selector).getBoundingClientRect();
+        const form = rect('#simulation-options');
+        const result = rect('.control-card');
+        document.querySelector('#camera-rotation-toggle').click();
+        const rotation = rect('#camera-rotation');
+        const interaction = rect('.map-interaction');
+        const wind = rect('#wind-hud');
+        document.querySelector('#camera-rotation-toggle').click();
+        return form.top >= result.bottom + 8 && interaction.left >= rect('#panel').right &&
+          (!wind.height || (wind.top >= rect('.camera-rotate-actions').bottom && wind.bottom <= rotation.bottom));
+      })()`), 'Sidebar cards and map controls should not overlap');
+      assert(await evaluate(`document.querySelector('#camera-rotation[hidden] #wind-hud') !== null`),
+        'Wind belongs to the closed map options disclosure');
+      checks('Wind is inside map options, below the rotation buttons');
+      checks('Rotation is disclosed on demand and Simulation shows the run form');
+      const clickMap = async (x, y) => {
+        for (const type of ['mousePressed', 'mouseReleased']) {
+          await client.send('Input.dispatchMouseEvent', { type, x, y, button: 'left', clickCount: 1 });
+        }
+      };
+      await evaluate(`document.querySelector('#map-cell-mode').click()`);
+      await waitUntil(() => evaluate(`document.querySelector('#map-cell-mode').getAttribute('aria-pressed') === 'true'`),
+        Boolean, { name: 'pick cell mode selected' });
+      await clickMap(740, 490);
+      await waitUntil(() => evaluate(`document.querySelector('.map-interaction-dock #cell-info:not([hidden]) strong')?.textContent`),
+        Boolean, { name: 'compact selected cell reading is visible' });
+      await evaluate(`document.querySelector('#map-pan-mode').click()`);
+      await waitUntil(() => evaluate(`document.querySelector('#cell-info').hidden`), Boolean, { name: 'Pan clears cell selection' });
+      checks('Picking a cell shows a compact reading and Pan clears it');
+      await evaluate(`document.querySelector('[data-tool-panel="analysis"]').click()`);
+      await evaluate(`document.querySelector('#analysis-transect-mode').click()`);
+      await waitUntil(() => evaluate(`document.querySelector('#analysis-transect-mode').getAttribute('aria-pressed') === 'true'`),
+        Boolean, { name: 'vertical section tool is active' });
+      await evaluate(`document.querySelector('#transect-draw').click()`);
+      await clickMap(740, 490);
+      await clickMap(790, 515);
+      await waitUntil(() => evaluate(`!document.querySelector('#transect-finish').disabled`),
+        Boolean, { name: 'two points accepted on the map' });
+      await evaluate(`document.querySelector('#transect-finish').click()`);
+      await waitUntil(() => evaluate(`!document.querySelector('#transect-settings').hidden`), Boolean, { name: 'line settings are shown' });
+      await evaluate(`document.querySelector('#transect-query').click()`);
+      await waitUntil(() => evaluate(`Boolean(document.querySelector('#transect-result:modal'))`),
+        Boolean, { name: 'server-backed vertical section is a modal' });
+      await client.screenshot(join(out, 'transect-modal.png'));
+      await clickMap(10, 12);
+      assert(await evaluate(`!document.querySelector('#transect-result:modal')`), 'Clicking the backdrop should close the modal');
+      checks('Vertical section opens above the map and closes on backdrop click');
+      await evaluate(`document.querySelector('#analysis-region-mode').click()`);
+      await waitUntil(() => evaluate(`document.querySelector('#analysis-region-mode').getAttribute('aria-pressed') === 'true'`),
+        Boolean, { name: 'region tool is active' });
+      await evaluate(`document.querySelector('#region-draw').click()`);
+      await clickMap(740, 490);
+      await clickMap(790, 515);
+      await clickMap(755, 540);
+      await waitUntil(() => evaluate(`!document.querySelector('#region-finish').hidden`),
+        Boolean, { name: 'three region points accepted' });
+      await evaluate(`document.querySelector('#region-finish').click()`);
+      await waitUntil(() => evaluate(`!document.querySelector('#region-settings').hidden`),
+        Boolean, { name: 'region settings are shown' });
+      await evaluate(`document.querySelector('#region-query').click()`);
+      await waitUntil(() => evaluate(`Boolean(document.querySelector('#region-result:modal'))`),
+        Boolean, { name: 'server-backed region result is a modal' });
+      await client.screenshot(join(out, 'region-modal.png'));
+      await client.send('Input.dispatchKeyEvent', { type: 'keyDown', key: 'Escape', code: 'Escape', windowsVirtualKeyCode: 27 });
+      await client.send('Input.dispatchKeyEvent', { type: 'keyUp', key: 'Escape', code: 'Escape', windowsVirtualKeyCode: 27 });
+      await waitUntil(() => evaluate(`!document.querySelector('#region-result:modal')`),
+        Boolean, { name: 'region result closes on Escape' });
+      checks('Region opens above the map and closes on Escape');
       await client.send('Emulation.setDeviceMetricsOverride', { width: 390, height: 844, deviceScaleFactor: 1, mobile: true });
       assert(await evaluate(`document.documentElement.scrollWidth <= innerWidth`), 'Mobile viewport has horizontal overflow');
+      await evaluate(`document.querySelector('[data-tool-panel="analysis"]').click()`);
+      await evaluate(`document.querySelector('#analysis-corridor-mode').click()`);
+      for (const width of [390, 320]) {
+        await client.send('Emulation.setDeviceMetricsOverride', { width, height: 844, deviceScaleFactor: 1, mobile: true });
+        await waitUntil(() => evaluate(`innerWidth === ${width} &&
+          [...document.querySelectorAll('.analysis-switch button')].every(button => button.clientWidth > 0 &&
+            button.scrollWidth <= button.clientWidth + 1 && button.querySelector('span').getClientRects().length === 1)`),
+          Boolean, { name: `Analysis controls fit at ${width}px` });
+        await evaluate(`document.querySelector('.analysis-heading').scrollIntoView({block: 'start'})`);
+        await client.screenshot(join(out, `analysis-${width}.png`));
+      }
+      checks('Analysis controls fit at 390 px and 320 px');
       await client.screenshot(join(out, 'mobile-layout.png'));
       checks('Mobile viewport fits without horizontal overflow');
       assert(client.exceptions.length === 0, `Viewer JS exceptions: ${JSON.stringify(client.exceptions)}`);

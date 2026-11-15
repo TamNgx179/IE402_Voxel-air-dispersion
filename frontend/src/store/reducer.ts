@@ -114,7 +114,7 @@ export function viewerReducer(state: ViewerState, action: ViewerAction): ViewerS
     case 'building/select':
       return { ...state, selectedBuildingId: action.id };
     case 'mapMode/set':
-      return { ...state, mapMode: action.mode };
+      return { ...state, mapMode: action.mode, selectedCell: action.mode === 'pan' ? null : state.selectedCell };
     case 'panel/open':
       return { ...state, activePanel: action.id };
     case 'layers/set':

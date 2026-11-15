@@ -8,7 +8,7 @@ const stats: Messages<typeof en> = {
   helpLabel: 'Cách đọc thống kê nồng độ',
   help: 'Số liệu thuộc tầng đang xem. Trung bình tính trên các ô không khí có dữ liệu; cao nhất là giá trị lớn nhất trong tầng.',
   context: 'Tầng {min}–{max} m',
-  contextAdjusted: 'Tầng {min}–{max} m · Minh họa',
+  contextAdjusted: 'Tầng {min}–{max} m, Minh họa',
   mean: 'Trung bình',
   max: 'Cao nhất',
 
@@ -33,7 +33,7 @@ const stats: Messages<typeof en> = {
   profileChartLabel: 'Profile nồng độ theo độ cao tại ô {i}, {j}',
   profileAxisX: 'Nồng độ (µg/m³, log)',
   profileAxisY: 'Độ cao (m)',
-  profileSummary: 'Ô {i}, {j} · cao nhất {max} µg/m³',
+  profileSummary: 'Ô {i}, {j}, cao nhất {max} µg/m³',
   profileTableToggle: 'Xem dạng bảng số liệu',
   profileTableCaption: 'Nồng độ theo tầng tại ô {i}, {j}',
   profileColLevel: 'Tầng',

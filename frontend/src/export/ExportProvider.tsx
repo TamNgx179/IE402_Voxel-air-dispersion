@@ -7,7 +7,7 @@
  * A getter may throw an `AppError` to block the export (e.g. "wait for comparison").
  */
 import { createContext, useCallback, useContext, useEffect, useRef, type ReactNode } from 'react';
-import { usePrefersReducedMotion } from '../components/usePrefersReducedMotion';
+import { usePrefersReducedMotion } from '../shared/hooks/usePrefersReducedMotion';
 import { useI18n } from '../i18n';
 import { useIsDrawing, useMapInstance } from '../map/hooks';
 import { useViewerStore } from '../store/store';

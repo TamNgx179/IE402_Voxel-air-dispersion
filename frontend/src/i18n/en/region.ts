@@ -11,17 +11,18 @@ const region = {
   draw: 'Draw region',
   redraw: 'Redraw region',
   finish: 'Finish',
+  undo: 'Undo point',
   cancel: 'Cancel drawing',
   clear: 'Clear region',
 
-  'note.selected': 'Region selected · {count} vertices.',
+  'note.selected': 'Region selected, {count} vertices.',
   'note.keptPrevious': 'The previously selected region is kept.',
   'note.runChanged': 'The region is kept; analyse again to see the new result.',
   'note.noRun': 'Choose a simulation result before drawing a region.',
   'note.start': 'Choose at least 3 points.',
   'note.maxVertices': 'At most {max} vertices.',
   'note.progress': '{count}/3 points selected.',
-  'note.ready': '{count} points · you can finish.',
+  'note.ready': '{count} points, you can finish.',
   'note.inputChanged': 'Click Analyse region to update.',
 
   heightTitle: 'Height range',
@@ -36,7 +37,7 @@ const region = {
   requery: 'Analyse again',
   querying: 'Analysing…',
 
-  'feedback.illustration': 'An illustration is applied. Go to Illustration → Back to original data to analyse.',
+  'feedback.illustration': 'An illustration is applied.',
   'feedback.loading': 'Computing statistics inside the region…',
   'feedback.csvDone': 'CSV table downloaded.',
 
@@ -48,7 +49,7 @@ const region = {
   export: 'Download CSV',
   exporting: 'Downloading CSV…',
 
-  'summary.context': '{run} · {min}–{max} m',
+  'summary.context': '{run}, {min}–{max} m',
   'summary.runFallback': 'Selected result',
   'summary.noAir':
     'There is no air data inside this region and height range. Try another region or widen the height range.',

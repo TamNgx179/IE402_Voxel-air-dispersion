@@ -2,11 +2,11 @@ import type { Messages } from '../types';
 import type en from '../en/mapOptions';
 
 const mapOptions: Messages<typeof en> = {
-  toolLabel: 'Bản đồ',
+  toolLabel: 'Lớp bản đồ',
   title: 'Lớp bản đồ',
   helpLabel: 'Giải thích lớp bản đồ',
   help: 'Bật hoặc tắt lớp hiển thị. Các lựa chọn này không thay đổi dữ liệu mô phỏng.',
-  gridSize: 'Ô {dx} × {dy} m · lưới {nx} × {ny}',
+  gridSize: 'Ô {dx} × {dy} m, lưới {nx} × {ny}',
 
   basemap: 'Nền bản đồ',
   basemapVector: 'Nền sáng',
@@ -16,18 +16,13 @@ const mapOptions: Messages<typeof en> = {
   facades: 'Chi tiết mặt đứng',
   facadesHelpLabel: 'Giải thích chi tiết mặt đứng',
   facadesHelp: 'Cửa sổ và vật liệu là minh họa. Hình khối và chiều cao tòa nhà lấy từ dữ liệu GIS.',
-  buildingSelected: 'Tòa nhà đã chọn · {height} m',
+  buildingSelected: 'Tòa nhà đã chọn, {height} m',
   roads: 'Đường',
   wind: 'Gió chuyển động',
   windHelpLabel: 'Giải thích gió chuyển động',
   windHelp: 'Vệt đi theo trường gió mô phỏng, hiển thị nhanh gấp 6 lần để dễ quan sát; không phải khói ô nhiễm.',
   windLoading: 'Đang tải trường gió của kết quả.',
   windMissing: 'Chưa có dữ liệu gió cho kết quả này.',
-
-  resultInfo: 'Thông tin kết quả',
-  resultInfoHelpLabel: 'Giải thích mô hình và thời gian',
-  resultInfoHelp:
-    'Thời gian tính: thời gian máy chạy. Thời gian mô phỏng: thời gian diễn biến trong mô hình. Nhà mái phẳng, nền cao độ 0; cửa sổ minh họa.',
 
   exportLabel: 'Xuất kết quả',
   exportTitle: 'Tải kết quả',
@@ -46,8 +41,8 @@ const mapOptions: Messages<typeof en> = {
   'error.captureTimeout': 'Chưa lấy được khung hình. Hãy thử lại.',
   'error.changed': 'Lựa chọn đã thay đổi. Hãy xuất lại.',
 
-  'png.title': 'PM2.5 · {title}',
-  'png.layer': 'Tầng {min}–{max} m · tâm {centre} m · {mode}',
+  'png.title': 'PM2.5, {title}',
+  'png.layer': 'Tầng {min}–{max} m, tâm {centre} m, {mode}',
   'png.run': 'Run: {run}',
   'png.comparisonRun': ' | So sánh: {run}',
   'png.model': 'Model: {model} | Input: {input}',

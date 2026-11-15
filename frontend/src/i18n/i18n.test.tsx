@@ -72,8 +72,8 @@ describe('i18n', () => {
   });
 
   test('placeholders are substituted; missing params stay visible', () => {
-    expect(translate('en', 'viewer.cellInfoHeader', { i: 1, j: 2, k: 3 })).toBe('Cell i=1, j=2 · level k=3');
-    expect(translate('vi', 'viewer.cellInfoHeader', { i: 1 })).toBe('Ô i=1, j={j} · tầng k={k}');
+    expect(translate('en', 'viewer.cellInfoHeader', { i: 1, j: 2, k: 3 })).toBe('Cell i=1, j=2, level k=3');
+    expect(translate('vi', 'viewer.cellInfoHeader', { i: 1 })).toBe('Ô i=1, j={j}, tầng k={k}');
   });
 
   test('number formatting follows the legacy fmt contract per locale', () => {
