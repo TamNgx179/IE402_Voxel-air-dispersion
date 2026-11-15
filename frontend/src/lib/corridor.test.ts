@@ -122,7 +122,7 @@ describe('roads', () => {
       kind: translate('vi', 'analysis.corridor.class.primary'),
       length: Math.round(parts.lengthM),
     });
-    expect(label).toMatch(/^Đoạn 1 · đường chính · 10\d m$/);
+    expect(label).toMatch(/^Đoạn 1, đường chính, 10\d m$/);
     expect(roadClass({ geometry: null, properties: { road_class: 'track' } })).toEqual({ text: 'track' });
     expect(roadClass({ geometry: null, properties: {} })).toEqual({ key: 'analysis.corridor.class.default' });
     expect(roadClass({ geometry: null, properties: { road_class: 'toString' } })).toEqual({ text: 'toString' });

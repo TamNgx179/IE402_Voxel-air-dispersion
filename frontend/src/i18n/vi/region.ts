@@ -10,17 +10,18 @@ const region: Messages<typeof en> = {
   draw: 'Vẽ vùng',
   redraw: 'Vẽ lại vùng',
   finish: 'Hoàn tất',
+  undo: 'Bỏ điểm cuối',
   cancel: 'Hủy vẽ',
   clear: 'Xóa vùng',
 
-  'note.selected': 'Vùng đã chọn · {count} đỉnh.',
+  'note.selected': 'Vùng đã chọn, {count} đỉnh.',
   'note.keptPrevious': 'Giữ vùng đã chọn trước đó.',
   'note.runChanged': 'Vùng giữ nguyên; phân tích lại để xem kết quả mới.',
   'note.noRun': 'Chọn một kết quả mô phỏng trước khi khoanh vùng.',
   'note.start': 'Chọn ít nhất 3 điểm.',
   'note.maxVertices': 'Tối đa {max} đỉnh.',
   'note.progress': 'Đã chọn {count}/3 điểm.',
-  'note.ready': '{count} điểm · có thể hoàn tất.',
+  'note.ready': '{count} điểm, có thể hoàn tất.',
   'note.inputChanged': 'Bấm Phân tích vùng để cập nhật.',
 
   heightTitle: 'Khoảng cao độ',
@@ -35,7 +36,7 @@ const region: Messages<typeof en> = {
   requery: 'Phân tích lại',
   querying: 'Đang phân tích…',
 
-  'feedback.illustration': 'Đang dùng minh họa. Vào Minh họa → Về dữ liệu gốc để phân tích.',
+  'feedback.illustration': 'Đang dùng minh họa.',
   'feedback.loading': 'Đang tính thống kê trong vùng…',
   'feedback.csvDone': 'Đã tải bảng CSV.',
 
@@ -47,7 +48,7 @@ const region: Messages<typeof en> = {
   export: 'Tải CSV',
   exporting: 'Đang tải CSV…',
 
-  'summary.context': '{run} · {min}–{max} m',
+  'summary.context': '{run}, {min}–{max} m',
   'summary.runFallback': 'Kết quả đang chọn',
   'summary.noAir':
     'Không có dữ liệu không khí trong vùng và khoảng độ cao này. Thử vùng khác hoặc mở rộng khoảng độ cao.',

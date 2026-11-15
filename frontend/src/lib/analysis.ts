@@ -138,7 +138,43 @@ export function closePolygon(points: unknown): PolygonGeometry {
   const first = ring[0],
     last = ring[ring.length - 1];
   if (first[0] !== last[0] || first[1] !== last[1]) ring.push([...first]);
-  return polygonShape({ type: 'Polygon', coordinates: [ring] });
+  const shape = polygonShape({ type: 'Polygon', coordinates: [ring] });
+  validateDrawnRing(ring);
+  return shape;
+}
+
+/** Validate drawing topology locally before offering spatial queries. */
+function validateDrawnRing(ring: number[][]) {
+  // Translate to the first vertex to avoid cancellation at geographic coordinates.
+  const local = ring.map(([x, y]) => [x - ring[0][0], y - ring[0][1]]);
+  const count = local.length - 1;
+  const cross = ([ax, ay]: number[], [bx, by]: number[], [cx, cy]: number[]) =>
+    (bx - ax) * (cy - ay) - (by - ay) * (cx - ax);
+  const area = local.slice(0, count).reduce((sum, a, i) => sum + cross(local[0], a, local[i + 1]), 0);
+  const epsilon = Number.EPSILON * Math.max(...local.map(([x, y]) => x * x + y * y)) * 8;
+  if (Math.abs(area) <= epsilon || new Set(local.slice(0, count).map((p) => p.join(','))).size !== count)
+    throwKeyed('analysis.error.invalidPolygon');
+
+  const side = (a: number[], b: number[], c: number[]) => {
+    const turn = cross(a, b, c);
+    return Math.abs(turn) <= epsilon ? 0 : Math.sign(turn);
+  };
+  const contains = (a: number[], b: number[], c: number[]) =>
+    c.every((v, k) => v >= Math.min(a[k], b[k]) && v <= Math.max(a[k], b[k]));
+  for (let i = 0; i < count; i++) {
+    const a = local[i], b = local[i + 1];
+    const previous = local[(i + count - 1) % count];
+    if (!side(previous, a, b) && (b[0] - a[0]) * (previous[0] - a[0]) + (b[1] - a[1]) * (previous[1] - a[1]) > 0)
+      throwKeyed('analysis.error.invalidPolygon');
+    for (let j = i + 2; j < count; j++) {
+      if (i === 0 && j === count - 1) continue;
+      const c = local[j], d = local[j + 1];
+      const ac = side(a, b, c), ad = side(a, b, d), ca = side(c, d, a), cb = side(c, d, b);
+      if ((ac * ad < 0 && ca * cb < 0) || (!ac && contains(a, b, c)) || (!ad && contains(a, b, d)) ||
+          (!ca && contains(c, d, a)) || (!cb && contains(c, d, b)))
+        throwKeyed('analysis.error.invalidPolygon');
+    }
+  }
 }
 
 /**

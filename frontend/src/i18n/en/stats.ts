@@ -9,7 +9,7 @@ const stats = {
   helpLabel: 'How to read the concentration statistics',
   help: 'Figures belong to the level being viewed. The mean is taken over air cells with data; the maximum is the largest value in the level.',
   context: 'Level {min}–{max} m',
-  contextAdjusted: 'Level {min}–{max} m · Illustration',
+  contextAdjusted: 'Level {min}–{max} m, Illustration',
   mean: 'Mean',
   max: 'Maximum',
 
@@ -34,7 +34,7 @@ const stats = {
   profileChartLabel: 'Concentration profile by height at cell {i}, {j}',
   profileAxisX: 'Concentration (µg/m³, log)',
   profileAxisY: 'Height (m)',
-  profileSummary: 'Cell {i}, {j} · maximum {max} µg/m³',
+  profileSummary: 'Cell {i}, {j}, maximum {max} µg/m³',
   profileTableToggle: 'Show the values as a table',
   profileTableCaption: 'Concentration by level at cell {i}, {j}',
   profileColLevel: 'Level',

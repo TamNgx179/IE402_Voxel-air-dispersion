@@ -147,12 +147,12 @@ describe('reading cells', () => {
       status: 'air',
       concentration: 11,
     });
-    expect(read(0, 0)).toBe('0 m từ đầu tuyến · tâm tầng 1 m · ô (0, 1, 0): 0 µg/m³');
+    expect(read(0, 0)).toBe('0 m từ đầu tuyến, tâm tầng 1 m, ô (0, 1, 0): 0 µg/m³');
     expect(read(0, 1)).toMatch(/Không có dữ liệu/);
     expect(read(1, 1)).toMatch(/11 µg\/m³/);
     expect(read(1, 0)).toMatch(/Tòa nhà/);
     expect(readingText(selectedReading(result, 1, 0), (k, p) => translate('en', k, p), String)).toBe(
-      '10 m from the line start · layer centre 1 m · cell (1, 1, 0): Building',
+      '10 m from the line start, layer centre 1 m, cell (1, 1, 0): Building',
     );
   });
   it('detects results without air and the linear colour maximum', () => {

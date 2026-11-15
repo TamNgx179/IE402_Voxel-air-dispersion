@@ -58,7 +58,7 @@ const analysis: Messages<typeof en> = {
   'transect.readingSolid': 'Tòa nhà',
   'transect.readingNoData': 'Không có dữ liệu',
   'transect.readingAir': '{value} µg/m³',
-  'transect.reading': '{distance} m từ đầu tuyến · tâm tầng {z} m · ô ({i}, {j}, {k}): {reading}',
+  'transect.reading': '{distance} m từ đầu tuyến, tâm tầng {z} m, ô ({i}, {j}, {k}): {reading}',
 
   'corridor.distanceCount': 'Nhập 1–{max} mốc khoảng cách, ví dụ 10, 25, 50.',
   'corridor.distanceRange': 'Mỗi mốc khoảng cách phải từ 0,1 đến 100 m.',
@@ -66,7 +66,7 @@ const analysis: Messages<typeof en> = {
   'corridor.noRoads': 'Chọn ít nhất một đoạn đường.',
   'corridor.maxRoads': 'Chọn tối đa {max} đoạn đường.',
   'corridor.noRun': 'Chưa có kết quả gốc.',
-  'corridor.roadLabel': 'Đoạn {index} · {kind} · {length} m',
+  'corridor.roadLabel': 'Đoạn {index}, {kind}, {length} m',
   'corridor.class.primary': 'đường chính',
   'corridor.class.secondary': 'đường cấp 2',
   'corridor.class.tertiary': 'đường cấp 3',
@@ -78,7 +78,7 @@ const analysis: Messages<typeof en> = {
   'legend.compareEmptyTitle': 'Không có dữ liệu so sánh ở tầng này',
   'legend.compareEmptyLabel': 'Không có ô không khí chung có dữ liệu',
   'legend.deltaZeroTitle': 'Chênh lệch bằng 0 (µg/m³)',
-  'legend.deltaZeroLabel': '0 · Không có chênh lệch ở tầng này',
+  'legend.deltaZeroLabel': '0, Không có chênh lệch ở tầng này',
   'legend.deltaTitle': 'ΔC (µg/m³, thang tuyến tính đối xứng)',
   'legend.concentrationTitle': 'Nồng độ (µg/m³, thang tuyến tính chung)',
 

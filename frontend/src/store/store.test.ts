@@ -1,7 +1,7 @@
 import { describe, expect, test, vi } from 'vitest';
 import { ApiError } from '../api/client';
 import { fakeApi } from '../test/fixtures';
-import { createViewerActions, defaultRunId } from './controller';
+import { createViewerActions, defaultRunId } from '../app/viewerFacade';
 import { createViewerStore } from './store';
 import { selectCurrentRun, selectExact } from './selectors';
 import type { RunEntry } from './types';

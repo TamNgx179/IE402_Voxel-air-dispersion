@@ -12,61 +12,244 @@ This project models PM2.5 dispersion around Nguyễn Huệ Walking Street in Ho 
 
 See the [upgrade plan](docs/UPGRADE_PLAN.md) and [milestone roadmap](docs/ROADMAP.md).
 
-## Run the current demo
+## Run the project
 
-Install Git and Docker with Compose v2. On Windows, start Docker Desktop with Linux containers. The first build downloads dependencies. The repository includes the scientific demo inputs and scene package. External basemap tiles require internet access.
+Install Git and Docker with Compose v2. On Windows, start Docker Desktop with Linux containers. The first build downloads dependencies. The checkout contains the verified demo input bundle and scene seed. The map’s external basemap needs internet access.
 
-Run from the repository root in PowerShell:
+### Docker quick start
+
+From the repository root in PowerShell:
 
 ```powershell
 $env:SOURCE_REVISION = (git rev-parse --short HEAD).Trim()
 docker compose up -d --build --wait
 docker compose ps
+Invoke-RestMethod http://127.0.0.1:3000/api/health
 ```
 
-- [WebGIS](http://localhost:3000/)
-- [API documentation](http://localhost:3000/api/docs)
-- [Health endpoint](http://localhost:3000/api/health)
+Open [WebGIS](http://127.0.0.1:3000/) or [Swagger](http://127.0.0.1:3000/api/docs). Health should report `status: ok` and `database.status: up`. Startup verifies the bundled inputs, applies migrations and seeds the scene. The database and solver artifacts use named Docker volumes.
 
-Startup verifies the input bundle, migrates PostGIS and loads the scene. Set `$env:APP_HOST_PORT = '3001'` before startup if port 3000 is in use. Use `docker compose logs --tail 100 app db` to inspect startup and `docker compose stop` to stop the stack while keeping volumes. If startup reports a different seed revision, run `node scripts/rehearse.mjs --port 3107 --keep` to start an isolated demo with empty volumes. The rehearsal checks the real solver, spatial queries and React viewer.
-
-## Explore the results
-
-| Feature | How to try it |
+| Situation | What to run |
 | --- | --- |
-| 3D map | Rotate and zoom to inspect LoD1 buildings and modeled wind. |
-| Simulation | Select a dry or wet season and a source preset of 100%, 80% or 60%. Start a run and wait for verification. |
-| Slices and profiles | Change height and select a voxel. A center height of 1 m represents the 0–2 m layer. |
-| Region and transect | Draw a polygon or line. Inspect volume-weighted region statistics or a vertical cross-section. |
-| Comparison and export | Compare compatible runs at the same layer. The difference is comparison minus baseline. Export CSV, PNG or JSON where available. |
+| Port 3000 is occupied | Set `$env:APP_HOST_PORT = '3001'` before startup and open that port. |
+| Inspect an unhealthy service | Run `docker compose logs --tail 100 app db` and inspect the health body. |
+| Stop the demo and keep its results | Run `docker compose stop`. |
+| Existing runs refer to a different scene/configuration | Use the isolated verification command below on a free port. |
 
-Concentrations are in µg/m³. Solid, missing and zero-valued cells have distinct meanings. Gaussian provides a comparison baseline. Use the run ID, configuration, manifest and NetCDF to trace exported results. Reference thresholds help explore model output. Field validation requires suitable measurements.
+### Isolated demo with existing verification scripts
+
+Node.js 22 or newer, Docker and Chrome or Edge are needed for the local browser check. The script starts with empty volumes, runs both FV seasons, verifies downloads and spatial queries, and repeats result reads after restart.
+
+```powershell
+npm ci --prefix app --no-audit --no-fund
+node scripts/rehearse.mjs --port 3107 --out artifacts/demo-local --keep
+```
+
+Open [the isolated demo](http://127.0.0.1:3107/) after its health check passes. The script prints its unique Compose project name. It removes its own containers and volumes when run without `--keep`. The ordinary demo can start with an empty result list. Create a run from **Simulation** or use the API example below.
+
+### Develop the React frontend against Docker
+
+With Docker serving a healthy API on port 3000:
+
+```powershell
+npm ci --prefix frontend
+npm --prefix frontend run dev
+npm --prefix frontend test
+npm --prefix frontend run build
+```
+
+Vite prints the dev URL. See the [frontend guide](frontend/README.md) for the proxy target and the [backend guide](app/README.md) for local NestJS, migrations and PostGIS tests.
+
+## From urban inputs to a query
+
+The scene package clips building footprints, roads and other vector features to Nguyễn Huệ and stores metric geometry in EPSG:32648. Building heights determine the solid mask on a regular 100 × 100 × 50 grid. The road emission proxy, constrained by EDGAR, populates the source field. A configured seasonal wind scenario supplies the boundary wind. The Python solver calculates a mass-consistent wind field and solves finite-volume advection and diffusion for PM2.5. The solver writes checksummed NetCDF and column artifacts. NestJS verifies them and imports result arrays into PostGIS before exposing the run as succeeded.
+
+Use the map at several heights, choose a cell for its full profile, or open **Analysis** for polygon statistics, vertical sections, road buffers and comparisons. The interaction uses the original simulation values. Heights are relative to the flat model ground. For example, 1 m is the center of the 0–2 m layer.
+
+| Operation | REST endpoint under `/api/runs/{id}` | Spatial calculation |
+| --- | --- | --- |
+| Horizontal slice | `GET /slices?z_m=1` | Select layer `k` and join concentration columns to grid footprints. An optional viewport filters the candidate geometry. |
+| Vertical profile | `GET /profile?i=0&j=0` | Read the altitude array in one grid column. |
+| Polygon region | `POST /region` | Intersect the polygon with XY footprints. Multiply intersection area by the overlap in height. |
+| Vertical section | `POST /transect` | Project a WGS84 line, sample it in metres and look up the intersected voxel columns. |
+| Road corridor | `POST /road-corridor` | Clip disjoint road distance bands to the study area. Apply XY and vertical overlap weights. |
+| Run difference | `GET /comparison?compare_run_id={other}&z_m=1` | Match compatible grids and masks and calculate comparison minus baseline. |
+
+A zero concentration represents valid air with value zero. An occupied voxel and an air voxel with missing data are distinct states. The concentration unit is µg/m³. Region and corridor means are weighted by valid air volume. Exceedance uses a strict greater-than test against the selected reference threshold. The [database guide](docs/DATABASE.md) explains the schema, array indexing, GiST filters and SQL execution plans.
+
+### Run and query from PowerShell
+
+```powershell
+$api = 'http://127.0.0.1:3000/api'
+Invoke-RestMethod "$api/scenarios"
+$body = @{scenario_id='dry_nov_apr'; model='fv'; emission_multiplier=1; request_id=[guid]::NewGuid().ToString()} | ConvertTo-Json
+$run = Invoke-RestMethod "$api/runs" -Method Post -ContentType 'application/json' -Body $body
+$id = $run.run_id
+Invoke-RestMethod "$api/runs/$id"
+# Repeat GET until status is succeeded. For failed/stale runs, inspect the returned error.
+Invoke-RestMethod "$api/runs/$id/summary"
+Invoke-RestMethod "$api/runs/$id/slices?z_m=15"
+Invoke-RestMethod "$api/runs/$id/profile?i=0&j=0"
+
+$areas = Invoke-RestMethod "$api/study-areas"
+$scene = Invoke-RestMethod "$api/study-areas/$($areas[0].id)/scene"
+$road = $scene.roads.features[0].properties.source_feature_id
+$band = @{road_ids=@($road); distances_m=@(10,25,50); z_min_m=1; z_max_m=15; threshold_ug_m3=15} | ConvertTo-Json
+Invoke-RestMethod "$api/runs/$id/road-corridor" -Method Post -ContentType 'application/json' -Body $band
+Invoke-WebRequest "$api/runs/$id/road-corridor/csv" -Method Post -ContentType 'application/json' -Body $band -OutFile corridor.csv
+```
+
+The POST returns a run ID immediately. Keep the same request ID and payload if you need to recover after a lost response. Use the [Swagger schemas](http://127.0.0.1:3000/api/docs) for WGS84 polygon and line bodies. Use `GET /api/runs/{id}/artifacts` for manifest and field downloads. The [technical handoff](docs/TECHNICAL_HANDOFF.md) describes the independent corridor check and the scientific comparisons.
 
 ## Architecture and source
 
-![Current IE402 deployment](docs/img/architecture-monolith.svg)
+![IE402 system architecture in English](docs/img/architecture-monolith-en.svg)
 
-The current demo serves the viewer and REST API from NestJS. NestJS launches Python as a subprocess, verifies its artifacts and imports results into PostgreSQL/PostGIS. React WebGIS is served at `/` with English and Vietnamese. PostgreSQL owns the queue and GIS state. See the [submission architecture](docs/ARCHITECTURE.md).
+React and REST share the same NestJS deployment. The background executor launches Python as a child process. PostgreSQL owns run state and query data. See the [architecture guide](docs/ARCHITECTURE.md) for interfaces and sequence diagrams.
 
 ```text
-app/src/modules/    NestJS scene, simulation, results and health modules
-app/src/database/   Migrations, seed, import and benchmarks
-web/                Current WebGIS and its tests
-web/map/            Grid, wind flow and display LoD modules
-src/                GIS preparation, voxelization and numerical solver
-tests/              Python numerical and data contract tests
-db/                 SQL migrations and scene seed
-deploy/             Compose settings, demo inputs and provenance
-scripts/            Preflight, benchmarks and cleanroom verification
-docs/               Specification, architecture, research and roadmap
+.
+├── .github/
+│   └── workflows/
+├── app/
+│   ├── src/
+│   │   ├── common/
+│   │   ├── config/
+│   │   ├── database/
+│   │   └── modules/
+│   │       ├── health/
+│   │       │   ├── controllers/
+│   │       │   ├── schemas/
+│   │       │   └── services/
+│   │       ├── results/
+│   │       │   ├── controllers/
+│   │       │   ├── dto/
+│   │       │   ├── repositories/
+│   │       │   ├── schemas/
+│   │       │   └── services/
+│   │       ├── scenarios/
+│   │       │   ├── controllers/
+│   │       │   ├── repositories/
+│   │       │   ├── schemas/
+│   │       │   └── services/
+│   │       ├── simulation/
+│   │       │   ├── controllers/
+│   │       │   ├── dto/
+│   │       │   ├── infrastructure/
+│   │       │   ├── repositories/
+│   │       │   ├── schemas/
+│   │       │   └── services/
+│   │       └── study-areas/
+│   │           ├── controllers/
+│   │           ├── repositories/
+│   │           ├── schemas/
+│   │           └── services/
+│   └── test/
+│       ├── fixtures/
+│       │   └── scene/
+│       └── support/
+├── artifacts/
+├── config/
+├── data/
+│   ├── processed/
+│   └── raw/
+├── db/
+│   ├── migrations/
+│   └── seeds/
+│       └── scene/
+├── deploy/
+│   └── demo-inputs/
+├── docs/
+│   ├── img/
+│   └── reviews/
+├── frontend/
+│   ├── public/
+│   │   └── vendor/
+│   │       ├── bootstrap-icons/
+│   │       │   └── fonts/
+│   │       └── source-sans-3/
+│   └── src/
+│       ├── api/
+│       ├── app/
+│       ├── export/
+│       ├── features/
+│       │   ├── analysis/
+│       │   │   ├── compare/
+│       │   │   ├── corridor/
+│       │   │   ├── region/
+│       │   │   └── transect/
+│       │   ├── illustration/
+│       │   ├── map-options/
+│       │   ├── simulation/
+│       │   └── stats/
+│       ├── i18n/
+│       │   ├── en/
+│       │   └── vi/
+│       ├── lib/
+│       ├── map/
+│       ├── shared/
+│       │   ├── hooks/
+│       │   └── ui/
+│       ├── store/
+│       ├── styles/
+│       └── test/
+├── notebooks/
+├── output/
+│   ├── analysis/
+│   ├── figures/
+│   └── netcdf/
+├── scripts/
+│   ├── lib/
+│   └── tests/
+├── src/
+│   ├── analysis/
+│   ├── dispersion/
+│   ├── edgar/
+│   ├── emission/
+│   ├── meteo/
+│   ├── openaq/
+│   ├── scene/
+│   ├── voxel/
+│   └── wind/
+├── tests/
+│   └── fixtures/
+└── web/
+    ├── assets/
+    │   └── facades/
+    ├── map/
+    ├── tests/
+    └── vendor/
+        └── bootstrap-icons/
+            └── fonts/
 ```
 
 ## Verify and reproduce
 
 ```powershell
-node --test (Get-ChildItem web/tests/*.test.cjs | Select-Object -ExpandProperty FullName)
+docker compose up -d --wait db
+npm ci --prefix app --no-audit --no-fund
+npm ci --prefix frontend --no-audit --no-fund
+npm --prefix app test
+npm --prefix frontend test
+npm --prefix frontend run build
+node --test (Get-ChildItem web/tests/*.test.cjs,scripts/tests/*.test.mjs | Select-Object -ExpandProperty FullName)
 node scripts/demo-preflight.mjs --url http://localhost:3000
 ```
+
+For the required API integration suite, install the Python dependencies into a
+local virtual environment and set `PYTHON_BIN` if it is outside `.venv`.
+The suite uses a separate database with a `_test` suffix and rebuilds its
+schema. The default developer PostGIS listener is port 5433.
+
+```powershell
+python -m venv .venv
+.venv/Scripts/python.exe -m pip install -r requirements.txt
+npm --prefix app run test:e2e:required
+```
+
+To capture real query plans after a successful FV run, set
+`BENCHMARK_RUN_ID` and run `npm --prefix app run db:benchmark:spatial`.
+The output includes actual rows, buffers, index definitions and SQL timings.
 
 See the [backend guide](app/README.md) for PostGIS tests. The [independent CI workflow](.github/workflows/independent-demo.yml) checks a clean build, two real runs, queries, checksums and restart. Use the [demo profile](deploy/demo-profile.json) for provenance of the pinned handoff.
 

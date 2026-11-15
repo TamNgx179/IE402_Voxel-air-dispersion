@@ -34,7 +34,7 @@ export interface MapClickEvent {
 
 export interface ClickClaim {
   handler: (event: MapClickEvent) => void;
-  /** A drawing claim disables cell picking, building picks and drag-pan, and shows a crosshair. */
+  /** A drawing claim disables cell picking, building picks and drag-pan, and shows a pointer. */
   drawing: boolean;
 }
 

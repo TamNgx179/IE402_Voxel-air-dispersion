@@ -1,6 +1,6 @@
 /** Shared test fixtures: a 2×2×3 study area and an in-memory API. */
 import { ApiError, type RequestOptions } from '../api/client';
-import type { ApiFn } from '../store/controller';
+import type { ApiFn } from '../app/viewerFacade';
 
 export const fixtureArea = {
   id: 'area-1',

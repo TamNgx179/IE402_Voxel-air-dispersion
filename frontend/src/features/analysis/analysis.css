@@ -1,0 +1,102 @@
+.analysis-heading { font-size: 19px; margin: 0 0 12px; }
+
+#spatial-analysis {
+  container-type: inline-size;
+}
+
+#spatial-analysis .analysis-switch {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 6px;
+  margin: 0 0 12px;
+}
+
+#spatial-analysis .analysis-switch button {
+  display: flex;
+  justify-content: flex-start;
+  align-items: center;
+  gap: 7px;
+  min-width: 0;
+  min-height: 44px;
+  padding: 7px 9px;
+  border-radius: 9px;
+  font-size: 14px;
+  text-align: left;
+  background: linear-gradient(#fff, #e7f1f4);
+  box-shadow: 0 2px 0 #bed5df;
+}
+
+#spatial-analysis .analysis-switch button[aria-pressed="true"] {
+  background: linear-gradient(145deg, #087b78, #125563);
+  box-shadow: 0 2px 0 #103b4a, inset 0 1px #ffffff40;
+}
+#spatial-analysis .analysis-switch .bi {
+  display: grid;
+  place-items: center;
+  flex: 0 0 23px;
+  height: 23px;
+  border-radius: 6px;
+  background: #deedef;
+  color: #176771;
+  font-size: 14px;
+}
+#spatial-analysis .analysis-switch button[aria-pressed="true"] .bi {
+  background: #ffffff25;
+  color: white;
+}
+#spatial-analysis .analysis-switch span { overflow-wrap: normal; }
+
+@container (max-width: 248px) {
+  #spatial-analysis .analysis-switch { grid-template-columns: minmax(0, 1fr); }
+}
+
+#spatial-analysis .analysis-switch ~ .analysis-mode > .analysis-section {
+  border-top: 0;
+  margin-top: 0;
+  padding-top: 0;
+}
+
+#spatial-analysis .section-heading h3,
+#spatial-analysis .section-heading h2 { font-size: 16px; }
+#spatial-analysis .analysis-height { gap: 10px; }
+#spatial-analysis .analysis-result { border-color: var(--line); border-radius: 12px; }
+:is(#spatial-analysis, .analysis-result-dialog) .result-table th,
+:is(#spatial-analysis, .analysis-result-dialog) .result-table td { white-space: nowrap; font-size: 13px; }
+#spatial-analysis .analysis-actions button { min-height: 44px; }
+
+/* Use the same readable hierarchy for region, comparison and corridor figures. */
+:is(#spatial-analysis, .analysis-result-dialog) .result-metrics {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 0;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  overflow: hidden;
+}
+:is(#spatial-analysis, .analysis-result-dialog) .result-metrics > div {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: baseline;
+  gap: 8px;
+  padding: 9px 10px;
+  border: 0;
+  border-radius: 0;
+  background: #fff;
+  box-shadow: none;
+}
+:is(#spatial-analysis, .analysis-result-dialog) .result-metrics > div + div { border-top: 1px solid var(--line); }
+:is(#spatial-analysis, .analysis-result-dialog) .result-metrics dt,
+:is(#spatial-analysis, .analysis-result-dialog) .result-context { color: var(--text); font-size: 14px; }
+:is(#spatial-analysis, .analysis-result-dialog) .result-metrics dd { margin: 0; font-size: 18px; font-weight: 720; }
+:is(#spatial-analysis, .analysis-result-dialog) .result-metrics dd small { display: inline; margin-inline-start: 4px; font-size: 12px; }
+:is(#spatial-analysis, .analysis-result-dialog) .result-insight {
+  color: #17524f;
+  background: #eaf5f3;
+  border-radius: 8px;
+  padding: 9px 10px;
+  font-size: 15px;
+  font-weight: 630;
+}
+:is(#spatial-analysis, .analysis-result-dialog) .result-table th,
+:is(#spatial-analysis, .analysis-result-dialog) .result-table td { color: var(--text); font-size: 14px; }
+:is(#spatial-analysis, .analysis-result-dialog) .result-table td { font-variant-numeric: tabular-nums; }

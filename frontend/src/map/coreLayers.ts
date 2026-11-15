@@ -125,7 +125,11 @@ export function roadLayer(ctx: CoreContext): Layer {
     filled: false,
     lineWidthUnits: 'meters',
     getLineWidth: (f: { properties: { emission_share: number } }) => 1 + 250 * f.properties.emission_share,
-    getLineColor: [107, 126, 116, 200],
+    lineWidthMinPixels: 2,
+    lineWidthMaxPixels: 7,
+    getLineColor: [24, 93, 166, 250],
+    // Draw the opt-in streets above the selected concentration slice.
+    parameters: { depthCompare: 'always' },
   });
 }
 

@@ -126,13 +126,13 @@ describe('run labels', () => {
       model_version: null,
       warnings: [],
     };
-    expect(runLabel(entry, (k, p) => translate('en', k, p))).toBe('Dry season · Voxel · Reduced 20% · 2a3a');
-    expect(runLabel(entry, (k, p) => translate('vi', k, p))).toBe('Mùa khô · Voxel · Giảm 20% · 2a3a');
+    expect(runLabel(entry, (k, p) => translate('en', k, p))).toBe('Dry season, Voxel, Reduced 20%, 2a3a');
+    expect(runLabel(entry, (k, p) => translate('vi', k, p))).toBe('Mùa khô, Voxel, Giảm 20%, 2a3a');
     expect(runLabel({ ...entry, emission_multiplier: 1, warnings: ['mock run'] }, (k, p) => translate('vi', k, p))).toBe(
-      'Mùa khô · Dữ liệu thử · 2a3a',
+      'Mùa khô, Dữ liệu thử, 2a3a',
     );
     expect(runLabel({ ...entry, scenario_id: 'custom', model: 'gaussian', emission_multiplier: 1 }, (k, p) => translate('en', k, p))).toBe(
-      'Dry · Gaussian · 2a3a',
+      'Dry, Gaussian, 2a3a',
     );
   });
 });

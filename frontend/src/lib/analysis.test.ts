@@ -56,6 +56,14 @@ describe('closePolygon / polygonShape', () => {
       'analysis.polygon.invalidVertices',
     );
   });
+  it('rejects straight lines and self-crossing regions', () => {
+    const invalid = [
+      [[106, 10], [107, 10], [108, 10]],
+      [[106, 10], [108, 12], [106, 13], [108, 10]],
+      [[106, 10], [107, 10], [106, 10], [107, 11]],
+    ];
+    for (const points of invalid) expect(keyOf(() => closePolygon(points))).toBe('analysis.error.invalidPolygon');
+  });
   it('does not double-close an already closed ring', () => {
     const ring = [
       [106, 10],
