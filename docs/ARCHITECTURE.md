@@ -2,6 +2,8 @@
 
 ## Submission deployment
 
+![3D GIS system architecture in English](img/architecture-monolith-en.svg)
+
 NestJS serves the React WebGIS and REST API, owns run state and spatial queries, and supervises the Python solver as a child process. PostgreSQL/PostGIS stores the durable queue and GIS results.
 
 ```mermaid
@@ -16,6 +18,15 @@ flowchart LR
 ```
 
 The executor claims one run in a short database transaction, then releases the transaction while Python computes. It verifies the manifest and imports results transactionally. See [database and solver acceptance](UPGRADE_PLAN.md#database-normalization-and-index-acceptance).
+
+| Component | Interface | Responsibility |
+| --- | --- | --- |
+| React WebGIS | HTTP to NestJS | Displays the scene, submits simulations, queries results and exports views. |
+| NestJS API | REST and parameterized SQL | Validates requests, manages run identity and serves exact spatial results. |
+| Background executor | Internal NestJS module and Python CLI | Claims a queued run, supervises the solver and verifies outputs before import. |
+| Python solver | Config file, progress stream and artifacts | Calculates diagnostic wind and finite-volume transport on the voxel grid. |
+| PostgreSQL / PostGIS | SQL | Stores the queue, scene geometry, grid and queryable concentration columns. |
+| Artifact storage | Files and download routes | Preserves NetCDF, CSV, configuration and the checksum manifest. |
 
 > Tài liệu này được dẫn xuất từ [`spec.md`](spec.md) và [`RESEARCH.md`](RESEARCH.md).
 > Spec quy định *điều gì phải đúng*; tài liệu này mô tả *các thành phần ghép với nhau như thế

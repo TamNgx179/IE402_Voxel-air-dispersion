@@ -25,15 +25,18 @@ If `frontend/dist/index.html` does not exist, NestJS falls back to the legacy vi
 
 ```text
 src/
-├── main.tsx, App.tsx          # providers + shell (sidebar, map, overlays)
+├── main.tsx                   # React entry point
 ├── api/                       # REST client (client.ts) and response types (types.ts)
 ├── i18n/                      # I18nProvider, dictionaries en/<ns>.ts + vi/<ns>.ts
 ├── lib/                       # pure, tested logic (grid, flow, lod, concentration, evidence, …)
-├── store/                     # viewer store: types, reducer (actions), selectors, controller (async)
+├── app/                       # composition root and viewer facade
+├── store/                     # state, reducer and selectors
 ├── map/                       # MapView (MapLibre + deck), core layers, contribution registry + hooks
 ├── export/                    # report snapshot + export contributions
-├── components/                # core UI (result card, map chrome, tool nav/host, help tooltip, evidence)
-├── panels/                    # tool panels — ONE directory per panel, ONE registry file
+├── shared/
+│   ├── hooks/                 # reusable browser behavior
+│   └── ui/                    # tool buttons, help, result card and map controls
+├── features/                  # tool panels and their registry
 │   ├── index.ts               # PANELS registry (the only shared file)
 │   ├── types.ts               # PanelDefinition / PanelProps
 │   ├── simulation/            # run creation (one POST) and progress tracking
@@ -42,16 +45,16 @@ src/
 │   ├── analysis/              # host with sub-mode switch; modes.ts registry
 │   │   ├── region/ compare/ transect/ corridor/   # the four analysis modes
 │   └── illustration/          # display multiplier/background (smallest panel)
-├── styles/viewer.css          # verbatim copy of web/styles.css (legacy ids/classes kept)
+├── styles/viewer.css          # workspace visual tokens and component styles
 ├── styles/app.css             # React-only additions
 └── test/                      # setup, fixtures (fakeApi), fakeMap
 public/vendor/bootstrap-icons  # copied from web/vendor (offline icon font)
 ```
 
-Shared files that panel work should **not** need to touch: `App.tsx`, `store/*`,
-`map/*`, `export/*`, `components/*`, `i18n/index.tsx`. Each panel owns its directory
+Shared files that panel work should **not** need to touch: `app/App.tsx`, `store/*`,
+`map/*`, `export/*`, `shared/ui/*`, `i18n/index.tsx`. Each panel owns its directory
 and its i18n namespace files. The only shared edits are one line in
-`panels/index.ts` (one entry per panel) and, for a
+`features/index.ts` (one entry per panel) and, for a
 brand-new namespace, two lines in `i18n/dictionaries.ts`.
 
 ## Store
@@ -60,7 +63,7 @@ brand-new namespace, two lines in `i18n/dictionaries.ts`.
 
 ```ts
 import { useViewer, useViewerDispatch } from '../../store/store';
-import { useViewerActions } from '../../store/controller';
+import { useViewerActions } from '../../app/viewerFacade';
 import { selectCurrentRun, selectExact, selectZ } from '../../store/selectors';
 
 const layer = useViewer((s) => s.layer);          // re-renders only when the slice changes
@@ -115,7 +118,7 @@ the selector — derive with `useMemo`).
 
 Run, layer, display, cell and toggles survive run switches and language changes.
 
-### Async operations (`useViewerActions()`, `store/controller.tsx`)
+### Async operations (`useViewerActions()`, `app/viewerFacade.tsx`)
 
 ```ts
 loadBootstrap(): Promise<void>          // (re)load everything, then show the default run
@@ -128,10 +131,10 @@ retryQueries(): void                    // re-run failed exceedance/profile quer
 Exceedance areas for the current layer and the selected cell's profile are fetched
 automatically (debounced 180 ms) in exact mode.
 
-### `useApi(): ApiFn` (`store/controller.tsx`)
+### `useApi(): ApiFn` (`app/viewerFacade.tsx`)
 
 ```ts
-import { useApi } from '../../store/controller';
+import { useApi } from '../../app/viewerFacade';
 const api = useApi();
 const result = await api<RegionResult>(`/runs/${id}/region`, { method: 'POST', body });
 ```
@@ -180,13 +183,13 @@ formatInteger(12345.6);                // en "12,346", vi "12.346"
 
 ## Panel registry
 
-`src/panels/index.ts`:
+`src/features/index.ts`:
 
 ```ts
 export const PANELS: readonly PanelDefinition[] = [simulationPanel, mapOptionsPanel, statsPanel, analysisPanel, illustrationPanel];
 ```
 
-`src/panels/types.ts`:
+`src/features/types.ts`:
 
 ```ts
 interface PanelProps { active: boolean }
@@ -201,19 +204,19 @@ interface PanelDefinition {
 }
 ```
 
-- Each panel exports a fixed name (`simulationPanel`, `mapOptionsPanel`, `statsPanel`, `analysisPanel`, `illustrationPanel`) from `panels/<name>/index.tsx`; analysis modes export `regionMode`, `compareMode`, `transectMode`, `corridorMode`. Keep export names and `id`s stable.
+- Each panel exports a fixed name (`simulationPanel`, `mapOptionsPanel`, `statsPanel`, `analysisPanel`, `illustrationPanel`) from `features/<name>/index.tsx`; analysis modes export `regionMode`, `compareMode`, `transectMode`, `corridorMode`. Keep export names and `id`s stable.
 - The host renders every panel **always mounted** inside `<section class="tool-panel" id={elementId} hidden={!active}>`, so state survives tool switches. Use `active` to stop work when hidden (cancel drawing, disable click claims).
 - Legacy DOM ids are preserved for CSS: `simulation-options`, `map-options`, `analysis-details` (stats), `spatial-analysis` (analysis), `illustration-options`. Rules in `styles/viewer.css` such as `#analysis-details .stat` therefore still apply. Put panel-specific CSS in your directory (`import './panel.css'`).
 - Open a panel from code: `dispatch({ type: 'panel/open', id: 'map-options' })`. A cell click opens `stats`; a building click opens `map-options` and sets `selectedBuildingId`.
-- `panels/illustration/` is a complete small example (store reads/writes, i18n, help tooltip).
-- Help tooltips: `<HelpTrigger label={t('x.helpLabel')} text={t('x.help')} />` from `components/Help.tsx`.
-- Ready-made components: `components/RunEvidence.tsx` (`<RunEvidence />`, legacy `#run-evidence`), `components/ResultCard.tsx` exports `Legend`/`HeightControl`.
+- `features/illustration/` is a complete small example (store reads/writes, i18n, help tooltip).
+- Help tooltips: `<HelpTrigger label={t('x.helpLabel')} text={t('x.help')} />` from `shared/ui/Help.tsx`.
+- Ready-made components: `shared/ui/RunEvidence.tsx` (`<RunEvidence />`, legacy `#run-evidence`), `shared/ui/ResultCard.tsx` exports `Legend`/`HeightControl`.
 
 ### Analysis sub-modes
 
-`panels/analysis/index.tsx` renders a mode switch over `ANALYSIS_MODES` in
-`panels/analysis/modes.ts` (order: region, transect, compare, corridor). Each mode
-lives in `panels/analysis/<mode>/index.tsx` and exports
+`features/analysis/index.tsx` renders a mode switch over `ANALYSIS_MODES` in
+`features/analysis/modes.ts` (order: region, transect, compare, corridor). Each mode
+lives in `features/analysis/<mode>/index.tsx` and exports
 `{ id, labelKey, Component }` (`regionMode`, `transectMode`, `compareMode`,
 `corridorMode`). `Component` receives `{ active }` = analysis panel open **and**
 this mode selected; all modes stay mounted. Cancel drawing when `active` turns false.
@@ -357,3 +360,7 @@ Legacy labels, `aria-*` and ids are kept. All controls are native buttons/inputs
 keyboard operable; the help tooltip opens on focus and closes on Escape. The layout
 reuses `web/styles.css`; at 390 px and 320 px the panel docks to the bottom without
 horizontal scroll (checked with headless Chrome in both languages).
+
+## Viewer facade
+
+`app/viewerFacade.tsx` groups bootstrapping, run selection and exact layer/profile queries behind `useViewerActions()`. The feature registry selects tools while keeping a mounted feature’s local state. Shared UI controls stay in `shared/ui/`, browser hooks in `shared/hooks/`, and REST encoding in `api/`. Configure `API_PROXY_TARGET` in the development environment when the NestJS port differs from 3000.
