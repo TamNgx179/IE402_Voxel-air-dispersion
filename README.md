@@ -47,7 +47,7 @@ node scripts/rehearse.mjs --port 3107 --out artifacts/demo-local --keep
 
 Open [the isolated demo](http://127.0.0.1:3107/) after its health check passes. The script prints its unique Compose project name. It removes its own containers and volumes when run without `--keep`. The ordinary demo can start with an empty result list. Create a run from **Simulation** or use the API example below.
 
-### Develop the React frontend against Docker
+### Develop with React, Vite and Vitest
 
 With Docker serving a healthy API on port 3000:
 
@@ -58,7 +58,7 @@ npm --prefix frontend test
 npm --prefix frontend run build
 ```
 
-Vite prints the dev URL. See the [frontend guide](frontend/README.md) for the proxy target and the [backend guide](app/README.md) for local NestJS, migrations and PostGIS tests.
+Vite prints the dev URL. Vitest runs the component, state and API-client tests. Use `npm --prefix frontend run test:watch` during development. See the [frontend guide](frontend/README.md) for the proxy target and the [backend guide](app/README.md) for local NestJS, migrations and PostGIS tests.
 
 ## From urban inputs to a query
 
@@ -105,7 +105,81 @@ The POST returns a run ID immediately. Keep the same request ID and payload if y
 
 ![IE402 system architecture in English](docs/img/architecture-monolith-en.svg)
 
-React and REST share the same NestJS deployment. The background executor launches Python as a child process. PostgreSQL owns run state and query data. See the [architecture guide](docs/ARCHITECTURE.md) for interfaces and sequence diagrams.
+Docker Compose starts two containers. The application container serves the compiled React viewer and the NestJS REST API on the same origin. It includes the Python solver, which the NestJS executor starts as a child process. The second container runs PostgreSQL with PostGIS.
+
+| Component | Responsibility |
+| --- | --- |
+| React WebGIS | MapLibre renders the map and deck.gl overlays the voxel and wind layers. The viewer facade coordinates API calls, view state, map updates and exports. |
+| NestJS API | Controllers expose HTTP routes, DTOs validate inputs, services implement use cases, and models own parameterized SQL and database transactions. Schemas define TypeScript contracts. |
+| Executor and Python adapter | The executor claims one run at a time. The adapter starts the Python CLI and translates progress events and exit codes. The executor verifies artifacts before publishing results. |
+| PostgreSQL and PostGIS | Stores the scene, run lifecycle and vertical concentration arrays. Spatial models query these tables for the REST API. |
+| Run artifact volume | Retains the run snapshot, checksummed manifest, NetCDF fields, CSV and solver logs. |
+
+The main viewer uses `frontend/dist`. NestJS also serves the compatibility viewer from `frontend/legacy` at `/legacy/` and uses it at `/` when a React build is absent. See the [architecture guide](docs/ARCHITECTURE.md) for the full data model and constraints.
+
+### Design patterns
+
+- **Facade**: The React viewer facade coordinates map interaction, state, requests and exports behind one interface for the application shell.
+- **Adapter**: The Python solver adapter translates the process invocation, stdout progress and exit status for the executor. The executor retains responsibility for claims, timeouts and publishing.
+
+### Simulation lifecycle
+
+```mermaid
+sequenceDiagram
+    actor User
+    participant UI as React WebGIS
+    participant API as NestJS REST API
+    participant DB as PostgreSQL and PostGIS
+    participant Exec as Simulation executor
+    participant Solver as Python child process
+    participant Files as Artifact volume
+
+    User->>UI: Select a scenario and start a run
+    UI->>API: POST /api/runs with request ID
+    API->>DB: Save or recover queued run and config snapshot
+    API-->>UI: 202 and run ID
+    Exec->>DB: Claim oldest queued run under advisory lock
+    Exec->>Files: Write the solver snapshot
+    Exec->>Solver: Launch Python CLI
+    loop While the solver runs
+        Solver-->>Exec: JSON progress on stdout
+        Exec->>DB: Update run progress
+        UI->>API: GET /api/runs/{id}
+        API->>DB: Read run state
+        API-->>UI: Return state and progress
+    end
+    alt Solver succeeds and artifacts verify
+        Solver->>Files: Write NetCDF, columns and manifest
+        Exec->>Files: Verify manifest and checksums
+        Exec->>DB: Import columns and mark succeeded in one transaction
+    else Solver, verification or import fails
+        Exec->>DB: Record failure and preserve retry state
+    end
+```
+
+### Spatial analysis query
+
+```mermaid
+sequenceDiagram
+    actor User
+    participant UI as React WebGIS
+    participant API as Results controller
+    participant Service as Analysis service
+    participant Model as Spatial model
+    participant DB as PostGIS
+
+    User->>UI: Choose a run and draw a region
+    UI->>API: POST /api/runs/{id}/region
+    API->>Service: Forward validated geometry and height range
+    Service->>Model: Resolve the saved run and query cells
+    Model->>DB: Intersect XY footprints and weight height overlap
+    DB-->>Model: Return volume and concentration aggregates
+    Model-->>Service: Return typed rows
+    Service-->>API: Return statistics for the run and region
+    API-->>UI: Show mean, coverage and optional CSV export
+```
+
+### Source layout
 
 ```text
 .
@@ -124,24 +198,23 @@ React and REST share the same NestJS deployment. The background executor launche
 │   │       ├── results/
 │   │       │   ├── controllers/
 │   │       │   ├── dto/
-│   │       │   ├── repositories/
+│   │       │   ├── models/
 │   │       │   ├── schemas/
 │   │       │   └── services/
 │   │       ├── scenarios/
 │   │       │   ├── controllers/
-│   │       │   ├── repositories/
+│   │       │   ├── models/
 │   │       │   ├── schemas/
 │   │       │   └── services/
 │   │       ├── simulation/
 │   │       │   ├── controllers/
 │   │       │   ├── dto/
-│   │       │   ├── infrastructure/
-│   │       │   ├── repositories/
+│   │       │   ├── models/
 │   │       │   ├── schemas/
 │   │       │   └── services/
 │   │       └── study-areas/
 │   │           ├── controllers/
-│   │           ├── repositories/
+│   │           ├── models/
 │   │           ├── schemas/
 │   │           └── services/
 │   └── test/
@@ -163,6 +236,11 @@ React and REST share the same NestJS deployment. The background executor launche
 │   ├── img/
 │   └── reviews/
 ├── frontend/
+│   ├── legacy/
+│   │   ├── assets/
+│   │   ├── map/
+│   │   ├── tests/
+│   │   └── vendor/
 │   ├── public/
 │   │   └── vendor/
 │   │       ├── bootstrap-icons/
@@ -211,16 +289,8 @@ React and REST share the same NestJS deployment. The background executor launche
 │   ├── scene/
 │   ├── voxel/
 │   └── wind/
-├── tests/
-│   └── fixtures/
-└── web/
-    ├── assets/
-    │   └── facades/
-    ├── map/
-    ├── tests/
-    └── vendor/
-        └── bootstrap-icons/
-            └── fonts/
+└── tests/
+    └── fixtures/
 ```
 
 ## Verify and reproduce
@@ -232,7 +302,7 @@ npm ci --prefix frontend --no-audit --no-fund
 npm --prefix app test
 npm --prefix frontend test
 npm --prefix frontend run build
-node --test (Get-ChildItem web/tests/*.test.cjs,scripts/tests/*.test.mjs | Select-Object -ExpandProperty FullName)
+node --test (Get-ChildItem frontend/legacy/tests/*.test.cjs,scripts/tests/*.test.mjs | Select-Object -ExpandProperty FullName)
 node scripts/demo-preflight.mjs --url http://localhost:3000
 ```
 
@@ -250,6 +320,27 @@ npm --prefix app run test:e2e:required
 To capture real query plans after a successful FV run, set
 `BENCHMARK_RUN_ID` and run `npm --prefix app run db:benchmark:spatial`.
 The output includes actual rows, buffers, index definitions and SQL timings.
+
+### Scientific checks
+
+From the repository root, use the research environment installed from
+`requirements.txt`. Download `AF_caseH.csv` and `RS_caseH.csv` from
+[AIJ Case H](https://zenodo.org/records/15429872) into `artifacts/aij-input`.
+The benchmark verifies both published checksums. Choose new output directories
+for each run.
+
+```powershell
+$env:PYTHONPATH = '.'
+$env:OPENBLAS_NUM_THREADS = '1'
+.venv/Scripts/python.exe scripts/benchmark-aij-case-h.py artifacts/aij-input artifacts/aij-check
+.venv/Scripts/python.exe scripts/study-urban-robustness.py robustness artifacts/robustness-check
+.venv/Scripts/python.exe scripts/study-urban-robustness.py numerics artifacts/numerics-check
+```
+
+Case H compares normalized tracer concentration against wind-tunnel measurements.
+The urban checks compare the same road distance bands at 1–15 m and 15–31 m
+after 90 simulated seconds. The horizontal grid study remaps one shared source
+onto all three resolutions and keeps its total release rate fixed.
 
 See the [backend guide](app/README.md) for PostGIS tests. The [independent CI workflow](.github/workflows/independent-demo.yml) checks a clean build, two real runs, queries, checksums and restart. Use the [demo profile](deploy/demo-profile.json) for provenance of the pinned handoff.
 

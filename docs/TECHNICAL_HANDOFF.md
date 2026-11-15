@@ -57,3 +57,31 @@ healthy during first-time PostGIS initialization. The old database volumes
 can be kept when starting a new revision with different seed inputs.
 
 See [data rights and notices](LICENSING.md) for open redistribution decisions.
+
+## Integrated verification on 15 November 2026
+
+The clean reference is `6b27847`. The two real FV runs, query benchmark,
+CSV and verified manifests are under
+`artifacts/full-review/baseline-checkout/artifacts/baseline/`.
+See the rehearsal JSON for the run IDs, input hashes, verification status
+and layer statistics. Run IDs change on a fresh install.
+
+The follow-up working tree passed a second isolated Compose rehearsal
+at label `6b27847-dirty`. The report records eight orchestration checks
+and thirteen browser checks. The rehearsal removed its own stack. Seed,
+solver and import were exercised on fresh volumes and the application
+re-read the results after restart. PostgreSQL E2E covered 126 cases
+without skips. The report distinguishes this local candidate from the
+clean reference and from the GitHub-hosted CI at the previous revision.
+
+Use `scripts/verify-netcdf-api.py --base http://127.0.0.1:3115 --run <id>`
+with a running reference stack and the project's locked Python environment.
+The tool checks published float32 values at 1 and 15 m and selected complete
+vertical profiles using the checksummed NetCDF. The audit and fixed-time
+urban sensitivity are described in [the scientific review](reviews/THANH_SCIENCE_AUDIT.md).
+
+The three tallest GOB estimates in the frozen scene are 91 m
+(`way/402859385`), 88.5 m (`way/741084351`) and 81 m (`way/263502876`).
+The historical OSM cross-check is retained. Fresh feature requests failed
+in this environment, so those OSM tags remain historical and cannot be
+treated as independently verified heights.
