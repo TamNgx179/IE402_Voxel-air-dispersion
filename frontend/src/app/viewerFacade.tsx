@@ -6,7 +6,6 @@ import { createContext, useContext, useEffect, useMemo, useRef, type ReactNode }
 import { AppError, api as defaultApi, type RequestOptions } from '../api/client';
 import type {
   ArtifactList,
-  ExceedanceResult,
   ProfileResult,
   RunListItem,
   RunSummary,
@@ -14,7 +13,6 @@ import type {
   Scenario,
   Scene,
   StudyArea,
-  Threshold,
   VolumePayload,
   WindField,
 } from '../api/types';
@@ -22,14 +20,14 @@ import { decodeVolume } from '../lib/concentration';
 import { dataQuality } from '../lib/evidence';
 import { cornersFromBounds, zCentres } from '../lib/grid';
 import { isMockRun } from '../lib/labels';
-import { areaKey, profileKey } from '../store/reducer';
+import { profileKey } from '../store/reducer';
 import { useViewerStore, type ViewerStore } from '../store/store';
 import type { BootstrapData, RunData, RunEntry } from '../store/types';
 
 export type ApiFn = <T>(path: string, options?: RequestOptions) => Promise<T>;
 
 export interface ViewerActions {
-  /** (Re)load study area, scenarios, thresholds, runs and scene, then show the default run. */
+  /** (Re)load study area, scenarios, runs and scene, then show the default run. */
   loadBootstrap(): Promise<void>;
   /** Load (cached) and show a run. Concurrent calls: the last one wins. */
   selectResult(id: string): Promise<void>;
@@ -37,7 +35,7 @@ export interface ViewerActions {
   ensureRun(id: string): Promise<RunData>;
   /** Add a newly succeeded run to the select and show it (used by the simulation panel). */
   addCompletedRun(run: RunView): Promise<void>;
-  /** Re-run the failed exceedance/profile queries for the current view. */
+  /** Re-run the failed profile query for the current view. */
   retryQueries(): void;
 }
 
@@ -80,10 +78,9 @@ export function defaultRunId(runs: RunEntry[]): string | null {
 }
 
 export async function fetchBootstrap(api: ApiFn): Promise<{ data: BootstrapData; runs: RunEntry[] }> {
-  const [areas, scenarios, thresholds, runs] = await Promise.all([
+  const [areas, scenarios, runs] = await Promise.all([
     api<StudyArea[]>('/study-areas'),
     api<Scenario[]>('/scenarios'),
-    api<Threshold[]>('/thresholds'),
     api<RunListItem[]>('/runs?status=succeeded&limit=20'),
   ]);
   if (!areas.length) throw new AppError('errors.noStudyArea');
@@ -96,7 +93,6 @@ export async function fetchBootstrap(api: ApiFn): Promise<{ data: BootstrapData;
       grid,
       corners: cornersFromBounds(area.bounds),
       scenarios,
-      thresholds: Object.fromEntries(thresholds.map((item) => [item.key, { value: item.value_ug_m3, label: item.label }])),
       scene,
       provenance: area.provenance || {},
       quality: dataQuality(scene.buildings, area.provenance || {}),
@@ -198,62 +194,30 @@ export function createViewerActions(store: ViewerStore, api: ApiFn): ViewerActio
     await selectResult(run.run_id);
   }
 
-  /** Debounced exceedance areas for the layer and the selected cell's profile (exact mode only). */
+  /** Only picking a new cell in exact mode requires a network request. */
   function scheduleQueries() {
     clearTimeout(queryTimer);
     const state = getState();
-    const data = state.bootstrap.data;
     const id = state.selectedRunId;
+    const cell = state.selectedCell;
     const exact = state.display.multiplier === 1 && state.display.background === 0;
-    if (!data || !id || !state.runData[id] || !exact) {
-      if (state.queries.status !== 'idle') dispatch({ type: 'queries/done' });
-      return;
-    }
-    const k = state.layer;
-    const cell = state.selectedCell && { ...state.selectedCell };
-    const needArea = !state.queries.areas[areaKey(id, k)];
-    const needProfile = Boolean(cell && !state.queries.profiles[profileKey(id, cell.i, cell.j)]);
-    if (!needArea && !needProfile) {
+    if (!id || !cell || !state.runData[id] || !exact || state.queries.profiles[profileKey(id, cell.i, cell.j)]) {
       if (state.queries.status !== 'idle') dispatch({ type: 'queries/done' });
       return;
     }
     dispatch({ type: 'queries/loading' });
-    const stale = () => {
+    const current = () => {
       const s = getState();
-      return (
-        s.selectedRunId !== id ||
-        s.layer !== k ||
-        s.display.multiplier !== 1 ||
-        s.display.background !== 0 ||
-        (cell !== null && (s.selectedCell?.i !== cell.i || s.selectedCell?.j !== cell.j))
-      );
+      return s.selectedRunId === id && s.selectedCell?.i === cell.i && s.selectedCell?.j === cell.j &&
+        s.display.multiplier === 1 && s.display.background === 0;
     };
     queryTimer = setTimeout(async () => {
       try {
-        const requests: Array<Promise<unknown>> = [];
-        if (needArea)
-          requests.push(
-            Promise.all(
-              Object.keys(data.thresholds).map(async (key) => {
-                const result = await api<ExceedanceResult>(
-                  `/runs/${id}/exceedance?z_m=${data.grid.z_centres_m[k]}&threshold_key=${encodeURIComponent(key)}`,
-                );
-                return [key, result.area_m2] as const;
-              }),
-            ).then((entries) => dispatch({ type: 'queries/area', runId: id, k, areas: Object.fromEntries(entries) })),
-          );
-        if (cell && needProfile)
-          requests.push(
-            api<ProfileResult>(`/runs/${id}/profile?i=${cell.i}&j=${cell.j}`).then((profile) =>
-              dispatch({ type: 'queries/profile', runId: id, profile }),
-            ),
-          );
-        await Promise.all(requests);
-        if (stale()) return;
-        dispatch({ type: 'queries/done' });
+        const profile = await api<ProfileResult>(`/runs/${encodeURIComponent(id)}/profile?i=${cell.i}&j=${cell.j}`);
+        dispatch({ type: 'queries/profile', runId: id, profile });
+        if (current()) dispatch({ type: 'queries/done' });
       } catch (error) {
-        if (stale()) return;
-        dispatch({ type: 'queries/failed', error });
+        if (current()) dispatch({ type: 'queries/failed', error });
       }
     }, 180);
   }
@@ -274,7 +238,7 @@ const ApiContext = createContext<ApiFn>(defaultApi as ApiFn);
 
 /**
  * Provides `useViewerActions()` and `useApi()` (the `api` prop), loads the bootstrap once on mount and keeps the
- * exact queries in sync with run/layer/cell/display.
+ * exact queries in sync with run/cell/display.
  */
 export function ViewerActionsProvider({ children, api = defaultApi, autoLoad = true }: { children: ReactNode; api?: ApiFn; autoLoad?: boolean }) {
   const store = useViewerStore();
@@ -293,7 +257,6 @@ export function ViewerActionsProvider({ children, api = defaultApi, autoLoad = t
       const next = store.getState();
       if (
         next.selectedRunId !== previous.selectedRunId ||
-        next.layer !== previous.layer ||
         next.selectedCell !== previous.selectedCell ||
         next.display !== previous.display ||
         next.runData !== previous.runData

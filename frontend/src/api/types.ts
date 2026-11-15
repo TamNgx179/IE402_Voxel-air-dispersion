@@ -44,13 +44,6 @@ export interface Scenario {
   parameters: Record<string, unknown>;
 }
 
-export interface Threshold {
-  key: string;
-  value_ug_m3: number;
-  label: string;
-  config_hash?: string;
-}
-
 /** Item of `GET /api/runs?status=succeeded`. */
 export interface RunListItem {
   run_id: string;
@@ -171,19 +164,6 @@ export interface WindField {
   units: string;
   stride: number;
   layers: Array<{ k: number; z_m: number; vectors: number[][] }>;
-}
-
-export interface ExceedanceResult {
-  run_id: string;
-  z_m: number;
-  requested_z_m: number;
-  z_center_m: number;
-  k: number;
-  units: string;
-  threshold: { key: string; label: string; value_ug_m3: number };
-  cell_count: number;
-  area_m2: number;
-  volume_m3: number;
 }
 
 export interface ProfileResult {

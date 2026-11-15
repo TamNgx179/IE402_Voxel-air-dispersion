@@ -29,10 +29,3 @@ export function runLabel(entry: RunEntry, t: Translate): string {
   const reduction = Math.round((1 - (entry.emission_multiplier ?? 1)) * 100);
   return `${name}, ${kind}${reduction ? `, ${t('viewer.labelReduction', { percent: reduction })}` : ''}, ${entry.id.slice(0, 4)}`;
 }
-
-export function modelNoteKey(model: string | undefined): TranslationKey {
-  if (model === undefined) return 'viewer.modelNoteNone';
-  if (model === 'gaussian') return 'viewer.modelNoteGaussian';
-  if (model === 'fv') return 'viewer.modelNoteFv';
-  return 'viewer.modelNoteOther';
-}

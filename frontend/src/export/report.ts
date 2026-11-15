@@ -6,7 +6,7 @@
 import { AppError } from '../api/client';
 import type { RunSummary } from '../api/types';
 import type { Locale, TranslationKey, TranslationParams } from '../i18n';
-import { RAMP, activeThresholds, colourScale, legendValues, thresholdColour } from '../lib/concentration';
+import { RAMP, colourScale, legendValues } from '../lib/concentration';
 import { runLabel } from '../lib/labels';
 import { selectCurrentEntry, selectCurrentRun, selectExact } from '../store/selectors';
 import type { ViewerState } from '../store/types';
@@ -68,7 +68,6 @@ export function buildReport(input: ReportInput): Report {
   const grid = bootstrap.grid;
   const z = grid.z_centres_m[state.layer];
   const exact = selectExact(state);
-  const thresholds = activeThresholds(bootstrap.thresholds, state.thresholdsEnabled);
   const windText = !state.layers.wind
     ? t('export.windHidden')
     : state.windPaused || input.reducedMotion
@@ -95,7 +94,8 @@ export function buildReport(input: ReportInput): Report {
       scene_quality: bootstrap.quality,
       camera: input.camera,
       illustration: { multiplier: state.display.multiplier, background_ug_m3: state.display.background },
-      thresholds,
+      // Retain the export field for older consumers. No highlight overlays are active.
+      thresholds: [],
       basemap: state.basemap,
       selected_cell: state.selectedCell ? { ...state.selectedCell } : null,
       render_lod: input.renderLod
@@ -122,18 +122,9 @@ export function buildReport(input: ReportInput): Report {
       labels: legendValues(scale).map((v) => formatNumber(v)),
     },
   };
-  // A contributed comparison replaces the concentration layer (and its threshold
-  // colouring): the notice then says wind and buildings belong to the baseline run.
+  // Comparison changes the concentration layer; wind and buildings stay on the baseline.
   const comparing = input.contributions.report.comparison != null;
   if (comparing) report.notice += t('export.comparisonNotice');
-  else if (thresholds.length) {
-    report.legend = {
-      title: t('export.thresholdLegendTitle'),
-      categories: thresholds.map((th) => ({ label: `${th.label}: > ${th.value}`, color: `rgb(${thresholdColour(th.key).join(',')})` })),
-      labels: [],
-    };
-    report.notice += t('export.thresholdNotice');
-  }
   Object.assign(report, input.contributions.report);
   return report;
 }

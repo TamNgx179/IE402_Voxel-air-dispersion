@@ -32,7 +32,6 @@ export type ViewerAction =
   | { type: 'layer/set'; layer: number }
   | { type: 'display/set'; display: Partial<Display> }
   | { type: 'display/reset' }
-  | { type: 'threshold/toggle'; key: string; enabled: boolean }
   | { type: 'cell/select'; cell: Cell | null }
   | { type: 'building/select'; id: string | null }
   | { type: 'mapMode/set'; mode: MapMode }
@@ -42,7 +41,6 @@ export type ViewerAction =
   | { type: 'wind/paused'; paused: boolean }
   | { type: 'basemap/set'; basemap: Basemap }
   | { type: 'queries/loading' }
-  | { type: 'queries/area'; runId: string; k: number; areas: Record<string, number> }
   | { type: 'queries/profile'; runId: string; profile: ProfileResult }
   | { type: 'queries/done' }
   | { type: 'queries/failed'; error: unknown }
@@ -56,7 +54,6 @@ export const initialState: ViewerState = {
   runData: {},
   layer: 0,
   display: { multiplier: 1, background: 0 },
-  thresholdsEnabled: {},
   selectedCell: null,
   selectedBuildingId: null,
   mapMode: 'pan',
@@ -64,11 +61,10 @@ export const initialState: ViewerState = {
   layers: { buildings: true, facades: true, roads: false, wind: true, grid: true },
   windPaused: false,
   basemap: 'vector',
-  queries: { areas: {}, profiles: {}, status: 'idle', error: null },
+  queries: { profiles: {}, status: 'idle', error: null },
   status: { message: { key: 'viewer.statusLoadingLibraries' }, kind: 'info' },
 };
 
-export const areaKey = (runId: string, k: number) => `${runId}:${k}`;
 export const profileKey = (runId: string, i: number, j: number) => `${runId}:${i}:${j}`;
 
 export function viewerReducer(state: ViewerState, action: ViewerAction): ViewerState {
@@ -79,7 +75,6 @@ export function viewerReducer(state: ViewerState, action: ViewerAction): ViewerS
         bootstrap: { status: 'ready', data: action.data, error: null },
         runs: action.runs,
         layer: Math.min(state.layer, action.data.grid.nz - 1),
-        thresholdsEnabled: Object.fromEntries(Object.keys(action.data.thresholds).map((key) => [key, false])),
       };
     case 'bootstrap/failed':
       return { ...state, bootstrap: { status: 'error', data: null, error: action.error } };
@@ -107,8 +102,6 @@ export function viewerReducer(state: ViewerState, action: ViewerAction): ViewerS
     }
     case 'display/reset':
       return { ...state, display: { multiplier: 1, background: 0 } };
-    case 'threshold/toggle':
-      return { ...state, thresholdsEnabled: { ...state.thresholdsEnabled, [action.key]: action.enabled } };
     case 'cell/select':
       return { ...state, selectedCell: action.cell };
     case 'building/select':
@@ -125,11 +118,6 @@ export function viewerReducer(state: ViewerState, action: ViewerAction): ViewerS
       return { ...state, basemap: action.basemap };
     case 'queries/loading':
       return { ...state, queries: { ...state.queries, status: 'loading', error: null } };
-    case 'queries/area':
-      return {
-        ...state,
-        queries: { ...state.queries, areas: { ...state.queries.areas, [areaKey(action.runId, action.k)]: action.areas } },
-      };
     case 'queries/profile':
       return {
         ...state,

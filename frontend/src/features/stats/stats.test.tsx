@@ -160,21 +160,20 @@ describe('profile helpers', () => {
     expect(values).toEqual([4, 4, 4]);
   });
 
-  test('chart draws a line, building bands and threshold markers', () => {
+  test('chart draws a line, building bands for the configured layer height', () => {
     const chart = profileChart({
       values: [10, NaN, 20],
-      zCentres: [1, 3, 5],
-      dz: 2,
+      zCentres: [2, 6, 10],
+      dz: 4,
       nz: 3,
       scale: { lo: 0.01, hi: 100 },
-      thresholds: [{ key: 'who_24h', value: 15 }],
       layer: 2,
     });
     expect(chart.path.startsWith('M')).toBe(true);
     expect(chart.path.split('M')).toHaveLength(3); // the building level breaks the line
     expect(chart.solids).toHaveLength(1);
-    expect(chart.thresholds.map((th) => th.key)).toEqual(['who_24h']);
+    expect(chart.solids[0].height).toBeCloseTo((chart.height - chart.pad.t - chart.pad.b) / 3);
     expect(chart.max).toBe(20);
-    expect(chart.yTicks.map((tick) => tick.value)).toEqual([0, 3, 6]);
+    expect(chart.yTicks.map((tick) => tick.value)).toEqual([0, 6, 12]);
   });
 });

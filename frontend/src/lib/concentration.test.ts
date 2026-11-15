@@ -1,11 +1,9 @@
 import { describe, expect, test } from 'vitest';
 import {
-  activeThresholds,
   buildLut,
   cellColour,
   colourScale,
   decodeVolume,
-  domainExceedance,
   layerStats,
   legendValues,
   position,
@@ -56,38 +54,19 @@ describe('concentration decoding', () => {
     expect(ramp(0.1)).toEqual([243, 226, 187]);
   });
 
-  test('cell colours: transparent for solid/zero, strict threshold wins, faded below', () => {
+  test('cell colours: transparent for solid and zero, faded below the colour scale', () => {
     const s = { lo: 0.01, hi: 100 };
-    expect(cellColour(NaN, s, [])).toEqual([0, 0, 0, 0]);
-    expect(cellColour(0, s, [])).toEqual([0, 0, 0, 0]);
-    expect(cellColour(0.001, s, [])[3]).toBe(60);
-    expect(cellColour(1, s, [])[3]).toBe(215);
-    const thresholds = activeThresholds(
-      { who_24h: { value: 15, label: 'WHO' }, qcvn_24h: { value: 50, label: 'QCVN' } },
-      { who_24h: true, qcvn_24h: true },
-    );
-    expect(thresholds.map((t) => t.key)).toEqual(['qcvn_24h', 'who_24h']);
-    expect(cellColour(60, s, thresholds)).toEqual([165, 102, 92, 235]);
-    expect(cellColour(20, s, thresholds)).toEqual([174, 146, 91, 235]);
-    expect(cellColour(10, s, thresholds)[3]).toBe(70);
+    expect(cellColour(NaN, s)).toEqual([0, 0, 0, 0]);
+    expect(cellColour(0, s)).toEqual([0, 0, 0, 0]);
+    expect(cellColour(0.001, s)[3]).toBe(60);
+    expect(cellColour(1, s)[3]).toBe(215);
   });
 
-  test('layer statistics: exact from summary, adjusted from codes', () => {
-    const v = volume([0, 1, 2, 255]);
-    const grid = { nx: 2, ny: 2, dx_m: 5, dy_m: 5, dz_m: 2 };
-    const summary = {
-      layers: [{ k: 0, z_m: 1, air_cells: 3, mean_ug_m3: 30, max_ug_m3: 90 }],
-      thresholds: [{ key: 'who_24h', label: 'WHO', value_ug_m3: 15, exceedance_volume_m3: 50 }],
-    };
-    const thresholds = { who_24h: { value: 15 } };
-    const exact = layerStats({ volume: v, summary, grid, thresholds, display: { multiplier: 1, background: 0 }, k: 0, exactAreas: { who_24h: 25 } });
-    expect(exact).toEqual({ air: 3, max: 90, mean: 30, area: { who_24h: 25 } });
-    const adjusted = layerStats({ volume: v, summary, grid, thresholds, display: { multiplier: 2, background: 1 }, k: 0 });
-    expect(adjusted.air).toBe(3);
-    expect(adjusted.mean).toBe(61);
-    expect(adjusted.area).toEqual({ who_24h: 25 });
-    expect(domainExceedance({ volume: v, summary, grid, thresholds, display: { multiplier: 1, background: 0 } })).toEqual({ who_24h: 50 });
-    expect(domainExceedance({ volume: v, summary, grid, thresholds, display: { multiplier: 2, background: 1 } })).toEqual({ who_24h: 50 });
+  test('layer statistics transform exact summary values without quantization', () => {
+    const summary = { layers: [{ k: 0, z_m: 1, air_cells: 3, mean_ug_m3: 30, max_ug_m3: 90 }] };
+    expect(layerStats(summary, 0, { multiplier: 1, background: 0 })).toEqual({ air: 3, max: 90, mean: 30 });
+    expect(layerStats(summary, 0, { multiplier: 2, background: 1 })).toEqual({ air: 3, max: 181, mean: 61 });
+    expect(layerStats(summary, 1, { multiplier: 2, background: 1 })).toEqual({ air: 0, max: NaN, mean: NaN });
   });
 });
 

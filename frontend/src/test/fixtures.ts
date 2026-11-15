@@ -32,7 +32,6 @@ export function fakeApi(overrides: Record<string, unknown> = {}): ApiFn & { call
   const routes: Record<string, unknown> = {
     '/study-areas': [fixtureArea],
     '/scenarios': [{ id: 'dry_nov_apr', study_area_id: 'area-1', name: 'Dry', wind_from_deg: 90, wind_speed_m_s: 1.5, parameters: {} }],
-    '/thresholds': [{ key: 'who_24h', value_ug_m3: 15, label: 'WHO 24h' }],
     '/runs?status=succeeded&limit=20': [run('mock-run', { warnings: ['mock run'] }), run('real-run')],
     '/study-areas/area-1/scene': {
       study_area_id: 'area-1',

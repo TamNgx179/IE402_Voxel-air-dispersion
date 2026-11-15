@@ -20,16 +20,6 @@ export const RAMP: ReadonlyArray<readonly [number, RGB]> = [
   [1.0, [112, 53, 65]],
 ];
 
-export const THRESHOLD_COLOURS: Record<string, RGB> = {
-  qcvn_24h: [165, 102, 92],
-  who_24h: [174, 146, 91],
-};
-export const DEFAULT_THRESHOLD_COLOUR: RGB = [103, 114, 106];
-
-export function thresholdColour(key: string): RGB {
-  return THRESHOLD_COLOURS[key] || DEFAULT_THRESHOLD_COLOUR;
-}
-
 /** Decoded volume of one run. Immutable after decode. */
 export interface DecodedVolume {
   codes: Uint8Array;
@@ -127,111 +117,19 @@ export function rampGradient(): string {
   return RAMP.map(([t, c]) => `rgb(${c.join(',')}) ${t * 100}%`).join(', ');
 }
 
-export interface ActiveThreshold {
-  key: string;
-  value: number;
-  label: string;
-}
-
-/**
- * Enabled thresholds sorted by value descending, so the stricter colour wins
- * where several are exceeded (legacy activeThresholds).
- */
-export function activeThresholds(
-  thresholds: Record<string, { value: number; label: string }>,
-  enabled: Record<string, boolean>,
-): ActiveThreshold[] {
-  return Object.keys(thresholds)
-    .filter((key) => enabled[key])
-    .map((key) => ({ key, ...thresholds[key] }))
-    .sort((a, b) => b.value - a.value);
-}
-
 /** Fill colour for one cell value (legacy cellColour). */
-export function cellColour(v: number, scale: ColourScale, thresholds: readonly ActiveThreshold[]): RGBA {
+export function cellColour(v: number, scale: ColourScale): RGBA {
   if (Number.isNaN(v) || v <= 0) return [0, 0, 0, 0];
-  if (thresholds.length) {
-    const hit = thresholds.find((t) => v > t.value);
-    if (hit) return [...thresholdColour(hit.key), 235];
-    return [...ramp(position(v, scale)), 70];
-  }
   if (v < scale.lo) return [...ramp(0), 60];
   return [...ramp(position(v, scale)), 215];
 }
 
-export interface LayerStats {
-  air: number;
-  max: number;
-  mean: number;
-  /** Exceedance area (m²) per threshold key; missing key = not loaded yet. */
-  area: Record<string, number>;
-}
-
-/**
- * Statistics of one layer. In exact mode they come from the API summary and the
- * exceedance query (`exactAreas`); otherwise they are recomputed from the adjusted
- * render codes (legacy layerStats).
- */
-export function layerStats(args: {
-  volume: DecodedVolume;
-  summary: Pick<RunSummary, 'layers'>;
-  grid: Pick<GridSpec, 'nx' | 'ny' | 'dx_m' | 'dy_m'>;
-  thresholds: Record<string, { value: number }>;
-  display: Display;
-  k: number;
-  exactAreas?: Record<string, number>;
-}): LayerStats {
-  const { volume, summary, grid, thresholds, display, k } = args;
-  if (isExact(display)) {
-    const layer = summary.layers.find((item) => item.k === k);
-    return {
-      air: layer?.air_cells || 0,
-      max: layer?.max_ug_m3 ?? NaN,
-      mean: layer?.mean_ug_m3 ?? NaN,
-      area: args.exactAreas || {},
-    };
-  }
-  let air = 0;
-  let max = -Infinity;
-  const above: Record<string, number> = {};
-  Object.keys(thresholds).forEach((key) => (above[key] = 0));
-  for (let j = 0; j < grid.ny; j += 1) {
-    for (let i = 0; i < grid.nx; i += 1) {
-      const v = valueAt(volume, grid, display, k, j, i);
-      if (Number.isNaN(v)) continue;
-      air += 1;
-      if (v > max) max = v;
-      Object.entries(thresholds).forEach(([key, t]) => {
-        if (v > t.value) above[key] += 1;
-      });
-    }
-  }
-  const rawMean = summary.layers.find((layer) => layer.k === k)?.mean_ug_m3 ?? null;
-  const mean = rawMean === null ? NaN : display.multiplier * rawMean + display.background;
-  const area: Record<string, number> = {};
-  Object.keys(above).forEach((key) => (area[key] = above[key] * grid.dx_m * grid.dy_m));
-  return { air, max, mean, area };
-}
-
-/** Whole-domain exceedance volume (m³) per threshold (legacy domainExceedance). */
-export function domainExceedance(args: {
-  volume: DecodedVolume;
-  summary: Pick<RunSummary, 'thresholds'>;
-  grid: Pick<GridSpec, 'dx_m' | 'dy_m' | 'dz_m'>;
-  thresholds: Record<string, { value: number }>;
-  display: Display;
-}): Record<string, number> {
-  const { volume, summary, grid, thresholds, display } = args;
-  const result: Record<string, number> = {};
-  const cellVolume = grid.dx_m * grid.dy_m * grid.dz_m;
-  for (const [name, t] of Object.entries(thresholds)) {
-    if (isExact(display)) {
-      result[name] = summary.thresholds.find((item) => item.key === name)?.exceedance_volume_m3 ?? 0;
-      continue;
-    }
-    let count = 0;
-    for (let n = 0; n < volume.codes.length; n += 1) if (effective(volume.lut[volume.codes[n]], display) > t.value) count += 1;
-    result[name] = count * cellVolume;
-  }
-  return result;
+/** Affine illustration transforms preserve the ordering and count of air cells. */
+export function layerStats(summary: Pick<RunSummary, 'layers'>, k: number, display: Display) {
+  const layer = summary.layers.find((item) => item.k === k);
+  return {
+    air: layer?.air_cells ?? 0,
+    max: effective(layer?.max_ug_m3 ?? NaN, display),
+    mean: effective(layer?.mean_ug_m3 ?? NaN, display),
+  };
 }
