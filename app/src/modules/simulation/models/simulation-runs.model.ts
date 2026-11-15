@@ -44,7 +44,7 @@ export type RetryResult =
 
 /** All SQL used by the run lifecycle API. Business/HTTP rules stay in the service. */
 @Injectable()
-export class SimulationRunsRepository {
+export class SimulationRunsModel {
   constructor(private readonly db: DatabaseService) {}
 
   async scenarioExists(id: string): Promise<boolean> {

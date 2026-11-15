@@ -11,7 +11,7 @@ import type { AppConfig } from '../../../config/env.validation.js';
 import type { ExceedanceQueryDto } from '../dto/exceedance-query.dto.js';
 import type { ProfileQueryDto } from '../dto/profile-query.dto.js';
 import type { SliceQueryDto } from '../dto/slice-query.dto.js';
-import { SimulationResultsRepository } from '../repositories/simulation-results.repository.js';
+import { SimulationResultsModel } from '../models/simulation-results.model.js';
 import type {
   GridSchema,
   ResultRunContext,
@@ -32,7 +32,7 @@ export type ArtifactKind = (typeof ARTIFACT_KINDS)[number];
 @Injectable()
 export class SimulationResultsService {
   constructor(
-    private readonly results: SimulationResultsRepository,
+    private readonly results: SimulationResultsModel,
     private readonly config: ConfigService<AppConfig, true>,
   ) {}
 

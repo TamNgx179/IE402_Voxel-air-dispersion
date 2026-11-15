@@ -1,4 +1,4 @@
-import { type ChildProcess, spawn } from 'node:child_process';
+import type { ChildProcess } from 'node:child_process';
 import { mkdir, readFile, rm, writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
 import { createInterface } from 'node:readline';
@@ -23,7 +23,7 @@ import {
   readManifest,
   type RunManifest,
   verifyRunOutput,
-} from '../infrastructure/manifest-verifier.js';
+} from './manifest-verifier.js';
 import {
   buildSolverInvocation,
   classifyExit,
@@ -32,10 +32,11 @@ import {
   type ExitInfo,
   overallProgress,
   parseProgressLine,
+  startSolver,
   TailBuffer,
-} from '../infrastructure/solver-protocol.js';
-import { SimulationExecutionRepository } from '../repositories/simulation-execution.repository.js';
-import { SimulationRunsRepository } from '../repositories/simulation-runs.repository.js';
+} from './python-solver.adapter.js';
+import { SimulationExecutionModel } from '../models/simulation-execution.model.js';
+import { SimulationRunsModel } from '../models/simulation-runs.model.js';
 import type { ClaimedRun } from '../schemas/simulation-run.schema.js';
 
 const STDERR_TAIL_CHARS = 4096;
@@ -63,11 +64,11 @@ export class SimulationExecutorService
   private child?: ChildProcess;
   private killedForShutdown = false;
   private lastPollError?: string;
-  private pendingFailure?: Parameters<SimulationExecutionRepository['persistFailure']>;
+  private pendingFailure?: Parameters<SimulationExecutionModel['persistFailure']>;
 
   constructor(
-    private readonly execution: SimulationExecutionRepository,
-    private readonly runs: SimulationRunsRepository,
+    private readonly execution: SimulationExecutionModel,
+    private readonly runs: SimulationRunsModel,
     private readonly config: ConfigService<AppConfig, true>,
   ) {}
 
@@ -240,7 +241,7 @@ export class SimulationExecutorService
     configPath: string,
     runDir: string,
   ): Promise<{ info: ExitInfo; stderr: string }> {
-    const { command, args } = buildSolverInvocation({
+    const invocation = buildSolverInvocation({
       solverCmd: this.cfg('SOLVER_CMD'),
       runId: run.id,
       configPath,
@@ -254,17 +255,7 @@ export class SimulationExecutorService
     return new Promise((resolve) => {
       let child: ChildProcess;
       try {
-        child = spawn(command, args, {
-          cwd: this.cfg('REPO_ROOT'),
-          shell: false,
-          windowsHide: true,
-          stdio: ['ignore', 'pipe', 'pipe'],
-          env: {
-            ...process.env,
-            PYTHONUNBUFFERED: '1',
-            PYTHONIOENCODING: 'utf-8',
-          },
-        });
+        child = startSolver(invocation, this.cfg('REPO_ROOT'));
       } catch (err) {
         resolve({ info: { code: null, spawnError: asError(err) }, stderr: '' });
         return;

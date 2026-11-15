@@ -1,9 +1,9 @@
 import { Injectable } from '@nestjs/common';
-import { ScenariosRepository } from '../repositories/scenarios.repository.js';
+import { ScenariosModel } from '../models/scenarios.model.js';
 
 @Injectable()
 export class ScenariosService {
-  constructor(private readonly scenarios: ScenariosRepository) {}
+  constructor(private readonly scenarios: ScenariosModel) {}
 
   async list() {
     const rows = await this.scenarios.findAll();

@@ -3,11 +3,11 @@ import {
   ScenariosController,
   ThresholdsController,
 } from './controllers/scenarios.controller.js';
-import { ScenariosRepository } from './repositories/scenarios.repository.js';
+import { ScenariosModel } from './models/scenarios.model.js';
 import { ScenariosService } from './services/scenarios.service.js';
 
 @Module({
   controllers: [ScenariosController, ThresholdsController],
-  providers: [ScenariosRepository, ScenariosService],
+  providers: [ScenariosModel, ScenariosService],
 })
 export class ScenariosModule {}

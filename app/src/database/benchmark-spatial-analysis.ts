@@ -3,13 +3,13 @@ import { cpus, totalmem, platform } from 'node:os';
 import { mkdir, writeFile } from 'node:fs/promises';
 import { dirname, resolve } from 'node:path';
 import pg from 'pg';
-import { ROAD_CORRIDOR_SQL } from '../modules/results/repositories/road-corridor.sql.js';
-import { CONCENTRATION_SLICE_SQL, VERTICAL_PROFILE_SQL } from '../modules/results/repositories/simulation-results.repository.js';
-import { TRANSECT_COLUMNS_SQL, TRANSECT_PROJECT_SQL } from '../modules/results/repositories/transect.repository.js';
+import { ROAD_CORRIDOR_SQL } from '../modules/results/models/road-corridor.sql.js';
+import { CONCENTRATION_SLICE_SQL, VERTICAL_PROFILE_SQL } from '../modules/results/models/simulation-results.model.js';
+import { TRANSECT_COLUMNS_SQL, TRANSECT_PROJECT_SQL } from '../modules/results/models/transect.model.js';
 import {
   COMPARISON_SQL,
   REGION_SQL,
-} from '../modules/results/repositories/spatial-analysis.repository.js';
+} from '../modules/results/models/spatial-analysis.model.js';
 
 // Same local DB default as benchmark-results.ts; do not print credentials.
 const pool = new pg.Pool({

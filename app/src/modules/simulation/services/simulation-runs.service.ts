@@ -5,14 +5,14 @@ import { buildRunSnapshot, loadProjectConfig } from '../../../common/project-con
 import type { AppConfig } from '../../../config/env.validation.js';
 import type { CreateRunDto } from '../dto/create-run.dto.js';
 import type { ListRunsQueryDto } from '../dto/list-runs-query.dto.js';
-import { SimulationRunsRepository } from '../repositories/simulation-runs.repository.js';
+import { SimulationRunsModel } from '../models/simulation-runs.model.js';
 import type { RunAccepted, RunView } from '../schemas/simulation-run.schema.js';
 
-/** Application rules for create/list/read/retry. SQL belongs to the repository. */
+/** Application rules for create/list/read/retry. SQL belongs to the model. */
 @Injectable()
 export class SimulationRunsService {
   constructor(
-    private readonly runs: SimulationRunsRepository,
+    private readonly runs: SimulationRunsModel,
     private readonly config: ConfigService<AppConfig, true>,
   ) {}
 

@@ -7,15 +7,15 @@ import {
 import type { ComparisonQueryDto } from '../dto/comparison-query.dto.js';
 import type { RegionQueryDto } from '../dto/region-query.dto.js';
 import type { RoadCorridorDto } from '../dto/road-corridor.dto.js';
-import { SimulationResultsRepository } from '../repositories/simulation-results.repository.js';
-import { SpatialAnalysisRepository } from '../repositories/spatial-analysis.repository.js';
+import { SimulationResultsModel } from '../models/simulation-results.model.js';
+import { SpatialAnalysisModel } from '../models/spatial-analysis.model.js';
 import type { PolygonSchema } from '../schemas/spatial-analysis.schema.js';
 
 @Injectable()
 export class SpatialAnalysisService {
   constructor(
-    private readonly results: SimulationResultsRepository,
-    private readonly spatial: SpatialAnalysisRepository,
+    private readonly results: SimulationResultsModel,
+    private readonly spatial: SpatialAnalysisModel,
   ) {}
 
   private async context(id: string) {

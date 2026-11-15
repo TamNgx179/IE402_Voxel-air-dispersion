@@ -14,7 +14,7 @@ import type {
 /** Float8 casts preserve stored float32 values through PostgreSQL text/JSON transport.
  * PostGIS/SQL access for simulation results. Response shaping stays in the service. */
 @Injectable()
-export class SimulationResultsRepository {
+export class SimulationResultsModel {
   constructor(private readonly db: DatabaseService) {}
 
   async concentrationSlice(

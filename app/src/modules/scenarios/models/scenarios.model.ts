@@ -3,7 +3,7 @@ import { DatabaseService } from '../../../database/database.service.js';
 import type { ScenarioSchema, ThresholdSchema } from '../schemas/scenario.schema.js';
 
 @Injectable()
-export class ScenariosRepository {
+export class ScenariosModel {
   constructor(private readonly db: DatabaseService) {}
 
   async findAll(): Promise<ScenarioSchema[]> {

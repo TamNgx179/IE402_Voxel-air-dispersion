@@ -3,7 +3,7 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import type { INestApplication } from '@nestjs/common';
 import request from 'supertest';
-import { SimulationExecutionRepository } from '../src/modules/simulation/repositories/simulation-execution.repository.js';
+import { SimulationExecutionModel } from '../src/modules/simulation/models/simulation-execution.model.js';
 import {
   createTestApp,
   FAKE_SOLVER,
@@ -192,7 +192,7 @@ describe.skipIf(!db.ok)('SimulationExecutor (e2e, fake solver)', () => {
   it('preserves a published success if failure is recorded after the commit', async () => {
     const { id, run } = await runToEnd('ok');
     expect(run.status).toBe('succeeded');
-    await app.get(SimulationExecutionRepository).persistFailure(id, 'system', 'commit response lost');
+    await app.get(SimulationExecutionModel).persistFailure(id, 'system', 'commit response lost');
     expect(await getRun(id)).toEqual(run);
     const columns = await pool.query('SELECT i, j FROM concentration_columns WHERE run_id = $1', [id]);
     expect(columns.rowCount).toBe(4);

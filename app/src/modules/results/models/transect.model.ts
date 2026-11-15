@@ -8,7 +8,7 @@ import type { GridSchema } from '../schemas/simulation-result.schema.js';
 
 /** Chỉ đọc PostGIS; không tạo run, ghi grid hoặc sửa kết quả mô phỏng. */
 @Injectable()
-export class TransectRepository {
+export class TransectModel {
   constructor(private readonly db: DatabaseService) {}
 
   async projectLine(line: string, area: string, srid: number) {

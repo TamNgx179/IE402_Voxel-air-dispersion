@@ -1,11 +1,28 @@
+import { once } from 'node:events';
 import {
   buildSolverInvocation,
   classifyExit,
   describeExit,
   overallProgress,
   parseProgressLine,
+  startSolver,
   TailBuffer,
-} from './solver-protocol.js';
+} from './python-solver.adapter.js';
+
+it('passes a literal argument and the UTF-8 environment to the child process', async () => {
+  const target = 'run folder & report';
+  const child = startSolver({
+    command: process.execPath,
+    args: ['-e', 'console.log(JSON.stringify([process.argv[1], process.env.PYTHONIOENCODING]))', target],
+  }, process.cwd());
+  const closed = once(child, 'close');
+  let stdout = '';
+  child.stdout.setEncoding('utf8').on('data', (chunk: string) => {
+    stdout += chunk;
+  });
+  expect(await closed).toEqual([0, null]);
+  expect(JSON.parse(stdout)).toEqual([target, 'utf-8']);
+});
 
 describe('classifyExit (spec D2 exit-code table)', () => {
   it.each([
