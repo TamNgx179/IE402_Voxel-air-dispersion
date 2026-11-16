@@ -3,7 +3,7 @@
  * statistics computed by the server; nothing is derived from map colours.
  */
 import { useI18n } from '../../../i18n';
-import { Metrics, useAnalysisNumber } from '../Metrics';
+import { Metrics, ResultInsight, useAnalysisNumber } from '../Metrics';
 
 export interface RegionLayer {
   z_center_m: number;
@@ -37,7 +37,7 @@ export function RegionSummary({ result, runLabel }: { result: RegionResult; runL
     return (
       <>
         {context}
-        <p className="result-insight">{t('region.summary.noAir')}</p>
+        <ResultInsight>{t('region.summary.noAir')}</ResultInsight>
         <p className="note">{t('region.summary.noAirNote')}</p>
       </>
     );
@@ -55,21 +55,12 @@ export function RegionSummary({ result, runLabel }: { result: RegionResult; runL
           { label: t('region.summary.airVolume'), value: result.air_volume_m3, unit: 'm³' },
         ]}
       />
-      <p className="result-insight">
-        {exceedance > 0
-          ? t('region.summary.exceeds', {
-              percent: number(percent),
-              threshold: number(result.threshold_ug_m3),
-              volume: number(exceedance),
-            })
-          : t('region.summary.noExceedance', { threshold: number(result.threshold_ug_m3) })}
-      </p>
       {typeof result.area_m2 === 'number' && Number.isFinite(result.area_m2) && (
         <p className="note">{t('region.summary.area', { area: number(result.area_m2) })}</p>
       )}
       {result.layers && result.layers.length > 0 && (
         <>
-          <h4>{t('region.summary.layersTitle')}</h4>
+          <h3>{t('region.summary.layersTitle')}</h3>
           <div className="result-table-scroll" tabIndex={0} role="region" aria-label={t('region.summary.tableLabel')}>
             <table className="result-table">
               <caption>{t('region.summary.caption')}</caption>
@@ -93,6 +84,15 @@ export function RegionSummary({ result, runLabel }: { result: RegionResult; runL
           </div>
         </>
       )}
+      <ResultInsight>
+        {exceedance > 0
+          ? t('region.summary.exceeds', {
+              percent: number(percent),
+              threshold: number(result.threshold_ug_m3),
+              volume: number(exceedance),
+            })
+          : t('region.summary.noExceedance', { threshold: number(result.threshold_ug_m3) })}
+      </ResultInsight>
     </>
   );
 }

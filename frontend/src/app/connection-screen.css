@@ -1,0 +1,79 @@
+.connection-screen {
+  position: fixed;
+  inset: 0;
+  display: grid;
+  grid-template-columns: minmax(0, 480px);
+  align-content: safe center;
+  justify-items: center;
+  justify-content: center;
+  gap: 8px;
+  overflow: auto;
+  padding: 24px;
+  background: #eaf4f1;
+  color: #163431;
+  text-align: center;
+}
+
+.connection-screen__art {
+  width: min(100%, 390px, 52vh);
+}
+
+.connection-screen__art img {
+  display: block;
+  width: 100%;
+  height: auto;
+  /* Fade the illustration into the page while keeping the bird and city distinct. */
+  mask-image: linear-gradient(to right, transparent, #000 14%, #000 86%, transparent),
+    linear-gradient(to bottom, transparent, #000 10%, #000 86%, transparent);
+  mask-composite: intersect;
+  animation: connection-drift 3s ease-in-out;
+}
+
+@keyframes connection-drift {
+  0%, 100% { transform: scale(1); }
+  48% { transform: translateY(-1%) scale(1.035); }
+}
+
+.connection-screen h1 {
+  margin: 0;
+  font-size: clamp(2rem, 4vw, 3.1rem);
+  font-weight: 720;
+  line-height: 1.06;
+  letter-spacing: -0.035em;
+}
+
+.connection-screen:focus, .connection-screen h1:focus { outline: none; }
+
+.connection-screen p {
+  margin: 12px auto 0;
+  max-width: 34ch;
+  font-size: clamp(1rem, 2vw, 1.25rem);
+  color: #365754;
+}
+
+.connection-screen__retry {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  min-height: 48px;
+  margin-top: 20px;
+  padding: 8px 22px;
+  border: 1px solid #185849;
+  border-radius: 10px;
+  background: #185849;
+  color: #fff;
+  font: inherit;
+  font-weight: 650;
+}
+
+.connection-screen__retry:disabled { opacity: 0.72; }
+.connection-screen__retry:focus-visible {
+  outline: 2px solid #185849;
+  outline-offset: 4px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .connection-screen__art img { animation: none; }
+  .connection-screen__loader { display: none; }
+}

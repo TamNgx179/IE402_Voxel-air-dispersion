@@ -1,5 +1,5 @@
 /** Shared result rendering for the analysis sub-modes (legacy `metrics` / `number`). */
-import { useCallback } from 'react';
+import { useCallback, type ReactNode } from 'react';
 import { useI18n, type TranslationKey } from '../../i18n';
 
 /**
@@ -21,6 +21,11 @@ export interface MetricEntry {
   label: string;
   value: number | null | undefined;
   unit?: string;
+}
+
+export function ResultInsight({ children }: { children: ReactNode }) {
+  const { t } = useI18n();
+  return <section className="result-insight"><h3>{t('viewer.analysisConclusion')}</h3><p>{children}</p></section>;
 }
 
 export function Metrics({ entries, format }: { entries: MetricEntry[]; format: (value: number | null | undefined) => string }) {

@@ -63,7 +63,7 @@ const region = {
   'summary.area': 'Area: {area} m².',
   'summary.layersTitle': 'Concentration by height',
   'summary.tableLabel': 'Concentration by height table, scroll to see the layers',
-  'summary.caption': 'Concentration per layer (µg/m³); only the part inside the selected height range is counted',
+  'summary.caption': 'Concentration in µg/m³ within the selected height range.',
   'summary.colCentre': 'Layer centre (m)',
   'summary.colMean': 'Mean',
   'summary.colMax': 'Maximum',

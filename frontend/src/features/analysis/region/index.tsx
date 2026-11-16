@@ -1,4 +1,4 @@
-import { ResultDialog } from '../ResultDialog';
+import { CsvDownload, ResultDialog } from '../ResultDialog';
 /**
  * Region analysis sub-mode (port of the region part of web/viewer-analysis.js).
  *
@@ -387,9 +387,8 @@ function RegionMode({ active }: AnalysisModeProps) {
         onClose={() => setResultOpen(false)}
         headingHelp={<HelpTrigger label={t('region.resultHelpLabel')} text={t('region.resultHelp')} />}
         actions={
-          <button type="button" id="region-export" disabled={!result || exportBusy} onClick={() => void exportCsv()}>
-            {exportBusy ? t('region.exporting') : t('region.export')}
-          </button>
+          <CsvDownload id="region-export" label={t('region.export')} busyLabel={t('region.exporting')}
+            busy={exportBusy} disabled={!result} onClick={() => void exportCsv()} />
         }
       >
         <div id="region-result-content">{result && <RegionSummary result={result.result} runLabel={entry ? runLabel(entry, t) : t('region.summary.runFallback')} />}</div>

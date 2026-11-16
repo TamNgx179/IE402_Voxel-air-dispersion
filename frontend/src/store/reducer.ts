@@ -79,7 +79,7 @@ export function viewerReducer(state: ViewerState, action: ViewerAction): ViewerS
     case 'bootstrap/failed':
       return { ...state, bootstrap: { status: 'error', data: null, error: action.error } };
     case 'bootstrap/retry':
-      return { ...state, bootstrap: { status: 'loading', data: null, error: null } };
+      return { ...state, bootstrap: { status: 'loading', data: null, error: state.bootstrap.error } };
     case 'runs/added':
       if (state.runs.some((run) => run.id === action.entry.id)) return state;
       return { ...state, runs: [action.entry, ...state.runs] };

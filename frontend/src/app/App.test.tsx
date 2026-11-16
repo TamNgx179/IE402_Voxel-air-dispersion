@@ -234,21 +234,72 @@ describe('viewer shell', () => {
     expect(fake.overlays[0].finalize).toHaveBeenCalledTimes(1);
   });
 
-  test('bootstrap failure shows a translated error with retry and no map', async () => {
+  test('bootstrap failure replaces the viewer and retry restores it', async () => {
     const store = createViewerStore();
     const fake = createFakeMapFactory();
-    render(<App store={store} api={fakeApi({ '/study-areas': new ApiError('network') })} mapFactory={fake.factory} />);
-    await waitFor(() => expect(screen.getByText('The application data could not be loaded.')).toBeInTheDocument());
-    expect(screen.getByRole('button', { name: 'Retry' })).toBeVisible();
+    const healthyApi = fakeApi();
+    let failed = true;
+    const api: ApiFn = (path, options) => path === '/study-areas' && failed
+      ? Promise.reject(new ApiError('network')) : healthyApi(path, options);
+    render(<App store={store} api={api} mapFactory={fake.factory} />);
+    await screen.findByRole('heading', { name: 'Can’t reach the map' });
     expect(fake.maps).toHaveLength(0);
-    expect(screen.getByLabelText('Choose a simulation result')).toBeDisabled();
+    expect(screen.queryByLabelText('Choose a simulation result')).not.toBeInTheDocument();
+    expect(screen.queryByRole('navigation', { name: 'Map view controls' })).not.toBeInTheDocument();
+    failed = false;
+    fireEvent.click(screen.getByRole('button', { name: 'Retry' }));
+    await screen.findByLabelText('Choose a simulation result');
+    expect(screen.queryByRole('heading', { name: 'Can’t reach the map' })).not.toBeInTheDocument();
   });
 
-  test('wind HUD pause button toggles and is labelled for its action', async () => {
+  test('going offline shows only the bundled artwork and restores the selected layer', async () => {
     const { store } = await renderApp();
-    // The fixture run has no wind artifact, so the HUD stays hidden.
-    expect(document.getElementById('wind-hud')).toHaveAttribute('hidden');
-    act(() => store.dispatch({ type: 'wind/paused', paused: true }));
-    expect(document.getElementById('wind-motion')).toHaveAttribute('aria-label', 'Resume wind motion');
+    act(() => store.dispatch({ type: 'layer/set', layer: 2 }));
+    fireEvent(window, new Event('offline'));
+    expect(screen.getByRole('main', { name: 'Waiting to reconnect' })).toBeVisible();
+    expect(screen.queryByRole('slider')).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Map options' })).not.toBeInTheDocument();
+    expect(document.querySelector('.connection-screen__art img')).toHaveAttribute(
+      'src', expect.stringMatching(/^data:image\/webp;base64,UklGR/),
+    );
+    expect(screen.queryByRole('button')).not.toBeInTheDocument();
+    fireEvent(window, new Event('online'));
+    expect(await screen.findByRole('slider')).toHaveValue('2');
+  });
+
+  test('an empty fallback basemap shows the artwork until the provider responds', async () => {
+    const { fake } = await renderApp();
+    const map = fake.maps[0];
+    map.queryRenderedFeatures = () => [];
+    let recover!: (response: Response) => void;
+    const fetchProbe = vi.spyOn(globalThis, 'fetch').mockReturnValue(new Promise((resolve) => { recover = resolve; }));
+    try {
+      act(() => {
+        map.fire('error', { sourceId: 'vector' });
+        map.fire('error', { sourceId: 'vector' });
+        map.fire('error', { sourceId: 'context' });
+      });
+      expect(screen.getByRole('main', { name: 'Waiting to reconnect' })).toBeVisible();
+      expect(screen.queryByRole('region', { name: '3D concentration field map' })).not.toBeInTheDocument();
+      expect(screen.queryByText('Reload basemap')).not.toBeInTheDocument();
+      await act(async () => recover(new Response('{}')));
+      expect(screen.getByRole('region', { name: '3D concentration field map' })).toBeVisible();
+    } finally {
+      fetchProbe.mockRestore();
+    }
+  });
+
+  test('wind motion stays available inside map options when the wind reading is absent', async () => {
+    const { store } = await renderApp();
+    expect(screen.queryByRole('switch', { name: 'Wind motion' })).not.toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: 'Map options' }));
+    const control = screen.getByRole('switch', { name: 'Wind motion' });
+    expect(control).toBeVisible();
+    expect(control).toHaveAttribute('aria-checked', 'true');
+    fireEvent.click(control);
+    expect(control).toHaveAttribute('aria-checked', 'false');
+    expect(store.getState().windPaused).toBe(true);
+    fireEvent.click(control);
+    expect(store.getState().windPaused).toBe(false);
   });
 });

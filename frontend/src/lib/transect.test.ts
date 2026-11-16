@@ -179,15 +179,15 @@ describe('reading cells', () => {
 
 describe('chart geometry', () => {
   const box = plotBox(600);
-  it('uses the legacy frame', () => {
-    expect(box).toEqual({ width: 600, height: 250, left: 52, right: 584, top: 18, bottom: 212 });
+  it('reserves room for axis labels and ticks', () => {
+    expect(box).toEqual({ width: 600, height: 250, left: 62, right: 570, top: 28, bottom: 198 });
     expect(plotBox(100).width).toBe(280);
   });
   it('maps distance and altitude to pixels', () => {
-    expect(xScale(result, box)(0)).toBe(52);
-    expect(xScale(result, box)(10)).toBe(584);
-    expect(yScale(result, box)(0)).toBe(212);
-    expect(yScale(result, box)(3)).toBe(18);
+    expect(xScale(result, box)(0)).toBe(62);
+    expect(xScale(result, box)(10)).toBe(570);
+    expect(yScale(result, box)(0)).toBe(198);
+    expect(yScale(result, box)(3)).toBe(28);
   });
   it('spans each sample to the midpoints with its neighbours', () => {
     expect(sampleSpan(result, 0)).toEqual([0, 5]);
@@ -195,8 +195,8 @@ describe('chart geometry', () => {
     expect(axisTicks(result)).toEqual({ z: [0, 0.75, 1.5, 2.25, 3], d: [0, 2.5, 5, 7.5, 10] });
   });
   it('picks the nearest sample and the half-open layer under the pointer', () => {
-    expect(pickCell(result, box, 60, 200)).toEqual({ position: 0, layer: 0 });
-    expect(pickCell(result, box, 580, 20)).toEqual({ position: 1, layer: 1 });
+    expect(pickCell(result, box, 72, 185)).toEqual({ position: 0, layer: 0 });
+    expect(pickCell(result, box, 560, 30)).toEqual({ position: 1, layer: 1 });
     expect(pickCell(result, box, 10, 100)).toBeNull();
     expect(pickCell(result, box, 60, 230)).toBeNull();
   });
@@ -206,9 +206,9 @@ describe('chart geometry', () => {
       z_max_m: 4,
       layers: [result.layers[0], { ...result.layers[1], overlap_max_m: 4 }],
     };
-    // Plot y=[18,212], z=[4,0]: y=115 is exactly the z=2 internal face.
-    for (const y of [115, 18]) {
-      const picked = pickCell(boundary, box, 60, y);
+    // Plot y=[28,198], z=[4,0]: y=113 is exactly the z=2 internal face.
+    for (const y of [113, 28]) {
+      const picked = pickCell(boundary, box, 72, y);
       expect(picked).toEqual({ position: 0, layer: 1 });
       expect(readingText(selectedReading(boundary, picked!.position, picked!.layer), vi, fmt)).toMatch(
         /Không có dữ liệu/,

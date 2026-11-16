@@ -62,7 +62,7 @@ const region: Messages<typeof en> = {
   'summary.area': 'Diện tích: {area} m².',
   'summary.layersTitle': 'Nồng độ theo độ cao',
   'summary.tableLabel': 'Bảng nồng độ theo độ cao, cuộn để xem các tầng',
-  'summary.caption': 'Nồng độ theo tầng (µg/m³); chỉ tính phần nằm trong khoảng độ cao đã chọn',
+  'summary.caption': 'Nồng độ trong khoảng độ cao đã chọn (µg/m³).',
   'summary.colCentre': 'Tâm tầng (m)',
   'summary.colMean': 'Trung bình',
   'summary.colMax': 'Cao nhất',

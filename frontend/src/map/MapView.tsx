@@ -7,8 +7,8 @@
 import { MapboxOverlay } from '@deck.gl/mapbox';
 import { AmbientLight, DirectionalLight, LightingEffect, type PickingInfo } from '@deck.gl/core';
 import maplibregl, { type Map as MapLibreMap, type StyleSpecification } from 'maplibre-gl';
-import { useEffect, useMemo, useRef, useState } from 'react';
-import { useI18n, type TranslationKey } from '../i18n';
+import { useEffect, useMemo, useRef } from 'react';
+import { useI18n } from '../i18n';
 import { build as buildAppearance, lighting } from '../lib/buildingAppearance';
 import { rasterStyle } from '../lib/flow';
 import { buildCells, buildNodes, lines, validCell } from '../lib/grid';
@@ -73,18 +73,17 @@ export const createMapLibre: MapFactory = ({ container, centre, overlayProps }) 
 export interface MapViewProps {
   bootstrap: BootstrapData;
   factory?: MapFactory;
+  onBasemapUnavailable?: (unavailable: true) => void;
 }
 
-type Notice = { key: TranslationKey } | null;
 
-export function MapView({ bootstrap, factory = createMapLibre }: MapViewProps) {
+export function MapView({ bootstrap, factory = createMapLibre, onBasemapUnavailable }: MapViewProps) {
   const store = useViewerStore();
   const registry = useMapRegistry();
   const setInstance = useSetMapInstance();
   const { t, formatNumber } = useI18n();
   const containerRef = useRef<HTMLDivElement>(null);
   const reducedMotion = usePrefersReducedMotion();
-  const [notice, setNotice] = useState<Notice>(null);
 
   // Translation helpers for deck callbacks, read through a ref so a language change
   // does not recreate the map.
@@ -92,7 +91,7 @@ export function MapView({ bootstrap, factory = createMapLibre }: MapViewProps) {
   i18nRef.current = { t, formatNumber };
   const reducedMotionRef = useRef(reducedMotion);
   reducedMotionRef.current = reducedMotion;
-  const controlsRef = useRef<{ render(): void; restartWind(): void; retryBasemap(): void } | null>(null);
+  const controlsRef = useRef<{ render(): void; restartWind(): void } | null>(null);
 
   const derived = useMemo(() => {
     const { node } = buildNodes(bootstrap.grid, bootstrap.corners);
@@ -118,10 +117,9 @@ export function MapView({ bootstrap, factory = createMapLibre }: MapViewProps) {
     let renderQueued: number | null = null;
     let lastFrame = 0;
     let basemapFallback = false;
-    let basemapError = false;
     let tileErrors = 0;
     let basemapTimer: ReturnType<typeof setTimeout> | undefined;
-    let appliedBasemap = store.getState().basemap;
+    let appliedBasemap: 'vector' | 'raster' = 'vector';
     /** Pending captureFrame() callbacks, run after the next deck frame. */
     const frameCallbacks = new Set<(deckCanvas: HTMLCanvasElement | null) => void>();
 
@@ -293,10 +291,10 @@ export function MapView({ bootstrap, factory = createMapLibre }: MapViewProps) {
       clearTimeout(basemapTimer);
       basemapTimer = setTimeout(() => {
         if (disposed) return;
-        const empty = !basemapFallback && map.queryRenderedFeatures().length === 0;
-        if (basemapError || !map.isStyleLoaded() || !map.areTilesLoaded() || empty) {
+        const empty = map.queryRenderedFeatures().length === 0;
+        if (empty || !map.isStyleLoaded() || !map.areTilesLoaded()) {
           if (!basemapFallback) switchToFallback();
-          else setNotice({ key: 'viewer.basemapSlow' });
+          else if (empty) onBasemapUnavailable?.(true);
         }
       }, 12000);
     }
@@ -308,8 +306,6 @@ export function MapView({ bootstrap, factory = createMapLibre }: MapViewProps) {
 
     function switchToFallback() {
       basemapFallback = true;
-      basemapError = false;
-      setNotice({ key: 'viewer.basemapFallback' });
       setStyle('raster');
       if (store.getState().basemap !== 'raster') store.dispatch({ type: 'basemap/set', basemap: 'raster' });
       watchBasemap();
@@ -320,35 +316,24 @@ export function MapView({ bootstrap, factory = createMapLibre }: MapViewProps) {
       const wanted = store.getState().basemap;
       if (wanted === appliedBasemap) return;
       tileErrors = 0;
-      basemapError = false;
       if (wanted === 'raster') switchToFallback();
       else {
         basemapFallback = false;
-        setNotice(null);
         setStyle('vector');
         watchBasemap();
       }
     }
 
-    function retryBasemap() {
-      tileErrors = 0;
-      basemapError = false;
-      setNotice({ key: 'viewer.basemapReloading' });
-      setStyle(basemapFallback ? 'raster' : 'vector');
-      watchBasemap();
-    }
-
-    map.on('error', (event: { error?: unknown }) => {
+    map.on('error', (event: { error?: unknown; sourceId?: string }) => {
       console.warn('MapLibre:', event.error || event);
       if (++tileErrors >= 2 && !basemapFallback) switchToFallback();
       else if (basemapFallback) {
-        basemapError = true;
-        setNotice({ key: 'viewer.basemapFailed' });
+        if ((!event.sourceId || event.sourceId === 'context') && map.queryRenderedFeatures().length === 0) {
+          onBasemapUnavailable?.(true);
+        }
       }
     });
-    map.on('idle', () => {
-      if (map.areTilesLoaded() && !basemapError) setNotice(null);
-    });
+    applyBasemap();
     watchBasemap();
 
     // ---------------------------------------------------------------- clicks
@@ -383,7 +368,7 @@ export function MapView({ bootstrap, factory = createMapLibre }: MapViewProps) {
     const onVisibility = () => restartWind();
     document.addEventListener('visibilitychange', onVisibility);
 
-    controlsRef.current = { render: scheduleRender, restartWind, retryBasemap };
+    controlsRef.current = { render: scheduleRender, restartWind };
     resetView(0);
     render();
     restartWindIfNeeded();
@@ -409,7 +394,7 @@ export function MapView({ bootstrap, factory = createMapLibre }: MapViewProps) {
       map.remove();
     };
     // The map is created once per bootstrap; everything else is read through refs/stores.
-  }, [bootstrap, derived, factory]);
+  }, [bootstrap, derived, factory, onBasemapUnavailable]);
 
   // prefers-reduced-motion stops or resumes the animation without recreating the map.
   useEffect(() => {
@@ -419,12 +404,6 @@ export function MapView({ bootstrap, factory = createMapLibre }: MapViewProps) {
   return (
     <>
       <div id="map" ref={containerRef} role="region" aria-label={t('viewer.mapLabel')} />
-      <aside id="basemap-notice" className="basemap-notice" hidden={!notice} role="status">
-        <span id="basemap-message">{notice ? t(notice.key) : ''}</span>
-        <button id="basemap-retry" type="button" onClick={() => controlsRef.current?.retryBasemap()}>
-          {t('viewer.basemapRetry')}
-        </button>
-      </aside>
     </>
   );
 }

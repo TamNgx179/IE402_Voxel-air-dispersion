@@ -73,6 +73,7 @@ export function CameraToolbar() {
           </button>
         </div>
         <WindHud />
+        <WindMotionControl />
       </div>
     </nav>
   );
@@ -100,20 +101,15 @@ export function MapInteraction() {
 
 function WindHud() {
   const { t, formatNumber } = useI18n();
-  const dispatch = useViewerDispatch();
   const entry = useViewer(selectCurrentEntry);
   const run = useViewer(selectCurrentRun);
   const showWind = useViewer((s) => s.layers.wind);
-  const windPaused = useViewer((s) => s.windPaused);
   const layer = useViewer((s) => s.layer);
-  const reduced = usePrefersReducedMotion();
-  const paused = windPaused || reduced;
   const wind = useMemo(() => {
     const vectors = run?.windField?.layers.find((item) => item.k === layer)?.vectors ?? [];
     return layerWind(vectors);
   }, [run, layer]);
   const hidden = !entry || !showWind || !run?.windField || !wind;
-  const motionLabel = paused ? t('viewer.windResume') : t('viewer.windPause');
   return (
     <aside id="wind-hud" className="wind-hud" aria-live="polite" hidden={hidden}>
       <span id="wind-arrow" className="wind-arrow" aria-hidden="true" style={wind ? { transform: `rotate(${wind.toDeg}deg)` } : undefined}>
@@ -128,18 +124,23 @@ function WindHud() {
               })
             : t('viewer.windLoading')}
       </strong>
-      <button
-        id="wind-motion"
-        className="icon-button"
-        type="button"
-        aria-label={motionLabel}
-        title={motionLabel}
-        aria-pressed={paused}
-        onClick={() => dispatch({ type: 'wind/paused', paused: !windPaused })}
-      >
-        <i className={paused ? 'bi bi-play-fill' : 'bi bi-pause-fill'} aria-hidden="true" />
-      </button>
     </aside>
+  );
+}
+
+function WindMotionControl() {
+  const { t } = useI18n();
+  const dispatch = useViewerDispatch();
+  const windPaused = useViewer((s) => s.windPaused);
+  const reduced = usePrefersReducedMotion();
+  const paused = windPaused || reduced;
+  return (
+    <button id="wind-motion" className="wind-motion-control" type="button" role="switch"
+      aria-checked={!paused} disabled={reduced}
+      onClick={() => dispatch({ type: 'wind/paused', paused: !windPaused })}>
+      <i className={paused ? 'bi bi-play-fill' : 'bi bi-pause-fill'} aria-hidden="true" />
+      {t('viewer.windMotionSetting')}
+    </button>
   );
 }
 

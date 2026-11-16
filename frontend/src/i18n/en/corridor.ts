@@ -46,7 +46,7 @@ const corridor = {
   insightLower:
     'The near band {nearInner}–{nearOuter} m is lower than the band {farInner}–{farOuter} m by about {diff} µg/m³.',
   tableLabel: 'Result table by distance band',
-  caption: 'Mean by air volume (µg/m³); exceeding {threshold} µg/m³ as % of the volume with data',
+  caption: 'Mean in µg/m³. Exceedance is the share above {threshold} µg/m³.',
   colBand: 'Band (m)',
   colMean: 'Mean',
   colCoverage: 'Data coverage',

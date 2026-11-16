@@ -36,6 +36,7 @@ const transect: Messages<typeof en> = {
   chartLabel:
     'Mặt cắt đứng: trục ngang là khoảng cách, trục dọc là cao độ. Nhấn vào ô hoặc dùng các phím mũi tên để đọc giá trị.',
   chartFallback: 'Dữ liệu mặt cắt có thể tải dưới dạng CSV.',
+  legendConcentration: 'Nồng độ (µg/m³)',
   scale: '0 → {max} µg/m³, tuyến tính',
   legendSolid: 'Tòa nhà',
   legendNoData: 'Thiếu dữ liệu',

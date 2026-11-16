@@ -176,10 +176,6 @@ export function createViewerActions(store: ViewerStore, api: ApiFn): ViewerActio
     } catch (error) {
       if (token !== bootstrapToken) return;
       dispatch({ type: 'bootstrap/failed', error });
-      dispatch({
-        type: 'status/set',
-        status: { message: { key: 'viewer.statusBootstrapFailed' }, kind: 'error', retry: () => void loadBootstrap(), error },
-      });
       return;
     }
     if (token !== bootstrapToken) return;

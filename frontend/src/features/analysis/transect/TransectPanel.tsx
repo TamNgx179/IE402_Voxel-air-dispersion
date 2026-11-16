@@ -6,7 +6,7 @@
 import { PathLayer } from '@deck.gl/layers';
 import { drawingVertices } from '../../../map/drawingVertices';
 import { useCallback, useEffect, useMemo, useRef, useState, type KeyboardEvent, type MouseEvent } from 'react';
-import { ResultDialog } from '../ResultDialog';
+import { CsvDownload, ResultDialog } from '../ResultDialog';
 import { HelpTrigger } from '../../../shared/ui/Help';
 import { useExportContribution } from '../../../export/ExportProvider';
 import { useI18n } from '../../../i18n';
@@ -374,22 +374,27 @@ export function TransectPanel({ active }: TransectPanelProps) {
       }
     }
     ctx.fillStyle = '#253039';
-    ctx.font = '13px system-ui';
+    ctx.font = '14px system-ui';
     ctx.lineWidth = 1;
     ctx.strokeStyle = '#7a8f9c';
     ctx.strokeRect(b.left, b.top, b.right - b.left, b.bottom - b.top);
     const ticks = axisTicks(result);
-    ticks.z.forEach((value, n) => {
+    ticks.z.forEach((value) => {
       ctx.textAlign = 'right';
-      ctx.fillText(format(value), b.left - 7, y(value) + 4);
-      const d = ticks.d[n];
-      ctx.textAlign = n === 0 ? 'left' : n === 4 ? 'right' : 'center';
-      ctx.fillText(format(d), x(d), b.bottom + 16);
+      ctx.fillRect(b.left - 5, y(value), 5, 1);
+      ctx.fillText(format(value), b.left - 10, y(value) + 5);
     });
+    ticks.d.forEach((value, index) => {
+      if (b.width < 440 && index % 2 !== 0) return;
+      ctx.fillRect(x(value), b.bottom, 1, 5);
+      ctx.textAlign = 'center';
+      ctx.fillText(format(value), Math.min(b.width - 26, x(value)), b.bottom + 22);
+    });
+    ctx.font = '600 14px system-ui';
     ctx.textAlign = 'left';
-    ctx.fillText(t('transect.axisZ'), 4, 11);
+    ctx.fillText(t('transect.axisZ'), 4, 15);
     ctx.textAlign = 'center';
-    ctx.fillText(t('transect.axisDistance'), (b.left + b.right) / 2, b.height - 3);
+    ctx.fillText(t('transect.axisDistance'), (b.left + b.right) / 2, b.height - 9);
   }, [shown, result, selection, maxValue, canvasWidth, format, t, locale]);
 
   function chartClick(event: MouseEvent<HTMLCanvasElement>) {
@@ -424,9 +429,8 @@ export function TransectPanel({ active }: TransectPanelProps) {
         initialFocus={canvasRef}
         headingHelp={<HelpTrigger label={t('transect.resultHelpLabel')} text={t('transect.resultHelp')} />}
         actions={
-          <button id="transect-export" type="button" disabled={exporting} onClick={exportCsv}>
-            {exporting ? t('transect.downloading') : t('transect.download')}
-          </button>
+          <CsvDownload id="transect-export" label={t('transect.download')} busyLabel={t('transect.downloading')}
+            busy={exporting} onClick={exportCsv} />
         }
       >
         <p id="transect-context">
@@ -440,6 +444,7 @@ export function TransectPanel({ active }: TransectPanelProps) {
         <p id="transect-empty" className="instruction" hidden={hasAir(result)}>
           {t('transect.empty')}
         </p>
+        <figure className="transect-figure">
         <canvas
           ref={canvasRef}
           id="transect-chart"
@@ -453,9 +458,12 @@ export function TransectPanel({ active }: TransectPanelProps) {
         >
           {t('transect.chartFallback')}
         </canvas>
-        <div className="transect-key">
-          <span className="transect-color-ramp" aria-hidden="true" />
-          <span id="transect-scale">{t('transect.scale', { max: format(maxValue) })}</span>
+        <figcaption className="transect-key">
+          <h3>{t('transect.legendConcentration')}</h3>
+          <div className="transect-scale" id="transect-scale" aria-label={t('transect.scale', { max: format(maxValue) })}>
+            <span className="transect-color-ramp" aria-hidden="true" />
+            <span className="transect-scale-values" aria-hidden="true"><span>{format(maxValue)}</span><span>0</span></span>
+          </div>
           <span>
             <i className="transect-solid" aria-hidden="true" />
             {t('transect.legendSolid')}
@@ -464,7 +472,8 @@ export function TransectPanel({ active }: TransectPanelProps) {
             <i className="transect-no-data" aria-hidden="true" />
             {t('transect.legendNoData')}
           </span>
-        </div>
+        </figcaption>
+        </figure>
         <p id="transect-reading" className="transect-reading" role="status" aria-live="polite">
           {readingText(selectedReading(result, selection.position, selection.layer), t, format)}
         </p>
