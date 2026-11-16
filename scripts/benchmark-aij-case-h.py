@@ -3,6 +3,7 @@ import argparse
 import hashlib
 import json
 from pathlib import Path
+from time import perf_counter
 
 import matplotlib
 matplotlib.use("Agg")
@@ -37,6 +38,8 @@ def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("data", type=Path)
     parser.add_argument("out", type=Path)
+    parser.add_argument("--compare-mixing", action="store_true",
+                        help="Compare fixed vertical mixing factors with a spatial holdout")
     args = parser.parse_args()
     args.out.mkdir(exist_ok=False, parents=True)
     approach = load_csv(args.data / "AF_caseH.csv", "1e5fd41fe8b5a7c7989ccfbb1c223ecb")
@@ -87,8 +90,43 @@ def main():
     wake = (coords[:, 2] > 0) & (abs(coords[:, 1]) < .05) & (coords[:, 0] < H)
     result = {name: scores(measured[mask], predicted[mask])
               for name, mask in (("all", valid), ("wake", valid & wake), ("outside_wake", valid & ~wake))}
-    observed.assign(measured_cstar=measured, predicted_cstar=predicted, wake=wake).to_csv(
-        args.out / "points.csv", index=False)
+    point_results = observed.assign(measured_cstar=measured, predicted_cstar=predicted, wake=wake)
+    comparison = None
+    if args.compare_mixing:
+        # Hold out complete streamwise stations, using positions alone before scoring.
+        # This split tests interpolation across stations of the same experiment.
+        stations = np.unique(coords[valid, 2])
+        held_out = np.isin(coords[:, 2], stations[1::2])
+        point_results["split"] = np.where(~valid, "excluded", np.where(held_out, "held_out", "development"))
+        comparison = {"held_out_x_m": stations[1::2].tolist(), "variants": {}}
+        # Run baseline again in the same timing loop as both alternatives.
+        for factor in (1.0, 0.5, 2.0):
+            # FV diffusivities are ordered (z, y, x). Keep horizontal mixing and wind fixed.
+            mixing = (factor * diffusivity, diffusivity, diffusivity)
+            start = perf_counter()
+            samples, budget = transport(wind, source, solid, mixing, spacing, seconds=3,
+                                        dt=stable_dt(wind, mixing, spacing), checkpoints=3)
+            wall_s = perf_counter() - start
+            estimate = sample(samples[-1])
+            if not np.array_equal(np.isfinite(estimate), valid):
+                raise ValueError("Mixing variants must be scored on identical observations")
+            point_results[f"predicted_cstar_kz_{factor:g}"] = estimate
+            splits = {}
+            for split, selected in (("development", ~held_out), ("held_out", held_out)):
+                splits[split] = {
+                    name: scores(measured[mask], estimate[mask])
+                    for name, mask in (
+                        ("wake", valid & selected & wake),
+                        ("outside_wake", valid & selected & ~wake),
+                    )
+                }
+            comparison["variants"][f"{factor:g}"] = dict(
+                vertical_factor=factor, transport_wall_s=wall_s, metrics=budget, scores=splits,
+            )
+        variants = comparison["variants"]
+        winner = min(variants, key=lambda key: variants[key]["scores"]["development"]["wake"]["rmse"])
+        comparison["selected_by_development_wake_rmse"] = float(winner)
+    point_results.to_csv(args.out / "points.csv", index=False)
     centre = valid & np.isclose(coords[:, 1], 0)
     cmap = "magma"
     limit = max(float(np.max(measured[centre])), float(np.max(predicted[centre])))
@@ -107,6 +145,8 @@ def main():
                    excluded_points=int((~valid).sum()), metrics=metrics, scores=result,
                    last_second_relative_change=float(np.linalg.norm((predicted - previous)[valid])
                                                      / np.linalg.norm(predicted[valid])))
+    if comparison is not None:
+        summary["mixing_comparison"] = comparison
     (args.out / "summary.json").write_text(json.dumps(summary, indent=2, allow_nan=False) + "\n")
     print(json.dumps(summary, indent=2))
 

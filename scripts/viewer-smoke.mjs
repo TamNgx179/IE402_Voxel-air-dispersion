@@ -1,6 +1,7 @@
 /** Headless Chrome/Edge smoke using Node's built-in DevTools WebSocket. */
 import { spawn } from 'node:child_process';
 import { existsSync } from 'node:fs';
+import { createServer, request } from 'node:http';
 import { mkdir, readdir, readFile, writeFile } from 'node:fs/promises';
 import { join, resolve, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -75,8 +76,8 @@ class DevTools {
   }
 }
 
-export async function browserSmoke({ base, out, timeout = 120_000, legacy = false }) {
-  const origin = new URL(base);
+export async function browserSmoke({ base, out, timeout = 120_000, legacy = false, evidenceRun }) {
+  let origin = new URL(base);
   assert(['127.0.0.1', 'localhost'].includes(origin.hostname), 'Browser smoke only accepts the local demo');
   await mkdir(out, { recursive: true });
   const profile = join(out, `chrome-profile-${Date.now()}`);
@@ -91,9 +92,35 @@ export async function browserSmoke({ base, out, timeout = 120_000, legacy = fals
   child.on('error', (error) => { launchError = error; });
   child.stderr.on('data', (chunk) => { stderr += chunk; });
   let client;
+  let proxy;
+  let originUnavailable = false;
   const report = { schema_version: 1, base_url: base, status: 'running', checks: [] };
   const checks = (name) => report.checks.push({ name, status: 'pass' });
   try {
+    if (evidenceRun) {
+      // Cut access to the local origin for both the page and its service worker.
+      // DevTools network emulation on the page alone does not govern worker fetches.
+      const upstream = origin;
+      proxy = createServer((incoming, outgoing) => {
+        if (originUnavailable) {
+          incoming.socket.destroy();
+          return;
+        }
+        const forwarded = request(upstream, {
+          path: incoming.url, method: incoming.method, headers: incoming.headers,
+        }, (response) => {
+          outgoing.writeHead(response.statusCode, response.headers);
+          response.pipe(outgoing);
+        });
+        forwarded.on('error', () => outgoing.destroy());
+        incoming.pipe(forwarded);
+      });
+      await new Promise((resolve, reject) => {
+        proxy.once('error', reject);
+        proxy.listen(0, '127.0.0.1', resolve);
+      });
+      origin = new URL(`http://127.0.0.1:${proxy.address().port}`);
+    }
     const text = await waitUntil(async () => {
       if (launchError) throw launchError;
       return readFile(join(profile, 'DevToolsActivePort'), 'utf8');
@@ -121,6 +148,28 @@ export async function browserSmoke({ base, out, timeout = 120_000, legacy = fals
         document.documentElement.lang === 'en')`), Boolean, { timeout, name: 'React viewer bootstrap' });
       checks('React viewer loaded a real result in English');
       await client.screenshot(join(out, 'scene-overview.png'));
+      if (evidenceRun) {
+        await evaluate(`(() => {
+          const select = document.querySelector('#scenario-list');
+          select.value = ${JSON.stringify(evidenceRun)};
+          select.dispatchEvent(new Event('change', { bubbles: true }));
+        })()`);
+        for (const [index, metres] of [[0, 1], [7, 15]]) {
+          await evaluate(`(() => {
+            const slider = document.querySelector('#height-slider');
+            Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value').set.call(slider, '${index}');
+            slider.dispatchEvent(new Event('input', { bubbles: true }));
+            slider.dispatchEvent(new Event('change', { bubbles: true }));
+          })()`);
+          await waitUntil(() => evaluate(`document.querySelector('#scenario-list')?.value === ${JSON.stringify(evidenceRun)} &&
+            document.querySelector('#height-value')?.textContent.includes('${metres}') &&
+            Boolean(document.querySelector('#map canvas'))`), Boolean, { name: `Evidence run layer ${metres} m` });
+          await evaluate('new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve)))');
+          await client.screenshot(join(out, `map-${metres}m.png`));
+        }
+        report.evidence_run_id = evidenceRun;
+        checks('Same production run photographed at 1 m and 15 m');
+      }
       const initial = await evaluate(`(() => {
         document.querySelector('#height-marks button[data-index="12"]').click();
         return document.querySelector('#scenario-list').value;
@@ -226,6 +275,15 @@ export async function browserSmoke({ base, out, timeout = 120_000, legacy = fals
       await waitUntil(() => evaluate(`Boolean(document.querySelector('#transect-result:modal'))`),
         Boolean, { name: 'server-backed vertical section is a modal' });
       await client.screenshot(join(out, 'transect-modal.png'));
+      if (evidenceRun) {
+        const filename = `transect-${evidenceRun}.csv`;
+        await evaluate(`document.querySelector('#transect-export').click()`);
+        const contents = await waitUntil(() => readFile(join(out, filename), 'utf8'),
+          (text) => text.trim().split(/\r?\n/).length > 1, { name: 'Transect CSV downloaded by browser' });
+        assert(contents.trim().split(/\r?\n/).slice(1).every((row) => row.startsWith(`"${evidenceRun}",`)),
+          'Browser transect CSV must belong to the evidence run');
+        checks('Browser downloaded a populated transect CSV for the evidence run');
+      }
       await clickMap(10, 12);
       assert(await evaluate(`!document.querySelector('#transect-result:modal')`), 'Clicking the backdrop should close the modal');
       checks('Vertical section opens above the map and closes on backdrop click');
@@ -266,6 +324,41 @@ export async function browserSmoke({ base, out, timeout = 120_000, legacy = fals
       checks('Analysis controls fit at 390 px and 320 px');
       await client.screenshot(join(out, 'mobile-layout.png'));
       checks('Mobile viewport fits without horizontal overflow');
+      if (evidenceRun) {
+        // Use browser network emulation so navigator.onLine and real network requests both change.
+        await waitUntil(() => evaluate(`(async () => Boolean(navigator.serviceWorker.controller &&
+          await caches.match(new URL('offline-art', location.href))))()`),
+          Boolean, { name: 'Offline illustration saved by service worker' });
+        const network = (offline) => client.send('Network.emulateNetworkConditions', {
+          offline, latency: 0, downloadThroughput: -1, uploadThroughput: -1,
+        });
+        const mapVisible = `Boolean(document.querySelector('#map canvas') &&
+          document.querySelector('#scenario-list')?.value)`;
+        const started = await evaluate('performance.timeOrigin');
+        await network(true);
+        await waitUntil(() => evaluate(`!navigator.onLine && !document.querySelector('#map canvas') &&
+          Boolean(document.querySelector('.connection-screen__art img')?.naturalWidth) &&
+          Boolean(document.querySelector('.connection-screen__loader')?.naturalWidth)`),
+          Boolean, { name: 'Offline screen replaces the map and both illustrations load' });
+        await client.screenshot(join(out, 'offline.png'));
+        await network(false);
+        await waitUntil(() => evaluate(`navigator.onLine && ${mapVisible} &&
+          performance.timeOrigin === ${started} &&
+          document.querySelector('#scenario-list').value === ${JSON.stringify(evidenceRun)} &&
+          document.querySelector('#height-slider').value === '12'`),
+          Boolean, { name: 'Map, run and height return without navigating' });
+        checks('Disconnect and reconnect restore the same live document, run and height');
+        originUnavailable = true;
+        await client.send('Page.reload');
+        await waitUntil(() => evaluate(`document.querySelector('#offline-title')?.textContent &&
+          Boolean(document.querySelector('.art')?.naturalWidth) && !document.querySelector('#map canvas')`),
+          Boolean, { name: 'Cached fallback after reloading offline' });
+        await client.screenshot(join(out, 'offline-cached.png'));
+        originUnavailable = false;
+        await waitUntil(() => evaluate(`navigator.onLine && ${mapVisible}`),
+          Boolean, { name: 'Cached fallback automatically reopens the map' });
+        checks('After a reload while the origin is unreachable, cached artwork gives way to the map');
+      }
       assert(client.exceptions.length === 0, `Viewer JS exceptions: ${JSON.stringify(client.exceptions)}`);
       report.exceptions = client.exceptions;
       report.network_failures = client.networkFailures;
@@ -336,6 +429,8 @@ export async function browserSmoke({ base, out, timeout = 120_000, legacy = fals
   } finally {
     client?.socket.close();
     child.kill();
+    proxy?.close();
+    proxy?.closeAllConnections();
     await writeFile(join(out, 'chrome.log'), stderr);
     await writeJson(join(out, 'browser-report.json'), report);
   }
@@ -346,9 +441,11 @@ if (process.argv[1] && resolve(process.argv[1]) === fileURLToPath(import.meta.ur
     base: { type: 'string', default: 'http://127.0.0.1:3001' },
     out: { type: 'string', default: 'artifacts/week7/browser' },
     legacy: { type: 'boolean', default: false },
+    'evidence-run': { type: 'string' },
   } });
   const root = resolve(dirname(fileURLToPath(import.meta.url)), '..');
-  browserSmoke({ base: values.base, out: resolve(root, values.out), legacy: values.legacy })
+  browserSmoke({ base: values.base, out: resolve(root, values.out), legacy: values.legacy,
+    evidenceRun: values['evidence-run'] })
     .then((report) => console.log(`Browser ${report.status}: ${report.checks.length} checks`))
     .catch((error) => { console.error(error.message); process.exitCode = 1; });
 }
