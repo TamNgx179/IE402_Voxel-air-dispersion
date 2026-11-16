@@ -30,15 +30,16 @@ describe('viewer store', () => {
     expect(state.status.kind).toBe('pass');
   });
 
-  test('bootstrap failure keeps an i18n status with retry', async () => {
+  test('bootstrap keeps the failure available while retrying', async () => {
     const store = createViewerStore();
-    const actions = createViewerActions(store, fakeApi({ '/scenarios': new ApiError('network') }));
+    const error = new ApiError('network');
+    const actions = createViewerActions(store, fakeApi({ '/scenarios': error }));
     await actions.loadBootstrap();
-    const state = store.getState();
-    expect(state.bootstrap.status).toBe('error');
-    expect(state.status.message!.key).toBe('viewer.statusBootstrapFailed');
-    expect(state.status.kind).toBe('error');
-    expect(typeof state.status.retry).toBe('function');
+    expect(store.getState().bootstrap).toMatchObject({ status: 'error', error });
+    const retry = actions.loadBootstrap();
+    expect(store.getState().bootstrap).toMatchObject({ status: 'loading', error });
+    await retry;
+    expect(store.getState().bootstrap).toMatchObject({ status: 'error', error });
   });
 
   test('switching runs preserves layer, cell, toggles and display state', async () => {

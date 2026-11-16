@@ -250,7 +250,16 @@
 #camera-rotation-toggle[aria-expanded="true"] { background: var(--tool-bg); color: var(--accent); }
 .camera-toolbar button:focus-visible { outline-offset: -3px; }
 .map-controls .wind-hud { padding: 4px 6px; gap: 6px; right: auto; border: 0; border-top: 1px solid var(--line); border-radius: 0; box-shadow: none; }
-.map-controls .wind-hud button { padding: 0; }
+.map-controls .camera-toolbar .wind-motion-control {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding-inline: 10px;
+  border-top: 1px solid var(--line);
+  white-space: nowrap;
+}
+.wind-motion-control[aria-checked="true"] { color: var(--accent); }
+.wind-motion-control:disabled { cursor: default; opacity: 0.65; }
 #panel-body #status-box { position: static; max-width: none; }
 #run-note:empty, .query-feedback:has(#query-note:empty):has(#query-retry[hidden]) { display: none; }
 #run-note[data-complete="true"]:not(:empty) {

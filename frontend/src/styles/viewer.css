@@ -128,21 +128,8 @@ body {
   inset: 0;
 }
 
-.basemap-notice {
-  position:absolute; z-index:21; bottom:52px; right:16px;
-  max-width:calc(100vw - 32px); padding:10px 12px;
-  border:1px solid var(--line); border-radius:10px;
-  background:var(--panel); color:var(--muted); font-size:12px;
-}
-.basemap-notice button {
-  margin-left:10px; border:0; background:transparent;
-  color:var(--accent); font:inherit; text-decoration:underline; cursor:pointer;
-}
 .wind-hud .icon-button { flex-shrink:0; pointer-events:auto; }
 .wind-hud .icon-button .bi { font-size:18px; }
-@media (max-width:640px) {
-  .basemap-notice { top:156px; bottom:auto; right:8px; max-width:calc(100vw - 16px); }
-}
 
 .panel {
   position: absolute;
