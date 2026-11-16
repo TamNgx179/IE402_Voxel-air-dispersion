@@ -66,6 +66,7 @@ const viewer: Messages<typeof en> = {
 
 
   statusLoadingLibraries: 'Đang tải…',
+  analysisConclusion: 'Kết luận',
   offlineTitle: 'Đang chờ kết nối',
   offlineRecovery: 'Bản đồ sẽ tự mở lại.',
   connectionTitle: 'Chưa kết nối được với bản đồ',

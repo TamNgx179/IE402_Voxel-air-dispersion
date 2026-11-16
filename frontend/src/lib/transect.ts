@@ -218,7 +218,7 @@ export interface PlotBox {
 export function plotBox(width: number): PlotBox {
   const w = Math.max(PLOT_MIN_WIDTH, width),
     height = PLOT_HEIGHT;
-  return { width: w, height, left: 52, right: w - 16, top: 18, bottom: height - 38 };
+  return { width: w, height, left: 62, right: w - 30, top: 28, bottom: height - 52 };
 }
 
 /** Distance (m) → x pixel. */

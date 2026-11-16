@@ -64,6 +64,7 @@ const viewer = {
 
 
   statusLoadingLibraries: 'Loading…',
+  analysisConclusion: 'Conclusion',
   offlineTitle: 'Waiting to reconnect',
   offlineRecovery: 'The map will reopen automatically.',
   connectionTitle: 'Can’t reach the map',

@@ -1,4 +1,5 @@
-import { ResultDialog } from '../ResultDialog';
+import { ResultInsight } from '../Metrics';
+import { CsvDownload, ResultDialog } from '../ResultDialog';
 /**
  * Road corridor × altitude analysis (port of web/viewer-corridor.js + #corridor-panel).
  * Statistics come only from the server's volume-weighted SQL; this component picks
@@ -507,9 +508,8 @@ export function CorridorPanel({ active }: CorridorPanelProps) {
         onClose={() => setResultOpen(false)}
         headingHelp={<HelpTrigger label={t('corridor.resultHelpLabel')} text={t('corridor.resultHelp')} />}
         actions={
-          <button type="button" id="corridor-export" disabled={!result || exportBusy} onClick={exportCsv}>
-            {exportBusy ? t('corridor.downloading') : t('corridor.download')}
-          </button>
+          <CsvDownload id="corridor-export" label={t('corridor.download')} busyLabel={t('corridor.downloading')}
+            busy={exportBusy} disabled={!result} onClick={exportCsv} />
         }
       >
         <div id="corridor-result-content">{result && <CorridorSummary data={result.data} runLabel={label} fmt={fmt} />}</div>
@@ -557,11 +557,10 @@ function CorridorSummary({
       </p>
       {!valid.length && (
         <>
-          <p className="result-insight">{t('corridor.noAir')}</p>
+          <ResultInsight>{t('corridor.noAir')}</ResultInsight>
           <p className="note">{t('corridor.noAirNote')}</p>
         </>
       )}
-      {insight && <p className="result-insight">{insight}</p>}
       <div className="result-table-scroll" tabIndex={0} role="region" aria-label={t('corridor.tableLabel')}>
         <table className="result-table">
           <caption>{t('corridor.caption', { threshold: fmt(data.threshold_ug_m3) })}</caption>
@@ -592,6 +591,7 @@ function CorridorSummary({
           </tbody>
         </table>
       </div>
+      {insight && <ResultInsight>{insight}</ResultInsight>}
       <p className="note">{t('corridor.modelNote')}</p>
     </>
   );

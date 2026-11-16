@@ -42,7 +42,7 @@ const corridor: Messages<typeof en> = {
   insightHigher: 'Dải gần {nearInner}–{nearOuter} m cao hơn dải {farInner}–{farOuter} m khoảng {diff} µg/m³.',
   insightLower: 'Dải gần {nearInner}–{nearOuter} m thấp hơn dải {farInner}–{farOuter} m khoảng {diff} µg/m³.',
   tableLabel: 'Bảng kết quả theo dải khoảng cách',
-  caption: 'Trung bình theo thể tích khí (µg/m³); vượt {threshold} µg/m³ tính theo % thể tích có dữ liệu',
+  caption: 'Trung bình tính bằng µg/m³. Tỷ lệ vượt tính theo ngưỡng {threshold} µg/m³.',
   colBand: 'Dải (m)',
   colMean: 'Trung bình',
   colCoverage: 'Phủ dữ liệu',

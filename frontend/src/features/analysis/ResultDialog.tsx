@@ -1,6 +1,25 @@
 import { useEffect, useRef, type ReactNode, type RefObject } from 'react';
 import { createPortal } from 'react-dom';
 
+export function CsvDownload({ id, label, busyLabel, busy, disabled, onClick }: {
+  id: string;
+  label: string;
+  busyLabel: string;
+  busy: boolean;
+  disabled?: boolean;
+  onClick: () => void;
+}) {
+  const text = busy ? busyLabel : label;
+  return (
+    <span className="analysis-icon-action">
+      <button id={id} type="button" aria-label={text} disabled={disabled || busy} onClick={onClick}>
+        <i className={busy ? 'bi bi-hourglass-split' : 'bi bi-download'} aria-hidden="true" />
+      </button>
+      <span className="analysis-icon-tooltip" aria-hidden="true">{text}</span>
+    </span>
+  );
+}
+
 interface ResultDialogProps {
   id: string;
   open: boolean;
@@ -59,7 +78,7 @@ export function ResultDialog({ id, open, title, closeLabel, onClose, initialFocu
           {headingHelp}
         </div>
       </div>
-      {children}
+      <div className="analysis-dialog-body">{children}</div>
     </dialog>,
     document.body,
   );

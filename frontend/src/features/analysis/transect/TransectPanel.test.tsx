@@ -167,7 +167,7 @@ describe('TransectPanel', () => {
     expect(reading()).toMatch(/11 µg\/m³/);
     fireEvent.keyDown(chart, { key: 'ArrowDown' });
     expect(reading()).toMatch(/Building/);
-    fireEvent.click(chart, { clientX: 60, clientY: 200 });
+    fireEvent.click(chart, { clientX: 72, clientY: 185 });
     expect(reading()).toMatch(/0 µg\/m³/);
     expect(document.getElementById('transect-reading')).toHaveAttribute('aria-live', 'polite');
   });
@@ -299,9 +299,9 @@ describe('TransectPanel', () => {
     act(() => ui.button('View section').click());
     await tick();
     const chart = document.getElementById('transect-chart')!;
-    // Plot y=[18,212], z=[4,0]: y=115 is exactly the z=2 internal face.
-    for (const clientY of [115, 18]) {
-      fireEvent.click(chart, { clientX: 60, clientY });
+    // Plot y=[28,198], z=[4,0]: y=113 is exactly the z=2 internal face.
+    for (const clientY of [113, 28]) {
+      fireEvent.click(chart, { clientX: 72, clientY });
       expect(reading()).toMatch(/No data/);
     }
   });

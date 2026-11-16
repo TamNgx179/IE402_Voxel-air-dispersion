@@ -37,6 +37,7 @@ const transect = {
   chartLabel:
     'Vertical section: the horizontal axis is distance, the vertical axis is height. Click a cell or use the arrow keys to read its value.',
   chartFallback: 'The section data can be downloaded as CSV.',
+  legendConcentration: 'Concentration (µg/m³)',
   scale: '0 → {max} µg/m³, linear',
   legendSolid: 'Building',
   legendNoData: 'Missing data',
