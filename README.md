@@ -1,6 +1,52 @@
 # IE402 — Urban Air Pollution Dispersion with 3D GIS
 
-This project models PM2.5 dispersion around Nguyễn Huệ Walking Street in Ho Chi Minh City. It uses a mass-consistent diagnostic wind field and finite-volume transport on a 3D voxel grid. The standard domain is 500 × 500 × 100 m with 500,000 cells of 5 × 5 × 2 m. The modeled concentrations represent the contribution of the selected emission source under the specified assumptions.
+> A WebGIS project for simulating and exploring traffic-related PM2.5 dispersion around Nguyễn Huệ Walking Street in Ho Chi Minh City.
+
+![React 18](https://img.shields.io/badge/React-18-61DAFB?logo=react&logoColor=black)
+![Vite 5](https://img.shields.io/badge/Vite-5-646CFF?logo=vite&logoColor=white)
+![TypeScript](https://img.shields.io/badge/TypeScript-WebGIS%20%26%20API-3178C6?logo=typescript&logoColor=white)
+![MapLibre GL JS 5](https://img.shields.io/badge/MapLibre%20GL%20JS-5-396CB2)
+![deck.gl 9](https://img.shields.io/badge/deck.gl-9-1890FF)
+![Node.js 24](https://img.shields.io/badge/Node.js-24-339933?logo=nodedotjs&logoColor=white)
+![NestJS 12](https://img.shields.io/badge/NestJS-12-E0234E?logo=nestjs&logoColor=white)
+![Python 3](https://img.shields.io/badge/Python-3-3776AB?logo=python&logoColor=white)
+![PostgreSQL 16](https://img.shields.io/badge/PostgreSQL-16-4169E1?logo=postgresql&logoColor=white)
+![PostGIS 3.4](https://img.shields.io/badge/PostGIS-3.4-4169E1)
+![Docker Compose](https://img.shields.io/badge/Docker-Compose-2496ED?logo=docker&logoColor=white)
+![Vitest](https://img.shields.io/badge/Vitest-Tests-6E9F18?logo=vitest&logoColor=white)
+
+## What is IE402 Voxel Air?
+
+The project combines a mass-consistent diagnostic wind field with finite-volume transport on a 3D voxel grid. The standard domain is 500 × 500 × 100 m with 500,000 cells of 5 × 5 × 2 m. The modeled concentrations represent the contribution of the selected emission source under the specified assumptions.
+
+## Table of Contents
+
+- [Features](#features)
+- [Technology Stack](#technology-stack)
+- [Team](#team)
+- [Quick Start](#quick-start)
+- [From Urban Inputs to a Query](#from-urban-inputs-to-a-query)
+- [Architecture](#architecture)
+- [Project Structure](#project-structure)
+- [Verify and Reproduce](#verify-and-reproduce)
+- [Project Documentation](#project-documentation)
+
+## Features
+
+- Explore buildings, roads, wind and modeled PM2.5 in 2D or 3D.
+- Inspect horizontal slices, cell profiles and vertical sections at selected heights.
+- Calculate regional statistics or compare results across road distance bands.
+- Run seasonal wind and source-reduction scenarios, compare compatible runs and export maps and data.
+
+## Technology Stack
+
+| Layer | Technologies and role |
+| --- | --- |
+| WebGIS | React and TypeScript for the interface, Vite for development and builds, MapLibre GL JS for the basemap, and deck.gl for the voxel and wind overlays. |
+| API | NestJS on Node.js with Swagger for REST documentation and a supervised Python process for solver execution. |
+| Simulation | Python with numerical and geospatial libraries for voxelization, diagnostic wind and finite-volume transport. NetCDF stores the gridded output. |
+| Spatial database | PostgreSQL 16 and PostGIS 3.4 for scene geometries, run state, spatial queries and indexed concentration reads. |
+| Delivery and testing | Docker Compose for the application and database, Vitest for TypeScript tests, pytest for Python tests, and GitHub Actions for isolated demo verification. |
 
 ## Team
 
@@ -12,7 +58,7 @@ This project models PM2.5 dispersion around Nguyễn Huệ Walking Street in Ho 
 
 See the [upgrade plan](docs/UPGRADE_PLAN.md) and [milestone roadmap](docs/ROADMAP.md).
 
-## Run the project
+## Quick Start
 
 Install Git and Docker with Compose v2. On Windows, start Docker Desktop with Linux containers. The first build downloads dependencies. The checkout contains the verified demo input bundle and scene seed. The map’s external basemap needs internet access.
 
@@ -101,7 +147,7 @@ Invoke-WebRequest "$api/runs/$id/road-corridor/csv" -Method Post -ContentType 'a
 
 The POST returns a run ID immediately. Keep the same request ID and payload if you need to recover after a lost response. Use the [Swagger schemas](http://127.0.0.1:3000/api/docs) for WGS84 polygon and line bodies. Use `GET /api/runs/{id}/artifacts` for manifest and field downloads. The [technical handoff](docs/TECHNICAL_HANDOFF.md) describes the independent corridor check and the scientific comparisons.
 
-## Architecture and source
+## Architecture
 
 ![IE402 system architecture in English](docs/img/architecture-monolith-en.svg)
 
@@ -179,118 +225,71 @@ sequenceDiagram
     API-->>UI: Show mean, coverage and optional CSV export
 ```
 
-### Source layout
+## Project Structure
 
 ```text
-.
-├── .github/
-│   └── workflows/
-├── app/
-│   ├── src/
-│   │   ├── common/
-│   │   ├── config/
-│   │   ├── database/
-│   │   └── modules/
-│   │       ├── health/
-│   │       │   ├── controllers/
-│   │       │   ├── schemas/
-│   │       │   └── services/
-│   │       ├── results/
-│   │       │   ├── controllers/
-│   │       │   ├── dto/
-│   │       │   ├── models/
-│   │       │   ├── schemas/
-│   │       │   └── services/
-│   │       ├── scenarios/
-│   │       │   ├── controllers/
-│   │       │   ├── models/
-│   │       │   ├── schemas/
-│   │       │   └── services/
-│   │       ├── simulation/
-│   │       │   ├── controllers/
-│   │       │   ├── dto/
-│   │       │   ├── models/
-│   │       │   ├── schemas/
-│   │       │   └── services/
-│   │       └── study-areas/
-│   │           ├── controllers/
-│   │           ├── models/
-│   │           ├── schemas/
-│   │           └── services/
-│   └── test/
-│       ├── fixtures/
-│       │   └── scene/
-│       └── support/
-├── artifacts/
-├── config/
-├── data/
-│   ├── processed/
-│   └── raw/
-├── db/
-│   ├── migrations/
-│   └── seeds/
-│       └── scene/
-├── deploy/
-│   └── demo-inputs/
-├── docs/
-│   ├── img/
-│   └── reviews/
-├── frontend/
-│   ├── legacy/
-│   │   ├── assets/
-│   │   ├── map/
-│   │   ├── tests/
-│   │   └── vendor/
-│   ├── public/
-│   │   └── vendor/
-│   │       ├── bootstrap-icons/
-│   │       │   └── fonts/
-│   │       └── source-sans-3/
-│   └── src/
-│       ├── api/
-│       ├── app/
-│       ├── export/
-│       ├── features/
-│       │   ├── analysis/
-│       │   │   ├── compare/
-│       │   │   ├── corridor/
-│       │   │   ├── region/
-│       │   │   └── transect/
-│       │   ├── illustration/
-│       │   ├── map-options/
-│       │   ├── simulation/
-│       │   └── stats/
-│       ├── i18n/
-│       │   ├── en/
-│       │   └── vi/
-│       ├── lib/
-│       ├── map/
-│       ├── shared/
-│       │   ├── hooks/
-│       │   └── ui/
-│       ├── store/
-│       ├── styles/
-│       └── test/
-├── notebooks/
-├── output/
-│   ├── analysis/
-│   ├── figures/
-│   └── netcdf/
-├── scripts/
-│   ├── lib/
-│   └── tests/
-├── src/
-│   ├── analysis/
-│   ├── dispersion/
-│   ├── edgar/
-│   ├── emission/
-│   ├── meteo/
-│   ├── openaq/
-│   ├── scene/
-│   ├── voxel/
-│   └── wind/
-└── tests/
-    └── fixtures/
+.                                  IE402 Voxel Air repository
+├── .github/workflows/             Independent demo verification on GitHub Actions
+├── app/                           NestJS API and simulation executor
+│   ├── src/                       Backend application code
+│   │   ├── common/                Shared backend utilities
+│   │   ├── config/                Runtime configuration and validation
+│   │   ├── database/              Database CLI, imports and query benchmarks
+│   │   └── modules/               Feature modules with controllers, DTOs, models, schemas and services
+│   │       ├── health/            Application, database and solver readiness
+│   │       ├── results/           Spatial queries, exports and artifact downloads
+│   │       ├── scenarios/         Simulation scenario catalog
+│   │       ├── simulation/        Run lifecycle, queue and Python subprocess
+│   │       └── study-areas/       Study-area metadata and GIS scene layers
+│   └── test/                      API integration tests, fixtures and helpers
+├── artifacts/                     Local run outputs and verification evidence
+├── config/                        Scene, scenario and artifact configuration
+├── data/                          Inputs used by the research pipeline
+│   ├── raw/                       Source downloads and original datasets
+│   └── processed/                 Prepared geometry, voxel and emission inputs
+├── db/                            PostgreSQL and PostGIS assets
+│   ├── migrations/                Versioned schema changes
+│   └── seeds/scene/               Packaged vector layers and grid cells
+├── deploy/                        Container startup, demo profile and cleanroom configuration
+│   └── demo-inputs/               Verified solver input archive and manifest
+├── docs/                          Specification, architecture and research notes
+│   ├── img/                       Project diagrams
+│   └── reviews/                   Scientific audits and release evidence
+├── frontend/                      React and Vite WebGIS application
+│   ├── legacy/                    Compatibility viewer and its regression tests
+│   ├── public/                    Static assets, vendor fonts and icons
+│   └── src/                       WebGIS application code
+│       ├── api/                   REST client and API contracts
+│       ├── app/                   Application shell, viewer facade and offline screen
+│       ├── export/                Export state and report formatting
+│       ├── features/              Simulation, statistics, analysis and map controls
+│       │   └── analysis/          Run comparison, road corridor, region and transect
+│       ├── i18n/                  English and Vietnamese translations
+│       ├── lib/                   Shared domain calculations and helpers
+│       ├── map/                   MapLibre integration and deck.gl overlays
+│       ├── shared/                Reusable UI components and hooks
+│       ├── store/                 Viewer state and actions
+│       ├── styles/                Global styles and design tokens
+│       └── test/                  Frontend test setup and helpers
+├── notebooks/                     Numerical debugging notebooks
+├── output/                        Research outputs from offline pipelines
+│   ├── analysis/                  Analysis reports and tables
+│   ├── figures/                   Research plots
+│   └── netcdf/                    Gridded research results
+├── scripts/                       Demo, benchmarks and verification entry points
+│   ├── lib/                       Shared script helpers
+│   └── tests/                     Operational script regression tests
+├── src/                           Python solver and research pipeline
+│   ├── analysis/                  Analysis, figures and baseline comparisons
+│   ├── dispersion/                Gaussian reference model
+│   ├── edgar/                     Emission inventory loading and normalization
+│   ├── emission/                  Road-source allocation and rasterization
+│   ├── meteo/                     Meteorology ingestion and seasonal aggregation
+│   ├── openaq/                    Optional air-quality observation research
+│   ├── scene/                     GIS scene preparation and export
+│   ├── voxel/                     3D grid construction and building masks
+│   └── wind/                      Diagnostic wind and mass consistency
+└── tests/                         Python regression tests and fixtures
 ```
 
 ## Verify and reproduce
@@ -343,6 +342,8 @@ after 90 simulated seconds. The horizontal grid study remaps one shared source
 onto all three resolutions and keeps its total release rate fixed.
 
 See the [backend guide](app/README.md) for PostGIS tests. The [independent CI workflow](.github/workflows/independent-demo.yml) checks a clean build, two real runs, queries, checksums and restart. Use the [demo profile](deploy/demo-profile.json) for provenance of the pinned handoff.
+
+## Project Documentation
 
 - [Specification](docs/spec.md) and [database design](docs/DATABASE.md)
 - [Research and source reduction study](docs/RESEARCH.md) and [emission assumptions](docs/emission_assumptions.md)
