@@ -75,6 +75,8 @@ Invoke-RestMethod http://127.0.0.1:3000/api/health
 
 Open [WebGIS](http://127.0.0.1:3000/) or [Swagger](http://127.0.0.1:3000/api/docs). Health should report `status: ok` and `database.status: up`. Startup verifies the bundled inputs, applies migrations and seeds the scene. The database and solver artifacts use named Docker volumes.
 
+The host `data/` and `artifacts/` folders are generated on demand. Docker installs its solver inputs from `deploy/demo-inputs/` and stores run outputs in its named volume. For local Python development, restore the two packaged inputs with `python -m src.demo_bundle install --bundle deploy/demo-inputs`. The other raw research datasets require their preparation scripts.
+
 | Situation | What to run |
 | --- | --- |
 | Port 3000 is occupied | Set `$env:APP_HOST_PORT = '3001'` before startup and open that port. |
@@ -242,9 +244,9 @@ sequenceDiagram
 │   │       ├── simulation/        Run lifecycle, queue and Python subprocess
 │   │       └── study-areas/       Study-area metadata and GIS scene layers
 │   └── test/                      API integration tests, fixtures and helpers
-├── artifacts/                     Local run outputs and verification evidence
+├── artifacts/                     Generated local run outputs and verification evidence
 ├── config/                        Scene, scenario and artifact configuration
-├── data/                          Inputs used by the research pipeline
+├── data/                          Generated or downloaded research inputs
 │   ├── raw/                       Source downloads and original datasets
 │   └── processed/                 Prepared geometry, voxel and emission inputs
 ├── db/                            PostgreSQL and PostGIS assets

@@ -129,16 +129,12 @@ def test_upstream_provenance_survives_tier0():
     assert summarize_height_sources(resolved) == {"derived:median": 1, "gob:building_height": 1}
 
 
-VOXEL_PATH = REPO_ROOT / "data" / "processed" / "voxel_grid.nc"
-
-
-@pytest.mark.skipif(not VOXEL_PATH.exists(), reason="run src/01_voxelize.py first")
-def test_real_voxel_grid_reports_google_as_the_height_source():
+def test_real_voxel_grid_reports_google_as_the_height_source(packaged_voxel_path):
     import json
 
     import xarray as xr
 
-    with xr.open_dataset(VOXEL_PATH) as voxel:
+    with xr.open_dataset(packaged_voxel_path) as voxel:
         counts = json.loads(voxel.attrs["height_source_counts_json"])
 
     assert "direct:height" not in counts

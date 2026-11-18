@@ -25,10 +25,7 @@ from analysis import web_export as wx  # noqa: E402
 from analysis.fields import ConcentrationField, ContractError, load_field, write_field  # noqa: E402
 
 CONFIG_PATH = REPO_ROOT / "config" / "project.yaml"
-VOXEL_PATH = REPO_ROOT / "data" / "processed" / "voxel_grid.nc"
 WEB_DIR = REPO_ROOT / "frontend" / "legacy"
-
-needs_voxels = pytest.mark.skipif(not VOXEL_PATH.exists(), reason="run src/01_voxelize.py first")
 
 
 # --- AC-7 / EC-3: quantisation ---------------------------------------------
@@ -115,9 +112,8 @@ def test_ac8_bilinear_nodes_match_pyproj_at_every_node():
 
 # --- EC-5: the data contract -----------------------------------------------
 
-@needs_voxels
-def test_ec5_contract_file_missing_an_attribute_is_refused_by_name(tmp_path):
-    with xr.open_dataset(VOXEL_PATH) as voxel:
+def test_ec5_contract_file_missing_an_attribute_is_refused_by_name(tmp_path, packaged_voxel_path):
+    with xr.open_dataset(packaged_voxel_path) as voxel:
         grid = ConcentrationField(
             concentration=np.ones(voxel["B"].shape),
             solid=voxel["B"].values.astype(bool),
@@ -134,12 +130,11 @@ def test_ec5_contract_file_missing_an_attribute_is_refused_by_name(tmp_path):
     broken.to_netcdf(tmp_path / "broken.nc")
 
     with pytest.raises(ContractError, match="wind_speed_m_s"):
-        load_field(tmp_path / "broken.nc", VOXEL_PATH)
+        load_field(tmp_path / "broken.nc", packaged_voxel_path)
 
 
-@needs_voxels
-def test_contract_round_trip_blanks_buildings(tmp_path):
-    with xr.open_dataset(VOXEL_PATH) as voxel:
+def test_contract_round_trip_blanks_buildings(tmp_path, packaged_voxel_path):
+    with xr.open_dataset(packaged_voxel_path) as voxel:
         solid = voxel["B"].values.astype(bool)
         grid = ConcentrationField(
             concentration=np.full(solid.shape, 2.5),
@@ -149,15 +144,14 @@ def test_contract_round_trip_blanks_buildings(tmp_path):
             attrs={"scenario": "t", "model": "fv", "wind_from_deg": 90.0, "wind_speed_m_s": 1.0},
         )
 
-    loaded = load_field(write_field(grid, tmp_path / "c.nc"), VOXEL_PATH)
+    loaded = load_field(write_field(grid, tmp_path / "c.nc"), packaged_voxel_path)
 
     assert np.isnan(loaded.concentration[solid]).all()
     np.testing.assert_allclose(loaded.concentration[~solid], 2.5)
 
 
-@needs_voxels
-def test_contract_wrong_units_are_refused(tmp_path):
-    with xr.open_dataset(VOXEL_PATH) as voxel:
+def test_contract_wrong_units_are_refused(tmp_path, packaged_voxel_path):
+    with xr.open_dataset(packaged_voxel_path) as voxel:
         ds = xr.Dataset(
             {"C": (("z", "y", "x"), np.zeros(voxel["B"].shape), {"units": "kg m-3"})},
             coords={name: voxel[name].values for name in ("z", "y", "x")},
@@ -166,7 +160,7 @@ def test_contract_wrong_units_are_refused(tmp_path):
     ds.to_netcdf(tmp_path / "bad_units.nc")
 
     with pytest.raises(ContractError, match="units"):
-        load_field(tmp_path / "bad_units.nc", VOXEL_PATH)
+        load_field(tmp_path / "bad_units.nc", packaged_voxel_path)
 
 
 # --- EC-6: the product viewer reads the same-origin monolith API -----------

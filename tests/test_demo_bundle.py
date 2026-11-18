@@ -33,12 +33,15 @@ def test_committed_bundle_matches_scene_and_bytes():
 
 def test_install_into_empty_root_is_idempotent(bundle_copy):
     bundle, root = bundle_copy
+    assert not (root / 'data').exists()
+    assert not (root / 'artifacts').exists()
     first = install(bundle, root)
     assert sorted(first['installed']) == sorted(EXPECTED.values())
     assert install(bundle, root)['installed'] == []
     manifest, files = inspect_bundle(bundle, root)
     for name, data in files.items():
         assert (root / manifest['files'][name]['destination']).read_bytes() == data
+    assert not (root / 'artifacts').exists()
 
 
 def test_install_refuses_existing_different_inputs_without_partial_write(bundle_copy):
