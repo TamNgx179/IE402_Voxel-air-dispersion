@@ -164,6 +164,23 @@ describe('SpatialAnalysisService.region', () => {
     });
   });
 
+  it('keeps max null when every overlapped layer is solid or missing', async () => {
+    const { service, spatial } = setup();
+    spatial.region.mockResolvedValueOnce([
+      {
+        k: '0',
+        air_voxels: '0',
+        air_volume_m3: '0',
+        mean_ug_m3: null,
+        max_ug_m3: null,
+        exceedance_volume_m3: '0',
+      },
+    ] as never);
+    const value = await service.region(A, region());
+    expect(value.mean_ug_m3).toBeNull();
+    expect(value.max_ug_m3).toBeNull();
+  });
+
   it.each([
     [{ valid: false, covered: true, area_m2: 10 }, /self intersections/],
     [{ valid: true, covered: true, area_m2: 0 }, /positive area/],

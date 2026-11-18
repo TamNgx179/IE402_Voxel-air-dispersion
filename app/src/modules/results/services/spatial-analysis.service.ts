@@ -203,6 +203,10 @@ export class SpatialAnalysisService {
       exceedance_volume_m3: Number(row.exceedance_volume_m3),
     }));
     const volume = rows.reduce((sum, r) => sum + r.air_volume_m3, 0);
+    // A layer with only solid or missing cells has no maximum; never report 0.
+    const maxima = rows.flatMap((r) =>
+      r.max_ug_m3 === null ? [] : [r.max_ug_m3],
+    );
     return {
       run_id: id,
       model_version: context.model_version,
@@ -225,9 +229,7 @@ export class SpatialAnalysisService {
               0,
             ) / volume
           : null,
-      max_ug_m3: rows.length
-        ? Math.max(...rows.map((r) => r.max_ug_m3 ?? 0))
-        : null,
+      max_ug_m3: maxima.length ? Math.max(...maxima) : null,
       exceedance_volume_m3: rows.reduce(
         (sum, r) => sum + r.exceedance_volume_m3,
         0,
