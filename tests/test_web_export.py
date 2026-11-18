@@ -26,7 +26,7 @@ from analysis.fields import ConcentrationField, ContractError, load_field, write
 
 CONFIG_PATH = REPO_ROOT / "config" / "project.yaml"
 VOXEL_PATH = REPO_ROOT / "data" / "processed" / "voxel_grid.nc"
-WEB_DIR = REPO_ROOT / "web"
+WEB_DIR = REPO_ROOT / "frontend" / "legacy"
 
 needs_voxels = pytest.mark.skipif(not VOXEL_PATH.exists(), reason="run src/01_voxelize.py first")
 
