@@ -96,4 +96,6 @@ npm run build
 npm run test:e2e:required
 ```
 
+`npm test` runs the unit specs next to the sources. They mock the models and the `pg` pool, so they need neither PostgreSQL nor Python: request DTOs through the global `ValidationPipe`, the migration runner against the real `db/migrations`, the connection pool and health probe, and the run, region, comparison, corridor and transect services.
+
 The required integration suite uses PostGIS, Supertest and the Python test fixture. It rebuilds a separate test database and fails when database-dependent tests are skipped. See the root [README](../README.md#verify-and-reproduce) for the clean Compose rehearsal.

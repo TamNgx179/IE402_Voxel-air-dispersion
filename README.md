@@ -46,7 +46,7 @@ The project combines a mass-consistent diagnostic wind field with finite-volume 
 | API | NestJS on Node.js with Swagger for REST documentation and a supervised Python process for solver execution. |
 | Simulation | Python with numerical and geospatial libraries for voxelization, diagnostic wind and finite-volume transport. NetCDF stores the gridded output. |
 | Spatial database | PostgreSQL 16 and PostGIS 3.4 for scene geometries, run state, spatial queries and indexed concentration reads. |
-| Delivery and testing | Docker Compose for the application and database, Vitest for TypeScript tests, pytest for Python tests, and GitHub Actions for isolated demo verification. |
+| Delivery and testing | Docker Compose for the application and database, Vitest for TypeScript tests, pytest for Python tests, and GitHub Actions for automatic tests and isolated demo verification. |
 
 ## Team
 
@@ -229,7 +229,7 @@ sequenceDiagram
 
 ```text
 .                                  IE402 Voxel Air repository
-├── .github/workflows/             Independent demo verification on GitHub Actions
+├── .github/workflows/             Tests on every push/PR and the manual demo verification
 ├── app/                           NestJS API and simulation executor
 │   ├── src/                       Backend application code
 │   │   ├── common/                Shared backend utilities
@@ -341,7 +341,7 @@ The urban checks compare the same road distance bands at 1–15 m and 15–31 m
 after 90 simulated seconds. The horizontal grid study remaps one shared source
 onto all three resolutions and keeps its total release rate fixed.
 
-See the [backend guide](app/README.md) for PostGIS tests. The [independent CI workflow](.github/workflows/independent-demo.yml) checks a clean build, two real runs, queries, checksums and restart. Use the [demo profile](deploy/demo-profile.json) for provenance of the pinned handoff.
+The [test workflow](.github/workflows/tests.yml) runs on every push to `main` and every pull request: API lint, types and unit tests; viewer types, tests and build; the required E2E suite against a PostGIS service container; and pytest. See the [backend guide](app/README.md) for PostGIS tests. The [independent CI workflow](.github/workflows/independent-demo.yml) checks a clean build, two real runs, queries, checksums and restart. Use the [demo profile](deploy/demo-profile.json) for provenance of the pinned handoff.
 
 ## Project Documentation
 

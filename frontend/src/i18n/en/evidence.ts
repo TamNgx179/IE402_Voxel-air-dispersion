@@ -1,4 +1,4 @@
-/** Run evidence and scene data quality (lib/evidence.ts + components/RunEvidence.tsx). */
+/** Run evidence and scene data quality labels (lib/evidence.ts). */
 const evidence = {
   empty: 'Choose a result to see its verification information.',
   mismatch: 'The verification information does not match the result being viewed.',

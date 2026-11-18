@@ -210,7 +210,7 @@ interface PanelDefinition {
 - Open a panel from code: `dispatch({ type: 'panel/open', id: 'map-options' })`. A cell click opens `stats`; a building click opens `map-options` and sets `selectedBuildingId`.
 - `features/illustration/` is a complete small example (store reads/writes, i18n, help tooltip).
 - Help tooltips: `<HelpTrigger label={t('x.helpLabel')} text={t('x.help')} />` from `shared/ui/Help.tsx`.
-- Ready-made components: `shared/ui/RunEvidence.tsx` (`<RunEvidence />`, legacy `#run-evidence`), `shared/ui/ResultCard.tsx` exports `Legend`/`HeightControl`.
+- Ready-made components: `shared/ui/ResultCard.tsx` exports `Legend`/`HeightControl`; `shared/ui/ToolButton.tsx` is the icon button used by the tool bar and analysis modes.
 
 ### Analysis sub-modes
 
@@ -345,12 +345,15 @@ npx tsc --noEmit
   `<App api>` to serve a panel's endpoints (reached through `useApi()`).
 - `src/test/fakeMap.ts` → `createFakeMapFactory()`: a MapLibre/deck stand-in; render
   `<App store={createViewerStore()} api={fakeApi()} mapFactory={fake.factory} panels={[...]}/>`
-  and inspect `fake.overlays[0].setProps` calls for layer ids. See `src/App.test.tsx`.
+  and inspect `fake.overlays[0].setProps` calls for layer ids. See `src/app/App.test.tsx`.
   `fake.maps[0].doubleClickZoom` is a stateful stub (`isEnabled()`, `enable`/`disable`
   spies); `fake.overlays[0]._deck.redraw()` runs the overlay's `onAfterRender` like
   a deck frame (drives `captureFrame`).
 - Simulation tests: `configureSimulationTracker(store, { sleep })` injects the poll
   delay before the tracker is first used; the tracker's API is the App's `useApi()`.
+- Shared modules have direct unit tests: `map/registry.test.ts` (layer slots, click claims,
+  change notifications), `export/report.test.ts` (report snapshot and `reportKey`) and
+  `shared/ui/ui.test.tsx` (help tooltip, language switch, tool button).
 - jsdom has no WebGL; never instantiate the real map in tests.
 - Legacy tests stay in `frontend/legacy/tests` (`node --test frontend/legacy/tests/*.test.cjs scripts/tests/*.test.mjs`).
 
