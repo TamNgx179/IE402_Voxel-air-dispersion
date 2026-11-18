@@ -283,6 +283,31 @@ npm run db:reset             # dựng lại sạch: DROP SCHEMA public + mọi m
 npm run db:seed              # db/seeds/scene/ + config/project.yaml; chạy lại không nhân đôi
 ```
 
+### Quản trị và xem dữ liệu
+
+CSDL là PostgreSQL 16 + PostGIS 3.4 trong container `db`. Từ máy host dùng cổng 5433
+(đổi bằng `DB_HOST_PORT`); trong mạng Compose dùng host `db`, cổng 5432.
+
+| Công cụ | Cách kết nối |
+|---|---|
+| `psql` trong container | `docker compose exec db psql -U ie402 -d ie402` |
+| Adminer (web, tùy chọn) | `docker compose --profile tools up -d adminer` → http://127.0.0.1:8081, System *PostgreSQL*, Server `db`, user/pass `ie402` |
+| pgAdmin / DBeaver / QGIS | Host `localhost`, port `5433`, database `ie402`, user/pass `ie402` |
+
+Adminer chỉ chạy khi gọi profile `tools` và chỉ nghe trên 127.0.0.1. Thông tin đăng nhập trên
+là mặc định dev; không dùng lại ở môi trường khác. Một số truy vấn kiểm tra nhanh:
+
+```sql
+SELECT version, applied_at FROM schema_migrations ORDER BY version;  -- migration đã chạy
+SELECT status, count(*) FROM simulation_runs GROUP BY status;        -- trạng thái các run
+SELECT postgis_full_version();                                        -- phiên bản PostGIS
+```
+
+Không sửa trực tiếp bảng kết quả (`concentration_columns`, `simulation_runs`) bằng công cụ
+quản trị: run chỉ được ghi qua executor và import đã kiểm manifest. Thay đổi schema phải là
+một file migration mới trong `db/migrations/`; migration đã áp dụng bị từ chối nếu file đổi.
+Bộ test E2E dùng database riêng `ie402_test` và xóa schema của nó mỗi lần chạy.
+
 ## 6 · Kiểm kê dữ liệu dựng cảnh 3D (B1.4)
 
 Đo ngày 06/10/2026 trên `data/` của pipeline chạy lại ngày 30/09. Study area **Nguyễn Huệ**,

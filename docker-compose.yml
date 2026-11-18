@@ -52,6 +52,21 @@ services:
       retries: 20
       start_period: 10s
 
+  # Optional web console for inspecting the dev database. Not started by default:
+  #   docker compose --profile tools up -d adminer   ->  http://127.0.0.1:8081
+  # Log in with System "PostgreSQL", Server "db" and the credentials above.
+  adminer:
+    image: adminer:4.8.1-standalone
+    profiles: [tools]
+    restart: "no"
+    environment:
+      ADMINER_DEFAULT_SERVER: db
+    ports:
+      - "127.0.0.1:${ADMINER_HOST_PORT:-8081}:8080"
+    depends_on:
+      db:
+        condition: service_healthy
+
 volumes:
   artifacts:
   pgdata:
