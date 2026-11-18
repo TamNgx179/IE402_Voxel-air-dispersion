@@ -321,6 +321,53 @@ describe.skipIf(!db.ok)('Spatial analysis with actual PostGIS', () => {
     expect(z.mean_ug_m3).toBe(0);
     expect(z.air_volume_m3).toBeCloseTo(32, 5);
   });
+  it('solid plus missing air reports a null maximum, not 0, in JSON and CSV', async () => {
+    // Cell (0,0) is solid at k=0..2 and cell (1,0) has no data at k=0/1,
+    // so z=[1,4] holds no valid air. The value 7 at k=2 lies above it.
+    const id = await run([
+      '{NULL,NULL,NULL,2}',
+      '{NULL,NULL,7,1}',
+      '{20,10,5,2}',
+      '{NULL,NULL,NULL,NULL}',
+    ]);
+    try {
+      const q = {
+        ...(await body()),
+        polygon: await polygon(686000.5, 1191300.5, 686009.5, 1191304.5),
+        z_max_m: 4,
+      };
+      const path = `/api/runs/${id}/region`;
+      const { body: r } = await http().post(path).send(q).expect(201);
+      expect(r.area_m2).toBeCloseTo(36, 5);
+      expect(r).toMatchObject({
+        air_volume_m3: 0,
+        air_voxels: 0,
+        mean_ug_m3: null,
+        max_ug_m3: null,
+        exceedance_volume_m3: 0,
+        layers: [],
+      });
+      const csv = await http().post(`${path}/csv`).send(q).expect(201);
+      const records = parse<Record<string, string>>(csv.text, {
+        columns: true,
+      });
+      expect(records).toHaveLength(1);
+      expect(records[0]).toMatchObject({
+        air_volume_m3: '0',
+        mean_ug_m3: '',
+        max_ug_m3: '',
+      });
+      // The same cells do hold valid air one layer higher.
+      const { body: above } = await http()
+        .post(path)
+        .send({ ...q, z_max_m: 5 })
+        .expect(201);
+      expect(above.air_volume_m3).toBeCloseTo(18, 5);
+      expect(above.max_ug_m3).toBe(7);
+    } finally {
+      await pool.query('DELETE FROM simulation_runs WHERE id = $1', [id]);
+    }
+  });
   it('excludes scene solids even if legacy/imported columns contain values there', async () => {
     const dirty = await run(Array(4).fill('{100,100,100,100}'));
     // Deliberately violate the artifact contract to exercise the SQL safety guard.
