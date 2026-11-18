@@ -349,6 +349,7 @@ The [test workflow](.github/workflows/tests.yml) runs on every push to `main` an
 
 - [Specification](docs/spec.md) and [database design](docs/DATABASE.md)
 - [Research and source reduction study](docs/RESEARCH.md) and [emission assumptions](docs/emission_assumptions.md)
+- [PM2.5 and voxel resolution decisions](docs/reviews/PM25_VOXEL_DECISIONS.md)
 - [Data rights and third-party notices](docs/LICENSING.md)
 
 The legacy research exporter can regenerate its static files with `python src/06_export_web.py --config config/project.yaml` once the required GIS and NetCDF inputs are available.
