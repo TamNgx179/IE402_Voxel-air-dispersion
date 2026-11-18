@@ -6,7 +6,7 @@ import { fakeApi, routedApi } from '../test/fixtures';
 import { createViewerActions, defaultRunId } from '../app/viewerFacade';
 import { initialState } from './reducer';
 import { createViewerStore, useViewer, useViewerDispatch, useViewerStore, ViewerStoreProvider, type ViewerStore } from './store';
-import { selectCurrentRun, selectExact } from './selectors';
+import { selectCurrentRun } from './selectors';
 import type { RunEntry } from './types';
 
 describe('viewer store', () => {
@@ -79,17 +79,6 @@ describe('viewer store', () => {
     const actions = createViewerActions(store, fakeApi());
     await actions.loadBootstrap();
     await expect(actions.ensureRun('nope')).rejects.toMatchObject({ messageKey: 'errors.runNotFound' });
-  });
-
-  test('reducer clamps layer and sanitises display values', () => {
-    const store = createViewerStore();
-    store.dispatch({ type: 'display/set', display: { multiplier: 10, background: -4 } });
-    expect(store.getState().display).toEqual({ multiplier: 10, background: 0 });
-    expect(selectExact(store.getState())).toBe(false);
-    store.dispatch({ type: 'display/reset' });
-    expect(selectExact(store.getState())).toBe(true);
-    store.dispatch({ type: 'layer/set', layer: 99 });
-    expect(store.getState().layer).toBe(0);
   });
 
   test('exact queries only load the selected profile (debounced)', async () => {

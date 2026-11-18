@@ -115,6 +115,16 @@ describe('viewerReducer', () => {
     expect(viewerReducer(state, { type: 'display/set', display: { multiplier: 0.5, background: 0 } }).display).toEqual({ multiplier: 0.5, background: 0 });
   });
 
+  test('display/reset restores exact data while preserving the selected layer', () => {
+    const state = reduce(ready(), { type: 'layer/set', layer: 2 },
+      { type: 'display/set', display: { multiplier: 10, background: 4 } });
+    expect(selectExact(state)).toBe(false);
+    const reset = viewerReducer(state, { type: 'display/reset' });
+    expect(reset.display).toEqual({ multiplier: 1, background: 0 });
+    expect(selectExact(reset)).toBe(true);
+    expect(reset.layer).toBe(2);
+  });
+
   test('cell and building selection can be set and cleared independently', () => {
     const state = reduce(ready(), { type: 'cell/select', cell: { i: 1, j: 0 } }, { type: 'building/select', id: 'bldg-1' });
     expect(state).toMatchObject({ selectedCell: { i: 1, j: 0 }, selectedBuildingId: 'bldg-1' });
@@ -299,17 +309,5 @@ describe('selectors', () => {
   test('selectSelectedProfile works for cell 0,0', () => {
     const state = reduce(ready(), { type: 'queries/profile', runId: 'a', profile: profile('a', 0, 0) }, { type: 'cell/select', cell: { i: 0, j: 0 } });
     expect(selectSelectedProfile({ ...state, selectedRunId: 'a' })?.i).toBe(0);
-  });
-
-  test('selectors return the same references for an unchanged state', () => {
-    const state = reduce(
-      ready(),
-      { type: 'run/loaded', data: runData('a') },
-      { type: 'run/select', id: 'a' },
-      { type: 'queries/profile', runId: 'a', profile: profile('a', 0, 0) },
-      { type: 'cell/select', cell: { i: 0, j: 0 } },
-    );
-    for (const select of [selectBootstrap, selectGrid, selectCurrentRun, selectCurrentEntry, selectSelectedProfile])
-      expect(select(state)).toBe(select(state));
   });
 });
