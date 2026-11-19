@@ -1,6 +1,8 @@
 # Bàn giao B8/B9 — 01/11/2026
 
-Tiếp nối mới nhất: [kiểm tra và bundle candidate 02/11](CONTINUATION_20261102.md).
+Bằng chứng mới nhất: [nghiệm thu checkout sạch và đối chiếu chiều cao 16/11](RELEASE_EVIDENCE_20261116.md).
+Các đợt trước: [kiểm tra và bundle candidate 02/11](CONTINUATION_20261102.md).
+Trạng thái từng task xem [ROADMAP](../ROADMAP.md); trang này giữ lịch sử review.
 
 Các báo cáo dưới đây được giữ trong Git; bản gốc cùng dữ liệu/hình nằm trong
 `artifacts/` (bị Git bỏ qua). Các review gốc mô tả kết quả tại thời điểm review,
@@ -12,6 +14,9 @@ không phải xác nhận mọi ghi chú đã được sửa.
 - [Mặt cắt và chiều cao](B9_4_TRANSECT_HEIGHT.md): PASS có ghi chú; cần E2E
   PostGIS đã chạy lại trong đợt tiếp nối bên dưới.
 - [Khả thi LoD2](B9_5_LOD2_FEASIBILITY.md): quyết định giữ LoD1.
+- [Lựa chọn PM2.5 và kích thước voxel](PM25_VOXEL_DECISIONS.md): lý do chọn chất ô nhiễm, ô 5 × 5 × 2 m và kết quả đổi độ phân giải.
+- [Kiểm toán khoa học](THANH_SCIENCE_AUDIT.md): đối chiếu NetCDF/API độc lập và độ nhạy đô thị.
+- [Nghiệm thu 16/11](RELEASE_EVIDENCE_20261116.md): PM2.5 theo độ cao tại Nguyễn Huệ, benchmark AIJ Case H và rehearsal checkout sạch.
 
 ## Kiểm tra tiếp nối
 
@@ -57,11 +62,13 @@ Writer đã dùng float32 + `.9g`; các repository trả float8 trước JSON.
 Web **113/113 pass**; thông tin nguồn/chiều cao đã kiểm trên browser cảnh 62 nhà,
 và tải JSON snapshot có chất lượng dữ liệu. Chi tiết ở phần tiếp nối review B8.1.
 
-## Còn mở
+## Còn mở (cập nhật 19/11/2026)
 
-1. B9.3: tổng hợp hai mùa và caption báo cáo cuối. B8.4/B9.2 giảm nguồn chưa triển khai.
-2. R5/R6/R7 trong review B8.1 là giới hạn/đề xuất; không mở rộng kết luận sang lưới dz thập phân hoặc miền khác baseline.
-3. Run cũ xuất `.6g` không tự trở thành dữ liệu precision mới; tạo run mới khi chốt bộ demo/release.
-4. Kiểm môi trường trên máy vật lý thứ hai vẫn thuộc A10.2. `.venv` của máy tiếp nối hiện chạy được; không suy ra venv trên máy review trước đã được sửa.
+1. B9.3: lấy bảng/hình hai mùa từ đúng bộ release sau khi freeze. B8.4/B9.2 giảm nguồn đã hoàn thành ngày 07/11.
+2. B10.1/A10.5: pin một revision release và chốt freeze; CI, benchmark và rehearsal sạch hiện ở ba revision khác nhau.
+3. R5/R6/R7 trong review B8.1 là giới hạn/đề xuất; không mở rộng kết luận sang lưới dz thập phân hoặc miền khác baseline.
+4. Run cũ xuất `.6g` không tự trở thành dữ liệu precision mới; tạo run mới khi chốt bộ demo/release.
 
-Không thay scene, mask hoặc artifact production. Chưa chốt release/tag.
+Đã đóng sau đợt này: A10.2 theo phương án GitHub CI (02/11), A10.3 (09/11) và
+B9.4 với hạn chế chiều cao tháp đã ghi (19/11). Không thay scene, mask hoặc
+artifact production. Chưa chốt release/tag.

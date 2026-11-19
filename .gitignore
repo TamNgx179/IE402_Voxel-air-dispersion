@@ -58,7 +58,6 @@ Thumbs.db
 
 data/raw/*
 
-!data/raw/.gitkeep
 
 
 # ============================================================
@@ -69,7 +68,6 @@ data/raw/*
 
 data/processed/*
 
-!data/processed/.gitkeep
 
 
 # ============================================================
@@ -94,8 +92,6 @@ output/analysis/*
 frontend/legacy/data/scenarios/*
 frontend/legacy/data/buildings/*
 
-!frontend/legacy/data/scenarios/.gitkeep
-!frontend/legacy/data/buildings/.gitkeep
 
 
 # ============================================================
@@ -145,4 +141,3 @@ app/*.tsbuildinfo
 # ============================================================
 
 artifacts/*
-!artifacts/.gitkeep

@@ -15,8 +15,8 @@ Tâm owns all four engineering parts. The submission uses a modular monolith wit
 | --- | --- |
 | Data provenance and distribution | Source inventory recorded. The authors still need to resolve redistribution of the combined scene and select a project source license before external publication. |
 | Independent corridor verification | Hand calculation and eight production requests passed using the published solver's NetCDF and independently constructed geometry. |
-| B9.3–B9.4 scientific analysis | Recomputed seasonal and Gaussian fields, distance-band sensitivity and the 100-to-150 m top-boundary experiment. Historical OSM conflicts are documented. Original tags were not reverified in this checkout. |
-| B10.1 scientific bundle | Local candidate verified: six source-reduction runs, six FV production/sensitivity runs, two Gaussian fields, 350 height comparisons and an SHA-256 artifact index. |
+| B9.3–B9.4 scientific analysis | Recomputed seasonal and Gaussian fields, distance-band sensitivity and the 100-to-150 m top-boundary experiment. The three OSM tower tags (154–186 m) were reverified on 19/11 and are consistent with Wikidata floor counts. The towers are likely taller than the domain. This is recorded as a known limitation without changing the scene. |
+| B10.1 scientific bundle | Local candidate verified: six source-reduction runs, six FV production/sensitivity runs, two Gaussian fields, 350 height comparisons and an SHA-256 artifact index. The 16/11 clean-checkout rehearsal at `04a7c10` passed. Pinning one revision and the freeze decision remain. |
 
 See [technical handoff](TECHNICAL_HANDOFF.md), [technical acceptance](UPGRADE_PLAN.md) and [licensing](LICENSING.md).
 
@@ -74,7 +74,7 @@ Web GIS 3D → NestJS modular monolith → PostgreSQL/PostGIS
 | `P7` | Lát cắt theo z, exceedance, profile và summary query | A | Có | ✅ API, E2E, EXPLAIN và benchmark 500.000 voxel đã có |
 | `P8` | Web 3D có camera 2D/3D, height slider, scenario, threshold, profile và lớp gió | A | Có | ✅ UI/API production FV, vector solver theo run/tầng; còn nghiệm thu release cuối tuần 10 |
 | `P9` | Verification và provenance theo từng run | B | Có | ✅ B5/B6 có convergence, gates, checksum, input/source hash và sensitivity; release freeze ở B7 |
-| `P10` | Docker/demo, runbook và số liệu cuối | A + B | Có | 🟡 Docker/runbook/draft và evidence candidate tuần 7 đã có; final release tuần 10 còn lại |
+| `P10` | Docker/demo, runbook và số liệu cuối | A + B | Có | 🟡 Docker/runbook, CI độc lập và rehearsal checkout sạch 16/11 (`04a7c10`) đã đạt; còn pin revision, freeze B10.1, báo cáo và slide cuối |
 
 ### Công nghệ
 
@@ -570,8 +570,8 @@ PASS cho nghiên cứu chưa hoàn thành.
 |---|---|---|---|
 | `B9.1` | ✅ Hoàn tất nghiên cứu lưới/bước thời gian | Bảng sai số, đồ thị, observed order/GCI nếu phù hợp | 01/11: Bảng và 4 hình đã có; nêu giới hạn GCI, không suy ra hội tụ đô thị. Xem reviews/B8_B9_GRID_STUDY.md |
 | `B9.2` | ✅ Chạy baseline và giảm nguồn | Sáu bundle: hai mùa × ba hệ số, CSV/JSON và hình | 07/11: 6/6 real FV đạt gates, checksum, steady state; gió mặt ô giống hệt trong từng mùa; rate nguồn đúng hệ số, sai số mass ≤9.58e-14, sai số tuyến tính chuẩn hóa ≤5.66e-8. Xem RESEARCH §11; đây là thí nghiệm nguồn proxy có kiểm soát, không phải dự báo chính sách |
-| `B9.3` | 🟡 Tổng hợp so sánh và lập luận định lượng | Hai mùa/cao độ/FV-Gaussian, bảng sai số và hình có caption | Có candidate trong RESEARCH §3; cần cùng release artifacts, giải thích cả khác biệt nhỏ/0, khuếch tán số và cách lấy mean; không bịa số để khác rõ |
-| `B9.4` | 🟡 Chốt review chiều đứng và chất lượng hình học | Tham chiếu đã có; đóng ghi chú height/miền/center và tổng hợp hai mùa | PostGIS đã chạy lại, precision đã sửa cho run mới. Còn đánh giá xung đột tháp cao/GOB cap 100 m, khoảng tới biên trên và độ nhạy liên quan; không tự xem tag OSM là ground truth |
+| `B9.3` | 🟡 Tổng hợp so sánh và lập luận định lượng | Hai mùa/cao độ/FV-Gaussian, bảng sai số và hình có caption | Trường hai mùa và Gaussian đã tính lại trong candidate `artifacts/technical-close` (xem TECHNICAL_HANDOFF). Còn lấy bảng/hình từ đúng bộ release sau khi freeze B10.1; giải thích cả khác biệt nhỏ/0, khuếch tán số và cách lấy mean; không bịa số để khác rõ |
+| `B9.4` | ✅ Chốt review chiều đứng và chất lượng hình học | Tham chiếu đã có; đóng ghi chú height/miền/center và tổng hợp hai mùa | 19/11: tag OSM của 3 tháp (154–186 m) xác minh lại trên OSM API, khớp số tầng Wikidata; GOB ước tính thấp. Đã có thí nghiệm đỉnh miền 150 m và độ nhạy ±20% chiều cao. Giữ scene GOB theo BR-61; ảnh hưởng phần tháp bị thiếu chưa lượng hóa và được ghi là hạn chế. Xem reviews/B9_4_TRANSECT_HEIGHT.md |
 | `B9.5` | ✅ Đánh giá khả thi LoD2, chỉ triển khai khi qua cổng | Nguồn mái, giấy phép, chất lượng, quyết định làm/không làm và phương pháp đối chiếu | 01/11: Đánh giá hoàn tất: giữ LoD1 vì thiếu nguồn mái kiểm chứng. Xem reviews/B9_5_LOD2_FEASIBILITY.md |
 
 **Kết quả mốc tuần 9 — M8:** gói mở rộng có mặt cắt đứng, phân tích cao độ,
@@ -588,7 +588,7 @@ sang nghiệm thu kỹ thuật ở tuần 10. Không đánh dấu release tại 
 | `A10.1` | ✅ Chốt seed/demo dataset và revision cố định | `deploy/demo-profile.json`, hai bundle cùng revision, image/source/checksums và bản xuất dự phòng | 02/11: checkout sạch ca82a50, hai run thật qua gates; đã phục hồi bằng importer vào DB mới, 917.832 giá trị lát + 500 profile khớp NetCDF. Hồ sơ chốt demo, không tự đóng B10.1/freeze khoa học hoặc release |
 | `A10.2` | ✅ Gói bàn giao/runbook và kiểm độc lập theo phương án CI | Source/image/run/checksums, START_HERE, phục hồi local và báo cáo runner GitHub | 02/11: người dùng chọn CI thay máy cá nhân khác; run 41465927344 trên GitHub-hosted Ubuntu đạt 146 regression, input verifier, 7 API/Compose checks, 2 solver thật và cleanup. Đúng SHA 02185fb; không chứng nhận UI automation hoặc phần cứng cá nhân thứ hai |
 | `A10.3` | ✅ Kiểm UI, performance và demo flow | Số đo, CSV và ảnh dự phòng trong `artifacts/a10-3/` tại máy nghiệm thu | 09/11: desktop, viewport 390/320 px, bàn phím, tải lại, gián đoạn API và khôi phục đã kiểm. Sửa thanh xoay che nút MapLibre trên mobile. Web regression 115/115. |
-| `A10.5` | Chốt bản kỹ thuật | Revision, kết quả CI, benchmark và checksum | Kiểm lại QG/XG kỹ thuật trên cùng revision |
+| `A10.5` | 🟡 Chốt bản kỹ thuật | Revision, kết quả CI, benchmark và checksum | Kiểm lại QG/XG kỹ thuật trên cùng revision. CI độc lập đạt ở `02185fb`, benchmark 15/11 ở `6b27847`, rehearsal sạch 16/11 ở `04a7c10`; ba bằng chứng chưa cùng một revision |
 
 **Tiếp nối A10 ngày 01/11:** `node scripts/demo-preflight.mjs --url http://127.0.0.1:3001/`
 đã đối chiếu ZIP/scene và API thật (hash/lưới cùng số nhà/đường/nước/cây). Báo cáo local
@@ -646,7 +646,7 @@ B9.4 và nghiệm thu release vẫn giữ mở. Không ghi VM là PC thứ hai.
 
 | ID | Công việc | Đầu ra | Tiêu chí đạt |
 |---|---|---|---|
-| `B10.1` | 🟡 Chạy/chốt release scenarios và bundle nghiên cứu | Final artifacts/manifests/checksums, tái sinh grid-study và phần review còn thiếu local | 02/11: grid-study 10/10, production 5/5 pass; kiểm 35 artifact checksum/size; bảng/hình cùng đợt tại artifacts/release-candidate-20261102. Chưa chốt revision sạch/review/freeze. Run mới dùng writer float32 .9g; giữ candidate lịch sử |
+| `B10.1` | 🟡 Chạy/chốt release scenarios và bundle nghiên cứu | Final artifacts/manifests/checksums, tái sinh grid-study và phần review còn thiếu local | 02/11: grid-study 10/10, production 5/5 pass; kiểm 35 artifact checksum/size tại artifacts/release-candidate-20261102. Candidate `technical-close` có 203 file trong chỉ mục SHA-256. 16/11: rehearsal checkout sạch `04a7c10` đạt 8/8 bước (reviews/RELEASE_EVIDENCE_20261116.md). Chưa pin revision release và chốt freeze; giữ candidate lịch sử |
 
 **Kết quả tuần 10:** gói kỹ thuật có revision, Docker/runbook, artifact và checksum.
 

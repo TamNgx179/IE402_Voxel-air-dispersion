@@ -24,9 +24,12 @@ suffix when the follow-up changes are present.
   and 0.50% for this scenario. The test does not validate roof heights.
 - The frozen scene has 62 GOB heights. Its tallest estimate is 91 m, leaving
   9 m to the original boundary. The earlier audit found three OSM tags of at
-  least 100 m. Those tags were not reverified because the processed GeoJSON
-  containing them is absent from the local checkout. The committed CSV and its
-  digest were checked independently. See [the earlier height audit](reviews/B9_4_TRANSECT_HEIGHT.md).
+  least 100 m. On 19 November 2026 the current OSM versions were read again
+  and still give 186, 154 and 164.9 m. Wikidata lists 40 floors for two of the
+  towers. The towers are therefore likely taller than the 100 m domain, and GOB
+  underestimates them. The scene keeps GOB under BR-61. The effect of the
+  missing tower volume above about 60 m has not been simulated. See
+  [the height review](reviews/B9_4_TRANSECT_HEIGHT.md#xác-minh-lại-tag-osm-ngày-19112026).
 - For the dry run at 15 m, scaling roof heights to 80% and 120% changed the
   mean over shared air cells by −0.00317 and +0.00301 µg/m³, respectively.
   This separate experiment uses the original top boundary. Tall roofs can be
@@ -82,6 +85,6 @@ urban sensitivity are described in [the scientific review](reviews/THANH_SCIENCE
 
 The three tallest GOB estimates in the frozen scene are 91 m
 (`way/402859385`), 88.5 m (`way/741084351`) and 81 m (`way/263502876`).
-The historical OSM cross-check is retained. Fresh feature requests failed
-in this environment, so those OSM tags remain historical and cannot be
-treated as independently verified heights.
+The OSM tags for these towers were reverified against the OSM API on
+19 November 2026. They are community-edited values, not surveyed heights,
+and are not used as ground truth.

@@ -57,4 +57,5 @@ phiên bản Python/NumPy/SciPy nằm trong `summary.json`.
 
 Các hình và tensor nằm trong `artifacts/` và không được Git theo dõi;
 chạy lại lệnh trên để tạo. B9.3 vẫn cần tổng hợp thêm kết quả hai mùa và caption
-cho báo cáo cuối. B8.4/B9.2 (giảm nguồn) chưa được thực hiện bởi gói này.
+cho báo cáo cuối. B8.4/B9.2 (giảm nguồn) không thuộc gói này; hai task đã hoàn
+thành ngày 07/11 (xem ROADMAP và RESEARCH §11).

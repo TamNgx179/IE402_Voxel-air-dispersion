@@ -46,6 +46,9 @@ dùng thư mục mới cho mỗi đợt. Các file `artifacts/` là local và b�
 
 ## Còn thiếu trước bàn giao
 
+Danh sách dưới đây là trạng thái ngày 02/11. Trạng thái hiện hành xem
+[ROADMAP](../ROADMAP.md) và [mục lục review](README.md#còn-mở-cập-nhật-19112026).
+
 1. Review nguồn chiều cao tháp và thử miền cao hơn: 9 m khoảng hở không đủ để
    chứng nhận miền; giữ B9.4 mở. Không coi tag OSM là ground truth.
 2. Review bộ candidate mới, pin revision sạch, chạy bắt buộc API/PostGIS/browser

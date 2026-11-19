@@ -151,3 +151,30 @@ miền đã đủ cao. Cần thử miền cao hơn và xác minh nguồn/năm c�
 cao không thay được kiểm miền trên hoặc xác minh tag OSM. Test audit chặn giá trị
 không hữu hạn, không đoán tag đơn vị feet/multi-value và phân biệt thiếu tag với
 không chạm đỉnh miền.
+
+## Xác minh lại tag OSM ngày 19/11/2026
+
+Đọc lại ba way từ OSM API 0.6 ở phiên bản hiện hành và đối chiếu số tầng trên
+Wikidata. Phản hồi gốc lưu local ở `artifacts/height-audit/osm-recheck-20261119/`
+(SHA-256 `ways.json` = `897460086b2f480a154f22818ce8b3e7139dcc8b4517c93ba5ac65cf319b1b39`).
+
+| Way | Tên | GOB (m) | OSM `height` (m) | OSM `building:levels` | Phiên bản OSM | Wikidata, số tầng |
+| --- | --- | ---: | ---: | ---: | --- | ---: |
+| `way/402859385` | Vietcombank Tower | 91,0 | 186 | 35 | v9, 03/09/2024 | 40 (Q20026285) |
+| `way/741084351` | Hilton Saigon | 88,5 | 154 | 34 | v7, 17/03/2026 | không có mục riêng |
+| `way/165491082` | Saigon Times Square | 62,5 | 164,9 | 40 | v16, 20/04/2024 | 40 (Q6352680) |
+
+Tag hiện hành khớp giá trị trong audit 02/11. Wikidata không có chiều cao
+(P2048); số tầng ở đây được nhập từ Wikipedia và không phải số đo độc lập.
+Với 34–40 tầng, chiều cao dưới 100 m đòi hỏi trung bình dưới khoảng 2,5–2,9 m mỗi tầng,
+thấp hơn chiều cao tầng thường gặp của tòa văn phòng/khách sạn. Kết luận: cả ba
+tháp rất có thể cao hơn đỉnh miền 100 m, và GOB ước tính thấp ở nhóm nhà cao tầng.
+Trong scene đóng băng, phần tháp trên 62,5–91 m đang là không khí thay vì vật cản.
+
+Theo BR-61, scene giữ nguồn GOB; đổi chiều cao cần bundle, hash và run mới.
+Đã có bằng chứng cho hai mặt của giới hạn này: nâng đỉnh miền lên 150 m (với chiều
+cao GOB) làm trung bình tầng 1 m và 15 m đổi khoảng 0,05% và 0,5%, còn nhân chiều
+cao ±20% làm trung bình tầng 15 m đổi khoảng ±0,003 µg/m³. Chưa có run dùng chiều
+cao kiểu OSM cho ba tháp, nên ảnh hưởng của phần tháp bị thiếu lên dòng khí và nồng
+độ trên khoảng 60 m chưa được lượng hóa. Báo cáo cần ghi đây là hạn chế đã biết.
+B9.4 đóng với hạn chế này; không dùng tag OSM làm ground truth.
