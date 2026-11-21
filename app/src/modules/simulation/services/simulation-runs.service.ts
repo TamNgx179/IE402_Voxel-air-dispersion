@@ -1,7 +1,15 @@
 import { randomUUID } from 'node:crypto';
-import { BadRequestException, ConflictException, Injectable, NotFoundException } from '@nestjs/common';
+import {
+  BadRequestException,
+  ConflictException,
+  Injectable,
+  NotFoundException,
+} from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
-import { buildRunSnapshot, loadProjectConfig } from '../../../common/project-config.js';
+import {
+  buildRunSnapshot,
+  loadProjectConfig,
+} from '../../../common/project-config.js';
 import type { AppConfig } from '../../../config/env.validation.js';
 import type { CreateRunDto } from '../dto/create-run.dto.js';
 import type { ListRunsQueryDto } from '../dto/list-runs-query.dto.js';
@@ -18,7 +26,9 @@ export class SimulationRunsService {
 
   async create(dto: CreateRunDto): Promise<RunAccepted> {
     if (!(await this.runs.scenarioExists(dto.scenario_id))) {
-      throw new NotFoundException(`scenario "${dto.scenario_id}" does not exist`);
+      throw new NotFoundException(
+        `scenario "${dto.scenario_id}" does not exist`,
+      );
     }
     const model = dto.model ?? 'fv';
     const multiplier = dto.emission_multiplier ?? 1;
@@ -34,9 +44,17 @@ export class SimulationRunsService {
       model,
       emission_multiplier: multiplier,
     });
-    const accepted = await this.runs.create(runId, dto.scenario_id, model, snapshot, multiplier);
+    const accepted = await this.runs.create(
+      runId,
+      dto.scenario_id,
+      model,
+      snapshot,
+      multiplier,
+    );
     if (!accepted) {
-      throw new ConflictException('request_id already belongs to a different run request');
+      throw new ConflictException(
+        'request_id already belongs to a different run request',
+      );
     }
     return accepted;
   }
@@ -61,6 +79,7 @@ export class SimulationRunsService {
     const checks = await this.runs.verificationChecks(id);
     return {
       run_id: row.id,
+      coverage_policy: row.coverage_policy,
       status: row.status,
       progress: Number(row.progress),
       attempt: Number(row.attempt),
@@ -85,11 +104,14 @@ export class SimulationRunsService {
       metrics: row.metrics ?? null,
       verification: checks.length
         ? {
-            status: checks.every((check) => check.status === 'pass') ? 'pass' : 'fail',
+            status: checks.every((check) => check.status === 'pass')
+              ? 'pass'
+              : 'fail',
             checks: checks.map((check) => ({
               ...check,
               value: check.value === null ? null : Number(check.value),
-              tolerance: check.tolerance === null ? null : Number(check.tolerance),
+              tolerance:
+                check.tolerance === null ? null : Number(check.tolerance),
             })),
           }
         : null,

@@ -25,6 +25,7 @@ export interface VerificationCheckView {
 
 export interface RunView {
   run_id: string;
+  coverage_policy: 'complete' | 'partial';
   emission_multiplier: number;
   status: RunStatus;
   progress: number;

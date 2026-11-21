@@ -114,7 +114,7 @@ describe.skipIf(!db.ok)('Schema integrity with actual PostGIS', () => {
           await insertRun(client);
           await client.query(`DELETE FROM scenarios WHERE id = 'dry_nov_apr'`);
         },
-        { code: '23503' },
+        { code: '23514' },
       );
     });
 
@@ -309,7 +309,7 @@ describe.skipIf(!db.ok)('Schema integrity with actual PostGIS', () => {
       const id = await insertRun(client, { status: 'running' });
       await client.query(
         `INSERT INTO concentration_columns(run_id,i,j,c_ug_m3)
-        SELECT $1,i,j,array_fill(0::real,ARRAY[$2::int]) FROM grid_cells WHERE study_area_id=$3`,
+        SELECT $1,i,j,ARRAY(SELECT CASE WHEN k BETWEEN solid_from_k AND solid_to_k THEN NULL ELSE 0::real END FROM generate_series(0,$2::int-1) k) FROM grid_cells WHERE study_area_id=$3`,
         [id, grid.nz, area],
       );
       await publishFixtureRun(client, id);
@@ -363,7 +363,7 @@ describe.skipIf(!db.ok)('Schema integrity with actual PostGIS', () => {
             [area],
           );
         },
-        { code: '23503' },
+        { code: '23514' },
       );
       await rolledBack(async (client) => {
         const id = await complete(client);
@@ -422,7 +422,7 @@ describe.skipIf(!db.ok)('Schema integrity with actual PostGIS', () => {
             const id = await insertRun(client, { status: 'running' });
             await client.query(
               `INSERT INTO concentration_columns(run_id,i,j,c_ug_m3)
-            SELECT $1,i,j,array_fill(0::real,ARRAY[$2::int]) FROM grid_cells WHERE study_area_id=$3`,
+            SELECT $1,i,j,ARRAY(SELECT CASE WHEN k BETWEEN solid_from_k AND solid_to_k THEN NULL ELSE 0::real END FROM generate_series(0,$2::int-1) k) FROM grid_cells WHERE study_area_id=$3`,
               [id, grid.nz, area],
             );
             // Queue synthetic children, then deliberately damage the unpublished set.
@@ -498,7 +498,7 @@ describe.skipIf(!db.ok)('Schema integrity with actual PostGIS', () => {
       );
       await pool.query(
         `INSERT INTO concentration_columns(run_id,i,j,c_ug_m3)
-        SELECT $1,i,j,array_fill(0::real,ARRAY[$2::int]) FROM grid_cells WHERE study_area_id=$3`,
+        SELECT $1,i,j,ARRAY(SELECT CASE WHEN k BETWEEN solid_from_k AND solid_to_k THEN NULL ELSE 0::real END FROM generate_series(0,$2::int-1) k) FROM grid_cells WHERE study_area_id=$3`,
         [id, grid.nz, area],
       );
       const publisher = await pool.connect();

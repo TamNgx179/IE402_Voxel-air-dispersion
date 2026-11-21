@@ -15,6 +15,7 @@ export interface RunDetailRow {
   progress: number;
   attempt: number;
   model: RunModel;
+  coverage_policy: 'complete' | 'partial';
   emission_multiplier: number;
   error_kind: string | null;
   error_message: string | null;
@@ -48,7 +49,10 @@ export class SimulationRunsModel {
   constructor(private readonly db: DatabaseService) {}
 
   async scenarioExists(id: string): Promise<boolean> {
-    const result = await this.db.query('SELECT 1 FROM scenarios WHERE id = $1', [id]);
+    const result = await this.db.query(
+      'SELECT 1 FROM scenarios WHERE id = $1',
+      [id],
+    );
     return result.rowCount === 1;
   }
 
@@ -81,7 +85,9 @@ export class SimulationRunsModel {
       );
       [run] = existing.rows;
     }
-    return run ? { run_id: run.id, status: run.status, attempt: run.attempt } : null;
+    return run
+      ? { run_id: run.id, status: run.status, attempt: run.attempt }
+      : null;
   }
 
   async list(query: ListRunsQueryDto) {
@@ -113,7 +119,7 @@ export class SimulationRunsModel {
 
   async findDetail(id: string): Promise<RunDetailRow | null> {
     const { rows } = await this.db.query<RunDetailRow>(
-      `SELECT r.id, r.status, r.progress, r.attempt, r.model, r.error_kind, r.error_message,
+      `SELECT r.id, r.status, r.progress, r.attempt, r.model, r.coverage_policy, r.error_kind, r.error_message,
               r.model_version, r.input_hash, r.warnings, r.created_at, r.started_at, r.finished_at,
               COALESCE((r.config_snapshot->'run'->>'emission_multiplier')::double precision,1) AS emission_multiplier,
               s.id AS scenario_id, s.name AS scenario_name,
@@ -172,7 +178,11 @@ export class SimulationRunsModel {
       );
       return {
         kind: 'accepted',
-        run: { run_id: rows[0].id, status: rows[0].status, attempt: rows[0].attempt },
+        run: {
+          run_id: rows[0].id,
+          status: rows[0].status,
+          attempt: rows[0].attempt,
+        },
       };
     });
   }

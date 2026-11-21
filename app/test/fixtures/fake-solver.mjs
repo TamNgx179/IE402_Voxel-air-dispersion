@@ -93,9 +93,10 @@ writeFileSync(
 const rows = ['i,j,c_ug_m3'];
 for (let j = 0; j < 2; j++) {
   for (let i = 0; i < 2; i++) {
-    const solid = (i === 0 && j === 0) || (i === 1 && j === 1);
+    // Match the fixture's inclusive solid ranges, not an arbitrary two-layer mask.
+    const solidTo = i === 0 && j === 0 ? 2 : i === 1 && j === 1 ? 3 : -1;
     const col = Array.from({ length: nz }, (_, k) =>
-      solid && k < 2 ? 'NULL' : (10 / (k + 1)).toFixed(3),
+      k <= solidTo ? 'NULL' : (10 / (k + 1)).toFixed(3),
     );
     // The artifact has valid checksums, but the last profile has the wrong grid length.
     if (behavior === 'invalid-column-length' && i === 1 && j === 1) col.pop();

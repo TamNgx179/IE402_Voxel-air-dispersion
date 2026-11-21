@@ -309,6 +309,7 @@ describe.skipIf(!db.ok)('API with PostGIS (e2e, executor disabled)', () => {
       [{ scenario_id: 5 }],
       [{ scenario_id: 'dry_nov_apr', model: 'cfd' }],
       [{ scenario_id: 'dry_nov_apr', extra: true }],
+      [{ scenario_id: 'dry_nov_apr', coverage_policy: 'partial' }],
       [{ scenario_id: "x'; DROP TABLE simulation_runs; --" }],
     ])('rejects %j with 400 and creates nothing', async (body) => {
       const before = await runCount();
@@ -398,6 +399,7 @@ describe.skipIf(!db.ok)('API with PostGIS (e2e, executor disabled)', () => {
         attempt: 1,
         model: 'fv',
         scenario: { id: 'dry_nov_apr', wind_from_deg: 112 },
+        coverage_policy: 'complete',
         error: null,
         metrics: null,
         verification: null,
@@ -433,7 +435,8 @@ describe.skipIf(!db.ok)('API with PostGIS (e2e, executor disabled)', () => {
       await http().post(`/api/runs/${id}/retry`).expect(409);
       await pool.query(
         `INSERT INTO concentration_columns(run_id,i,j,c_ug_m3)
-        SELECT $1,i,j,ARRAY[0,0,0,0]::real[] FROM grid_cells`,
+        SELECT $1,i,j,ARRAY(SELECT CASE WHEN k BETWEEN solid_from_k AND solid_to_k
+          THEN NULL ELSE 0::real END FROM generate_series(0,3) k) FROM grid_cells`,
         [id],
       );
       await publishFixtureRun(pool, id);
@@ -481,18 +484,18 @@ describe.skipIf(!db.ok)('API with PostGIS (e2e, executor disabled)', () => {
     );
     await pool.query(
       `INSERT INTO concentration_columns (run_id, i, j, c_ug_m3) VALUES
-       ($1, 0, 0, '{NULL,NULL,5,2}'),
+       ($1, 0, 0, '{NULL,NULL,NULL,2}'),
        ($1, 1, 0, '{10,5,3,1}'),
        ($1, 0, 1, '{20,10,5,2}'),
-       ($1, 1, 1, '{30,15,8,4}')`,
+       ($1, 1, 1, '{NULL,NULL,NULL,NULL}')`,
       [id],
     );
 
     await publishFixtureRun(pool, id);
     const slice = await http().get(`/api/runs/${id}/slices?z_m=1`).expect(200);
     expect(slice.body).toMatchObject({ k: 0, z_m: 1, units: 'ug m-3' });
-    expect(slice.body.feature_collection.features).toHaveLength(3);
-    expect(slice.body.stats).toMatchObject({ air_cells: 3, max_ug_m3: 30 });
+    expect(slice.body.feature_collection.features).toHaveLength(2);
+    expect(slice.body.stats).toMatchObject({ air_cells: 2, max_ug_m3: 20 });
 
     for (const [height, layer] of [
       [0, 0],
@@ -520,9 +523,9 @@ describe.skipIf(!db.ok)('API with PostGIS (e2e, executor disabled)', () => {
       .get(`/api/runs/${id}/exceedance?z_m=1&threshold=15`)
       .expect(200);
     expect(exceedance.body).toMatchObject({
-      cell_count: 2,
-      area_m2: 50,
-      volume_m3: 100,
+      cell_count: 1,
+      area_m2: 25,
+      volume_m3: 50,
     });
 
     const profile = await http()

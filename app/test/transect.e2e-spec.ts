@@ -49,7 +49,7 @@ describe.skipIf(!db.ok)('Vertical transect with actual PostGIS', () => {
         'INSERT INTO concentration_columns(run_id,i,j,c_ug_m3) VALUES($1,$2,$3,$4)',
         [run, i, j, values],
       );
-    await publishFixtureRun(pool, run);
+    await publishFixtureRun(pool, run, { partial: true });
   });
   afterAll(async () => {
     await app?.close();
@@ -88,6 +88,12 @@ describe.skipIf(!db.ok)('Vertical transect with actual PostGIS', () => {
     expect(r.actual_step_m).toBeLessThanOrEqual(r.requested_step_m);
   });
   it('separates zero, missing air data and solid, without interpolation through buildings', async () => {
+    await http()
+      .get(`/api/runs/${run}`)
+      .expect(200)
+      .expect((res) => {
+        expect(res.body.coverage_policy).toBe('partial');
+      });
     const { body: r } = await query()
       .send(
         await body([
@@ -218,13 +224,22 @@ describe.skipIf(!db.ok)('Vertical transect with actual PostGIS', () => {
       z_center_m: '3',
       overlap_max_m: '3',
     });
+    // Create a separate unpublished fixture, set provenance, then publish once.
+    const escapedRun = randomUUID();
     await pool.query(
-      'UPDATE simulation_runs SET model_version=$2 WHERE id=$1',
-      [run, '=formula,"quoted"'],
+      `INSERT INTO simulation_runs(id,scenario_id,status,model_version,input_hash)
+      SELECT $1,scenario_id,'running',$2,input_hash FROM simulation_runs WHERE id=$3`,
+      [escapedRun, '=formula,"quoted"', run],
     );
+    await pool.query(
+      `INSERT INTO concentration_columns(run_id,i,j,c_ug_m3)
+      SELECT $1,i,j,c_ug_m3 FROM concentration_columns WHERE run_id=$2`,
+      [escapedRun, run],
+    );
+    await publishFixtureRun(pool, escapedRun, { partial: true });
     try {
       const escaped = await http()
-        .post(`/api/runs/${run}/transect/csv`)
+        .post(`/api/runs/${escapedRun}/transect/csv`)
         .send(b)
         .expect(200);
       expect(
@@ -232,10 +247,7 @@ describe.skipIf(!db.ok)('Vertical transect with actual PostGIS', () => {
           .model_version,
       ).toBe('\'=formula,"quoted"');
     } finally {
-      await pool.query(
-        "UPDATE simulation_runs SET model_version='transect-fixture' WHERE id=$1",
-        [run],
-      );
+      await pool.query('DELETE FROM simulation_runs WHERE id=$1', [escapedRun]);
     }
   });
   it.each(['queued', 'running', 'failed', 'stale'])(
@@ -332,7 +344,7 @@ describe.skipIf(!db.ok)('Vertical transect with actual PostGIS', () => {
         'DELETE FROM grid_cells WHERE study_area_id=$1 AND i=1 AND j=0',
         [area],
       ),
-    ).rejects.toMatchObject({ code: '23503' });
+    ).rejects.toMatchObject({ code: '23514' });
     await expect(
       pool.query(
         "UPDATE concentration_columns SET c_ug_m3='{1,NULL,NULL,23}' WHERE run_id=$1 AND i=0 AND j=0",

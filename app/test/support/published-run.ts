@@ -4,7 +4,13 @@ import type pg from 'pg';
 export async function publishFixtureRun(
   pool: pg.Pool | pg.PoolClient,
   id: string,
+  options: { partial?: boolean } = {},
 ) {
+  if (options.partial)
+    await pool.query(
+      "UPDATE simulation_runs SET coverage_policy='partial' WHERE id=$1",
+      [id],
+    );
   await pool.query(
     'INSERT INTO run_metrics(run_id) VALUES($1) ON CONFLICT DO NOTHING',
     [id],

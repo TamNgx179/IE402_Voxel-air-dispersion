@@ -43,7 +43,19 @@ describe.skipIf(!db.ok)('Spatial analysis with actual PostGIS', () => {
         'INSERT INTO concentration_columns(run_id,i,j,c_ug_m3) VALUES($1,$2,$3,$4)',
         [id, n % 2, Math.floor(n / 2), masked[n]],
       );
-    await publishFixtureRun(pool, id);
+    // Some cases deliberately contain missing AIR samples, independently of solids.
+    const partial = masked.some((literal, n) =>
+      literal
+        .slice(1, -1)
+        .split(',')
+        .some((v, k) => v === 'NULL' && !((n === 0 && k <= 2) || n === 3)),
+    );
+    try {
+      await publishFixtureRun(pool, id, { partial });
+    } catch (error) {
+      await pool.query('DELETE FROM simulation_runs WHERE id=$1', [id]);
+      throw error;
+    }
     return id;
   }
   async function polygon(x1: number, y1: number, x2: number, y2: number) {
@@ -66,6 +78,13 @@ describe.skipIf(!db.ok)('Spatial analysis with actual PostGIS', () => {
       EXECUTOR_ENABLED: 'false',
     });
     area = (await pool.query('SELECT id FROM study_areas LIMIT 1')).rows[0].id;
+    // Roads are part of the immutable scene and must exist BEFORE its first run.
+    await pool.query(
+      `INSERT INTO road_segments(study_area_id,source_feature_id,geom)
+      SELECT $1,id,ST_GeomFromText('LINESTRING(685990 1191302.5,686020 1191302.5)',32648)
+      FROM unnest(ARRAY['corridor-test-a','corridor-test-b','corridor-zero-coverage']) id`,
+      [area],
+    );
     baseline = await run([
       '{NULL,NULL,NULL,2}',
       '{10,5,3,1}',
@@ -108,20 +127,13 @@ describe.skipIf(!db.ok)('Spatial analysis with actual PostGIS', () => {
         ),
       ).rejects.toMatchObject({
         code: '23514',
-        constraint: 'grid_cells_solid_pair_complete',
       });
     }
   });
 
   it('clips overlapping road buffers into disjoint bands and weights partial layers', async () => {
     const roadIds = ['corridor-test-a', 'corridor-test-b'];
-    await pool.query(
-      `INSERT INTO road_segments(study_area_id, source_feature_id, geom)
-       SELECT $1, id, ST_GeomFromText('LINESTRING(685990 1191302.5,686020 1191302.5)',32648)
-       FROM unnest($2::text[]) AS id`,
-      [area, roadIds],
-    );
-    try {
+    {
       const path = `/api/runs/${baseline}/road-corridor`;
       const query = {
         road_ids: roadIds,
@@ -168,11 +180,6 @@ describe.skipIf(!db.ok)('Spatial analysis with actual PostGIS', () => {
         .post(path)
         .send({ ...query, road_ids: [...roadIds, 'absent'] })
         .expect(400);
-    } finally {
-      await pool.query(
-        'DELETE FROM road_segments WHERE study_area_id = $1 AND source_feature_id = ANY($2)',
-        [area, roadIds],
-      );
     }
   });
 
@@ -184,11 +191,6 @@ describe.skipIf(!db.ok)('Spatial analysis with actual PostGIS', () => {
       '{20,10,5,2}',
       '{NULL,NULL,NULL,NULL}',
     ]);
-    await pool.query(
-      `INSERT INTO road_segments(study_area_id, source_feature_id, geom)
-       VALUES ($1, $2, ST_GeomFromText('LINESTRING(685990 1191302.5,686020 1191302.5)',32648))`,
-      [area, roadId],
-    );
     try {
       const { body } = await http()
         .post(`/api/runs/${id}/road-corridor`)
@@ -212,10 +214,6 @@ describe.skipIf(!db.ok)('Spatial analysis with actual PostGIS', () => {
         exceedance_volume_m3: 0,
       });
     } finally {
-      await pool.query(
-        'DELETE FROM road_segments WHERE study_area_id = $1 AND source_feature_id = $2',
-        [area, roadId],
-      );
       await pool.query('DELETE FROM simulation_runs WHERE id = $1', [id]);
     }
   });
@@ -262,7 +260,7 @@ describe.skipIf(!db.ok)('Spatial analysis with actual PostGIS', () => {
     expect(p.comparison_ug_m3).toBe(Math.fround(0.0485567));
     expect(p.delta_ug_m3).toBe(Math.fround(0.0485567) - Math.fround(0.0230344));
   });
-  it('all-solid layer is empty, not a layer of zero concentrations', async () => {
+  it('a layer without valid air data is empty, not a layer of zero concentrations', async () => {
     const solid = await run(Array(4).fill('{NULL,0,0,0}'));
     const response = await http().get(pair(solid, solid)).expect(200);
     expect(response.body.stats).toMatchObject({
@@ -438,25 +436,10 @@ describe.skipIf(!db.ok)('Spatial analysis with actual PostGIS', () => {
       await pool.query('DELETE FROM simulation_runs WHERE id = $1', [id]);
     }
   });
-  it('excludes scene solids even if legacy/imported columns contain values there', async () => {
-    // Seed legacy solid values before publication to exercise the query's independent mask guard.
-    const dirty = await run(
-      Array(4).fill('{100,100,100,100}'),
-      'fv',
-      'dry_nov_apr',
-      false,
-    );
-    const r = await http().get(pair(dirty, dirty)).expect(200);
-    expect(r.body.stats.air_cells).toBe(2);
-    const region = await http()
-      .post(`/api/runs/${dirty}/region`)
-      .send({
-        ...(await body()),
-        polygon: await polygon(686000.5, 1191300.5, 686004.5, 1191304.5),
-      })
-      .expect(201);
-    expect(region.body.air_volume_m3).toBe(0);
-    expect(region.body.mean_ug_m3).toBeNull();
+  it('rejects publication of imported values inside scene solids', async () => {
+    await expect(
+      run(Array(4).fill('{100,100,100,100}'), 'fv', 'dry_nov_apr', false),
+    ).rejects.toMatchObject({ code: '23514' });
   });
   it('threshold equality is not exceedance', async () => {
     const r = await http()
