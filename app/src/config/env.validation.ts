@@ -18,6 +18,9 @@ export interface AppConfig {
   PYTHON_BIN: string;
   /** PostgreSQL/PostGIS connection; without it DB-backed routes answer 503. */
   DATABASE_URL?: string;
+  /** Server-side limits, independently validated from connection/solver timeouts. */
+  DB_STATEMENT_TIMEOUT_MS: number;
+  DB_LOCK_TIMEOUT_MS: number;
   /** `mock` adds `--mock` to the solver command (spec D2); `real` runs the solver. */
   SOLVER_MODE: SolverMode;
   /** Mock mode only: adds `--mock-fail <kind>` (spec D2) to demo failures. */
@@ -122,8 +125,7 @@ export function validate(
   const rawProjectConfigPath = readString(env, 'PROJECT_CONFIG_PATH');
   const projectConfigPath = toAbsolute(
     appRoot,
-    rawProjectConfigPath ??
-      resolve(repoRoot, 'config', 'project.yaml'),
+    rawProjectConfigPath ?? resolve(repoRoot, 'config', 'project.yaml'),
   );
   if (
     rawProjectConfigPath !== undefined &&
@@ -252,6 +254,27 @@ export function validate(
     }
   }
 
+  const databaseLimit = (key: string, fallback: number) => {
+    const raw = readString(env, key);
+    if (raw === undefined) return fallback;
+    const n = Number(raw);
+    if (
+      !/^\d+$/.test(raw) ||
+      !Number.isSafeInteger(n) ||
+      n < 1 ||
+      n > 300_000
+    ) {
+      problems.push(`${key} must be an integer from 1 to 300000`);
+      return fallback;
+    }
+    return n;
+  };
+  const statementTimeoutMs = databaseLimit('DB_STATEMENT_TIMEOUT_MS', 15_000);
+  const lockTimeoutMs = databaseLimit('DB_LOCK_TIMEOUT_MS', 3_000);
+  if (lockTimeoutMs >= statementTimeoutMs)
+    problems.push(
+      'DB_LOCK_TIMEOUT_MS must be less than DB_STATEMENT_TIMEOUT_MS',
+    );
   if (problems.length > 0) throw new ConfigValidationError(problems);
 
   return {
@@ -261,6 +284,8 @@ export function validate(
     ARTIFACT_DIR: artifactDir,
     PYTHON_BIN: pythonBin,
     ...(databaseUrl !== undefined ? { DATABASE_URL: databaseUrl } : {}),
+    DB_STATEMENT_TIMEOUT_MS: statementTimeoutMs,
+    DB_LOCK_TIMEOUT_MS: lockTimeoutMs,
     SOLVER_MODE: solverMode,
     ...(mockFail !== undefined ? { SOLVER_MOCK_FAIL: mockFail } : {}),
     SOLVER_TIMEOUT_S: timeoutS,

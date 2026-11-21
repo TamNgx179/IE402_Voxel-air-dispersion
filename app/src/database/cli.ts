@@ -55,7 +55,11 @@ async function main(): Promise<number> {
   }
 
   const log = (msg: string) => console.log(`[db:${command}] ${msg}`);
-  const pool = createPool(cfg.DATABASE_URL);
+  // Offline maintenance may scan all historical voxels; it is not an interactive request.
+  const pool = createPool(cfg.DATABASE_URL, {
+    statementTimeoutMs: 120_000,
+    lockTimeoutMs: 10_000,
+  });
   try {
     if (command === 'reset') {
       log('dropping schema public (all data)');

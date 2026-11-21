@@ -26,6 +26,8 @@ describe('validate (env config)', () => {
     expect(cfg.ARTIFACT_DIR).toBe(resolve(repoRoot, 'artifacts'));
     expect(cfg.PYTHON_BIN).toBe(resolve(repoRoot, '.venv', 'bin', 'python'));
     expect(cfg.DATABASE_URL).toBeUndefined();
+    expect(cfg.DB_STATEMENT_TIMEOUT_MS).toBe(15_000);
+    expect(cfg.DB_LOCK_TIMEOUT_MS).toBe(3_000);
   });
 
   it('uses the Windows venv layout on win32', () => {
@@ -33,6 +35,22 @@ describe('validate (env config)', () => {
     expect(cfg.PYTHON_BIN).toBe(
       resolve(repoRoot, '.venv', 'Scripts', 'python.exe'),
     );
+  });
+
+  it.each(['0', '-1', '1.5', 'NaN', 'Infinity', '300001'])(
+    'refuses unsafe SQL budgets %s',
+    (value) => {
+      for (const key of ['DB_STATEMENT_TIMEOUT_MS', 'DB_LOCK_TIMEOUT_MS'])
+        expect(() => validate({ [key]: value }, { appRoot })).toThrow(key);
+    },
+  );
+  it('requires lock timeout below the statement budget', () => {
+    expect(() =>
+      validate(
+        { DB_STATEMENT_TIMEOUT_MS: 500, DB_LOCK_TIMEOUT_MS: 500 },
+        { appRoot },
+      ),
+    ).toThrow('less than');
   });
 
   it('accepts explicit valid values', () => {
@@ -69,7 +87,10 @@ describe('validate (env config)', () => {
 
   it('rejects an explicit PROJECT_CONFIG_PATH that is not a file', () => {
     expect(() =>
-      validate({ PROJECT_CONFIG_PATH: join(repoRoot, 'missing.yaml') }, { appRoot }),
+      validate(
+        { PROJECT_CONFIG_PATH: join(repoRoot, 'missing.yaml') },
+        { appRoot },
+      ),
     ).toThrow(/PROJECT_CONFIG_PATH must be an existing file/);
   });
 

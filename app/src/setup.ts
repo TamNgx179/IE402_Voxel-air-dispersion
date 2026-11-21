@@ -1,5 +1,6 @@
 import { type INestApplication, ValidationPipe } from '@nestjs/common';
 import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
+import { DatabaseTimeoutFilter } from './database/database-timeout.filter.js';
 
 export const API_PREFIX = 'api';
 
@@ -10,6 +11,7 @@ export const API_PREFIX = 'api';
 export function configureApp(app: INestApplication): void {
   app.setGlobalPrefix(API_PREFIX);
   app.enableShutdownHooks();
+  app.useGlobalFilters(new DatabaseTimeoutFilter(app.getHttpAdapter()));
   // DTO validation (BR-16): unknown properties are a 400, never silently dropped.
   app.useGlobalPipes(
     new ValidationPipe({

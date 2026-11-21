@@ -15,11 +15,22 @@ export type DatabaseStatus =
 
 const HEALTH_TIMEOUT_MS = 3_000;
 
-/** Creates a pg Pool; also used by the db:* CLI. */
-export function createPool(connectionString: string): pg.Pool {
+export interface DatabaseLimits {
+  statementTimeoutMs?: number;
+  lockTimeoutMs?: number;
+  max?: number;
+}
+
+/** Server cancellation limits the actual SQL, rather than just abandoning a Promise. */
+export function createPool(
+  connectionString: string,
+  limits: DatabaseLimits = {},
+): pg.Pool {
   return new pg.Pool({
     connectionString,
-    max: 10,
+    max: limits.max ?? 10,
+    statement_timeout: limits.statementTimeoutMs ?? 15_000,
+    lock_timeout: limits.lockTimeoutMs ?? 3_000,
     connectionTimeoutMillis: 5_000,
     idleTimeoutMillis: 30_000,
   });
@@ -37,7 +48,12 @@ export class DatabaseService implements OnApplicationShutdown {
   constructor(config: ConfigService<AppConfig, true>) {
     const url = config.get('DATABASE_URL', { infer: true });
     if (url) {
-      this.pool = createPool(url);
+      this.pool = createPool(url, {
+        statementTimeoutMs: config.get('DB_STATEMENT_TIMEOUT_MS', {
+          infer: true,
+        }),
+        lockTimeoutMs: config.get('DB_LOCK_TIMEOUT_MS', { infer: true }),
+      });
       // An idle client losing its connection must not crash the process.
       this.pool.on('error', (err) =>
         this.logger.warn(`idle PostgreSQL client error: ${err.message}`),
@@ -69,16 +85,22 @@ export class DatabaseService implements OnApplicationShutdown {
   /** Runs `fn` inside BEGIN/COMMIT, rolling back on any error. */
   async transaction<T>(fn: (client: pg.PoolClient) => Promise<T>): Promise<T> {
     const client = await this.getPool().connect();
+    let discard = false;
     try {
       await client.query('BEGIN');
       const result = await fn(client);
       await client.query('COMMIT');
       return result;
     } catch (err) {
-      await client.query('ROLLBACK').catch(() => undefined);
+      try {
+        await client.query('ROLLBACK');
+      } catch {
+        // A disconnected or unrecoverable transaction must never re-enter the pool.
+        discard = true;
+      }
       throw err;
     } finally {
-      client.release();
+      client.release(discard);
     }
   }
 
