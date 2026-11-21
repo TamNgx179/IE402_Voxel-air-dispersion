@@ -6,6 +6,10 @@
 
 ## 1 · ERD
 
+The editable [draw.io model](img/database-erd.drawio) and the
+[scene](img/database-scene.svg) / [result](img/database-results.svg) panels include
+the current physical columns and declared foreign keys through migration 0006.
+
 ### Phạm vi hiện hành và nâng cấp đề xuất — 27/10/2026
 
 Schema/migration hiện có vẫn là chuẩn triển khai; tài liệu không tạo migration mới.
@@ -113,6 +117,7 @@ erDiagram
     }
     simulation_runs {
         uuid id PK
+        text coverage_policy "complete | partial"
         text scenario_id FK
         text model "fv | gaussian"
         text status "queued | running | succeeded | failed | stale"
@@ -485,3 +490,60 @@ Thử nghiệm A/B 10 lần trên cùng DB cho thấy dùng
 vị từ 37,44 xuống 32,46 ms (1 đường) và từ 1.608,27 xuống 1.102,89 ms (50 đường).
 Ô chạm biên vẫn qua `ST_Intersection`. Hình học trả về và tám trường số ở
 cả hai ca khớp kết quả gốc. Không cần thêm chỉ mục cho thay đổi này.
+
+## Scientific history and coverage (migration 0006)
+
+`simulation_runs.coverage_policy` is NOT NULL and accepts `complete` (the production
+default) or `partial`. The create-run DTO cannot opt into partial coverage. An
+administrative partial import must declare the policy before publication. Run detail
+returns this policy. Complete publication requires a value in every air voxel.
+Partial publication may retain missing air samples but needs at least one valid air
+sample. Both policies reject any value inside the inclusive solid range. Zero is
+valid data and is never used to replace NULL. The gate audits every existing succeeded
+run during upgrade and rolls back the entire migration on invalid historical data.
+It never repairs values or infers a weaker policy to make an upgrade pass.
+
+Once a run references a scene, ordinary INSERT/UPDATE/DELETE against its scene rows
+are refused, including geometry, roof height, solid ranges, grid, version and provenance.
+A used scenario cannot change, but a new scenario may reuse the scene. Thresholds
+are frozen while any run exists because this schema has no per-run threshold revision.
+No-op updates and unused scenes remain supported. Whole-run deletion still cascades
+to result children. Published run metadata cannot be demoted or rewritten to bypass
+child immutability. TRUNCATE is also refused while runs exist.
+
+Scene writes and run INSERT/scenario reassignment take transaction advisory key
+4020003 in a BEFORE STATEMENT trigger, before row locks are acquired. This serializes
+the first-run race. Scientific writers use READ COMMITTED and fail closed under
+retained-snapshot isolation modes. Read-only queries remain supported. This is a
+fixed-revision design, not mutable scene versioning or protection against a privileged
+administrator disabling triggers. Deleting all runs that reference an area releases
+that area's history guard.
+
+The pg Pool applies server `statement_timeout` (15000 ms) and `lock_timeout` (3000 ms).
+The environment accepts positive integer budgets up to 300000 ms and requires the
+lock budget to be smaller. SQLSTATE 57014/55P03 becomes a safe HTTP 503 without SQL or
+connection details. Transactions roll back before client release; rollback failure
+discards the client. CLI migration/seed uses separate 120000/10000 ms budgets.
+These budgets bound resource use; they are not latency benchmarks.
+
+### Functional dependencies and physical tradeoffs
+
+| Relation | Determinant | Dependent information |
+| --- | --- | --- |
+| study_areas | id | name, geometry, grid, scene provenance |
+| scenarios | id | area, wind and parameters |
+| simulation_runs | id | scenario, snapshot, state, coverage policy |
+| run_metrics | run_id | the one optional metric record |
+| verification_checks | run_id + check_name | status, value and tolerance |
+| artifacts | run_id + kind | path, digest and size |
+| concentration_columns | run_id + i + j | vertical concentration array |
+
+`run_id -> study_area_id` is a deliberate partial dependency in the physical
+concentration table, which therefore does not satisfy classical 2NF/3NF. The derived
+area enables a declarative composite grid FK and is enforced by a trigger. Arrays,
+JSONB and immutable snapshots are explicit physical choices, not a claim that every
+physical table is a classical normalized relation.
+
+Verification uses actual PostGIS: history mutations, concurrent first-run creation,
+legacy upgrade refusal, complete/partial/null/zero/solid cases, query and lock
+cancellation, rollback, HTTP recovery and the existing real-solver API suite.

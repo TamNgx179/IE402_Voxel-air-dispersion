@@ -171,7 +171,9 @@ The main viewer uses `frontend/dist`. NestJS also serves the compatibility viewe
 - **Adapter**: The Python solver adapter translates the process invocation, stdout progress and exit status for the executor. The executor retains responsibility for claims, timeouts and publishing.
 - **Observer**: State subscriptions notify the map and panels when the selected run, height or visible layers change, keeping the views synchronized without direct component-to-component control.
 
-The database also validates the publication boundary: complete XY columns, metrics, required passing checks and artifact metadata must exist before a run succeeds. A composite foreign key links each concentration column to its grid cell. See the [database contract](docs/DATABASE.md#hợp-đồng-db-sau-migration-0005).
+The database validates the publication boundary: complete XY columns, metrics, required passing checks and artifact metadata must exist before a run succeeds. Solid voxels must be null. Production runs require every air sample, while explicitly declared partial imports preserve missing values. Used scenes, thresholds and published run metadata are immutable under ordinary SQL writes. A composite foreign key links each concentration column to its grid cell. See the [database contract](docs/DATABASE.md#scientific-history-and-coverage-migration-0006).
+
+Interactive SQL has server-side budgets of 15 seconds per statement and 3 seconds for lock waiting. Configure them with `DB_STATEMENT_TIMEOUT_MS` and `DB_LOCK_TIMEOUT_MS` in `app/.env`. Cancelled requests return a retryable HTTP 503, and failed transactions roll back before connections are reused. These are resource limits, not promised response times. Offline migration/seed commands use longer maintenance budgets.
 
 ### Simulation lifecycle
 

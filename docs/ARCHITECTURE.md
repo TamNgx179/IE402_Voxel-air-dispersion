@@ -17,6 +17,8 @@ Sơ đồ này dùng chung với báo cáo. NestJS phục vụ Web GIS React và
 
 Migration `0005_result_contract.sql` siết dữ liệu nồng độ hữu hạn, không âm, biên lưới và điều kiện công bố. Cột `study_area_id` trong `concentration_columns` là khóa vật lý suy ra từ lần chạy, được trigger kiểm và dùng cho FK `(study_area_id,i,j)` tới `grid_cells`. Đây là dư thừa có kiểm soát để DB bảo vệ tham chiếu, không phải tuyên bố toàn bộ schema vật lý đạt 3NF. Xem [thiết kế DB](DATABASE.md).
 
+Migration `0006_scene_history_and_coverage.sql` khóa cảnh đã có lần chạy, kịch bản đã được sử dụng và danh mục ngưỡng. Khóa tư vấn theo giao dịch tại đầu câu lệnh tuần tự hóa ghi cảnh với tạo lần chạy đầu tiên. Các luồng ghi khoa học yêu cầu READ COMMITTED. Độ phủ `complete` mặc định yêu cầu đủ mẫu khí, `partial` phải khai báo riêng trước công bố, còn ô công trình luôn NULL. Metadata run đã công bố cũng bất biến, tránh hạ trạng thái để sửa dữ liệu con. Kết nối API có timeout SQL và chờ khóa ở phía PostgreSQL, hoàn tác trước khi tái sử dụng, đồng thời trả 503 an toàn khi hết ngân sách. Đây là bảo vệ cho thao tác SQL thông thường, không chống quản trị viên tắt trigger.
+
 Các biểu tượng trong sơ đồ thuộc Bootstrap Icons. Thông báo giấy phép được giữ tại [LICENSE](../frontend/public/vendor/bootstrap-icons/LICENSE).
 
 > Tài liệu này được dẫn xuất từ [`spec.md`](spec.md) và [`RESEARCH.md`](RESEARCH.md).
