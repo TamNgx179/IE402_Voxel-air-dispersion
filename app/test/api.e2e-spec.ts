@@ -1,4 +1,5 @@
 import { randomUUID } from 'node:crypto';
+import { publishFixtureRun } from './support/published-run.js';
 import { mkdtemp, readFile, rmdir, unlink, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
@@ -95,13 +96,13 @@ describe.skipIf(!db.ok)('API with PostGIS (e2e, executor disabled)', () => {
       );
       await expect(
         pool.query(
-          `INSERT INTO concentration_columns VALUES ($1, 0, 0, '{1,2,3}')`,
+          `INSERT INTO concentration_columns(run_id,i,j,c_ug_m3) VALUES ($1, 0, 0, '{1,2,3}')`,
           [run],
         ),
       ).rejects.toThrow(/nz = 4/);
       await expect(
         pool.query(
-          `INSERT INTO concentration_columns VALUES ($1, 0, 0, '{1,NULL,3,4}')`,
+          `INSERT INTO concentration_columns(run_id,i,j,c_ug_m3) VALUES ($1, 0, 0, '{1,NULL,3,4}')`,
           [run],
         ),
       ).resolves.toBeTruthy();
@@ -245,28 +246,61 @@ describe.skipIf(!db.ok)('API with PostGIS (e2e, executor disabled)', () => {
       expect(got.body.model).toBe('gaussian');
     });
 
-    it.each([0.8, 0.6])('persists source preset %s and returns it after reload/retry', async (multiplier) => {
-      const accepted = await http().post('/api/runs')
-        .send({ scenario_id: 'dry_nov_apr', emission_multiplier: multiplier }).expect(202);
-      const id = accepted.body.run_id;
-      const detail = await http().get(`/api/runs/${id}`).expect(200);
-      expect(detail.body.emission_multiplier).toBe(multiplier);
-      const listed = await http().get('/api/runs?limit=100').expect(200);
-      expect(listed.body.find((run: any) => run.run_id === id).emission_multiplier).toBe(multiplier);
-      const before = (await pool.query('SELECT config_snapshot FROM simulation_runs WHERE id=$1',[id])).rows[0].config_snapshot;
-      await pool.query("UPDATE simulation_runs SET status='failed',error_kind='system' WHERE id=$1",[id]);
-      await http().post(`/api/runs/${id}/retry`).expect(202);
-      const after = (await pool.query('SELECT config_snapshot FROM simulation_runs WHERE id=$1',[id])).rows[0].config_snapshot;
-      expect(after).toEqual(before);
-      expect(after.run.emission_multiplier).toBe(multiplier);
-    });
+    it.each([0.8, 0.6])(
+      'persists source preset %s and returns it after reload/retry',
+      async (multiplier) => {
+        const accepted = await http()
+          .post('/api/runs')
+          .send({ scenario_id: 'dry_nov_apr', emission_multiplier: multiplier })
+          .expect(202);
+        const id = accepted.body.run_id;
+        const detail = await http().get(`/api/runs/${id}`).expect(200);
+        expect(detail.body.emission_multiplier).toBe(multiplier);
+        const listed = await http().get('/api/runs?limit=100').expect(200);
+        expect(
+          listed.body.find((run: any) => run.run_id === id).emission_multiplier,
+        ).toBe(multiplier);
+        const before = (
+          await pool.query(
+            'SELECT config_snapshot FROM simulation_runs WHERE id=$1',
+            [id],
+          )
+        ).rows[0].config_snapshot;
+        await pool.query(
+          "UPDATE simulation_runs SET status='failed',error_kind='system' WHERE id=$1",
+          [id],
+        );
+        await http().post(`/api/runs/${id}/retry`).expect(202);
+        const after = (
+          await pool.query(
+            'SELECT config_snapshot FROM simulation_runs WHERE id=$1',
+            [id],
+          )
+        ).rows[0].config_snapshot;
+        expect(after).toEqual(before);
+        expect(after.run.emission_multiplier).toBe(multiplier);
+      },
+    );
 
-    it.each([null, true, '0.8', 0, -1, 0.7, 1.2])('rejects invalid source preset %s', async (value) => {
-      await http().post('/api/runs').send({ scenario_id:'dry_nov_apr', emission_multiplier:value }).expect(400);
-    });
+    it.each([null, true, '0.8', 0, -1, 0.7, 1.2])(
+      'rejects invalid source preset %s',
+      async (value) => {
+        await http()
+          .post('/api/runs')
+          .send({ scenario_id: 'dry_nov_apr', emission_multiplier: value })
+          .expect(400);
+      },
+    );
 
     it('refuses reduced Gaussian instead of silently changing only a label', async () => {
-      await http().post('/api/runs').send({ scenario_id:'dry_nov_apr',model:'gaussian',emission_multiplier:.8 }).expect(400);
+      await http()
+        .post('/api/runs')
+        .send({
+          scenario_id: 'dry_nov_apr',
+          model: 'gaussian',
+          emission_multiplier: 0.8,
+        })
+        .expect(400);
     });
 
     it.each([
@@ -284,30 +318,54 @@ describe.skipIf(!db.ok)('API with PostGIS (e2e, executor disabled)', () => {
     });
 
     it('replays concurrent create requests without queuing another run', async () => {
-      const body = { request_id: randomUUID(), scenario_id: 'dry_nov_apr', emission_multiplier: 0.8 };
+      const body = {
+        request_id: randomUUID(),
+        scenario_id: 'dry_nov_apr',
+        emission_multiplier: 0.8,
+      };
       const [first, replay] = await Promise.all([
         http().post('/api/runs').send(body).expect(202),
         http().post('/api/runs').send(body).expect(202),
       ]);
       expect(first.body.run_id).toBe(body.request_id);
       expect(replay.body).toEqual(first.body);
-      await http().post('/api/runs').send({ ...body, emission_multiplier: 0.6 }).expect(409);
-      const detail = await http().get(`/api/runs/${body.request_id}`).expect(200);
+      await http()
+        .post('/api/runs')
+        .send({ ...body, emission_multiplier: 0.6 })
+        .expect(409);
+      const detail = await http()
+        .get(`/api/runs/${body.request_id}`)
+        .expect(200);
       expect(detail.body.emission_multiplier).toBe(0.8);
     });
 
     it('preserves historical queries when an operator attempts to seed a new revision', async () => {
-      await http().post('/api/runs').send({ scenario_id: 'dry_nov_apr' }).expect(202);
+      await http()
+        .post('/api/runs')
+        .send({ scenario_id: 'dry_nov_apr' })
+        .expect(202);
       const configPath = projectConfigPath(REPO_ROOT);
-      const original = await seed(pool, { sceneDir: FIXTURE_SCENE, configPath });
+      const original = await seed(pool, {
+        sceneDir: FIXTURE_SCENE,
+        configPath,
+      });
       const directory = await mkdtemp(join(tmpdir(), 'ie402-seed-'));
       const changed = join(directory, 'project.yaml');
       try {
-        await writeFile(changed, (await readFile(configPath, 'utf8')) + '\n# Different release configuration\n');
-        await expect(seed(pool, { sceneDir: FIXTURE_SCENE, configPath: changed }))
-          .rejects.toThrow('Use a new database');
-        expect(await seed(pool, { sceneDir: FIXTURE_SCENE, configPath })).toEqual(original);
-        const hashes = await pool.query('SELECT DISTINCT config_hash FROM thresholds');
+        await writeFile(
+          changed,
+          (await readFile(configPath, 'utf8')) +
+            '\n# Different release configuration\n',
+        );
+        await expect(
+          seed(pool, { sceneDir: FIXTURE_SCENE, configPath: changed }),
+        ).rejects.toThrow('Use a new database');
+        expect(
+          await seed(pool, { sceneDir: FIXTURE_SCENE, configPath }),
+        ).toEqual(original);
+        const hashes = await pool.query(
+          'SELECT DISTINCT config_hash FROM thresholds',
+        );
         expect(hashes.rows).toEqual([{ config_hash: original.config_hash }]);
       } finally {
         await unlink(changed);
@@ -374,9 +432,11 @@ describe.skipIf(!db.ok)('API with PostGIS (e2e, executor disabled)', () => {
       );
       await http().post(`/api/runs/${id}/retry`).expect(409);
       await pool.query(
-        `UPDATE simulation_runs SET status = 'succeeded', model_version = 'x', input_hash = $2, finished_at = now() WHERE id = $1`,
-        [id, `sha256:${id}`],
+        `INSERT INTO concentration_columns(run_id,i,j,c_ug_m3)
+        SELECT $1,i,j,ARRAY[0,0,0,0]::real[] FROM grid_cells`,
+        [id],
       );
+      await publishFixtureRun(pool, id);
       const res = await http().post(`/api/runs/${id}/retry`).expect(409);
       expect(res.body.message).toMatch(/succeeded/);
     });
@@ -416,7 +476,7 @@ describe.skipIf(!db.ok)('API with PostGIS (e2e, executor disabled)', () => {
     await pool.query(
       `INSERT INTO simulation_runs
          (id, scenario_id, status, model_version, input_hash, finished_at)
-       VALUES ($1, 'dry_nov_apr', 'succeeded', 'test', $2, now())`,
+       VALUES ($1, 'dry_nov_apr', 'running', 'test', $2, now())`,
       [id, `sha256:${'a'.repeat(64)}`],
     );
     await pool.query(
@@ -428,6 +488,7 @@ describe.skipIf(!db.ok)('API with PostGIS (e2e, executor disabled)', () => {
       [id],
     );
 
+    await publishFixtureRun(pool, id);
     const slice = await http().get(`/api/runs/${id}/slices?z_m=1`).expect(200);
     expect(slice.body).toMatchObject({ k: 0, z_m: 1, units: 'ug m-3' });
     expect(slice.body.feature_collection.features).toHaveLength(3);

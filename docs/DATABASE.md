@@ -54,7 +54,7 @@ erDiagram
     simulation_runs ||--o{ verification_checks : "is gated by"
     simulation_runs ||--o{ artifacts : "produces"
     simulation_runs ||--o{ concentration_columns : "stores"
-    grid_cells ||--o{ concentration_columns : "locates"
+    grid_cells ||--o{ concentration_columns : "composite FK"
 
     study_areas {
         uuid id PK
@@ -156,10 +156,11 @@ erDiagram
         bigint size_bytes
     }
     concentration_columns {
+        uuid study_area_id FK "derived from run"
         uuid run_id PK,FK
-        smallint i PK
-        smallint j PK
-        real_array c_ug_m3 "real[nz], NULL = voxel rắn"
+        smallint i PK,FK
+        smallint j PK,FK
+        real_array c_ug_m3 "real[nz], NULL interpreted with scene mask"
     }
     thresholds {
         text key PK
@@ -169,10 +170,15 @@ erDiagram
     }
 ```
 
-`concentration_columns` nối với `grid_cells` khi truy vấn qua `(study_area_id, i, j)`.
-`study_area_id` được suy ra từ `simulation_runs → scenarios` và không lưu lặp trong
-bảng kết quả. Trigger kiểm giới hạn lưới, còn liên kết với từng hàng `grid_cells`
-được thực hiện bằng phép JOIN.
+`concentration_columns` tham chiếu `grid_cells` bằng FK ghép `(study_area_id,i,j)` từ migration 0005. Trigger suy ra `study_area_id` từ lần chạy và từ chối khu vực không khớp. Khóa vật lý này là dư thừa có kiểm soát, có chỉ mục riêng để hỗ trợ kiểm tham chiếu theo ô lưới.
+
+### Hợp đồng DB sau migration 0005
+
+- Nồng độ phải hữu hạn và không âm, còn NULL và 0 vẫn là hai giá trị khác nhau. Mảng phải một chiều, chỉ số đầu 1 và có đúng `nz` phần tử.
+- Ô lưới phải nằm trong `nx`, `ny`, khoảng rắn nằm trong `nz`, và hình học ô/đường không rỗng, hợp lệ, có diện tích/chiều dài dương.
+- Trước khi chuyển sang `succeeded`, DB yêu cầu đủ `nx × ny` cột, một hàng `run_metrics`, năm phép kiểm bắt buộc đạt, không có phép kiểm thất bại và đủ bảy loại metadata tệp gồm manifest. Các hàng kết quả được bảo vệ khỏi sửa/xóa trực tiếp khi lần chạy đang thành công. Xóa cả lần chạy vẫn cascade bình thường.
+- DB kiểm metadata tệp, không đọc ổ đĩa để xác thực checksum. Manifest verifier và giao dịch nhập vẫn là ranh giới công bố của ứng dụng. NULL ở ô khí vẫn được giữ như dữ liệu thiếu, không tự đổi thành 0.
+- Migration từ chối dữ liệu cũ vi phạm hợp đồng và rollback, không tự sửa hoặc xóa số liệu. Cần đối chiếu bộ tệp gốc và phục hồi/nạp lại có chủ đích trước khi chạy lại migration.
 
 ## 2 · Index
 

@@ -1,4 +1,5 @@
 import { randomUUID } from 'node:crypto';
+import { publishFixtureRun } from './support/published-run.js';
 import type { INestApplication } from '@nestjs/common';
 import request from 'supertest';
 import { parse } from 'csv-parse/sync';
@@ -12,29 +13,37 @@ describe.skipIf(!db.ok)('Spatial analysis with actual PostGIS', () => {
   const http = () => request(app.getHttpServer());
   const pair = (a = baseline, b = comparison, z = 1) =>
     `/api/runs/${a}/comparison?compare_run_id=${b}&z_m=${z}`;
-  async function run(values: string[], model = 'fv') {
+  async function run(
+    values: string[],
+    model = 'fv',
+    scenario = 'dry_nov_apr',
+    applyMask = true,
+  ) {
     // Align every synthetic column with the committed scene's inclusive solid ranges.
-    const masked = values.map((literal, n) => {
-      const parts = literal.slice(1, -1).split(',');
-      return (
-        '{' +
-        parts
-          .map((v, k) => ((n === 0 && k <= 2) || n === 3 ? 'NULL' : v))
-          .join(',') +
-        '}'
-      );
-    });
+    const masked = !applyMask
+      ? values
+      : values.map((literal, n) => {
+          const parts = literal.slice(1, -1).split(',');
+          return (
+            '{' +
+            parts
+              .map((v, k) => ((n === 0 && k <= 2) || n === 3 ? 'NULL' : v))
+              .join(',') +
+            '}'
+          );
+        });
     const id = randomUUID();
     await pool.query(
       `INSERT INTO simulation_runs(id,scenario_id,model,status,model_version,input_hash,finished_at)
-      VALUES($1,'dry_nov_apr',$2,'succeeded','analysis-test',$3,now())`,
-      [id, model, 'sha256:' + id],
+      VALUES($1,$4,$2,'running','analysis-test',$3,now())`,
+      [id, model, 'sha256:' + id, scenario],
     );
     for (let n = 0; n < 4; n++)
       await pool.query(
         'INSERT INTO concentration_columns(run_id,i,j,c_ug_m3) VALUES($1,$2,$3,$4)',
         [id, n % 2, Math.floor(n / 2), masked[n]],
       );
+    await publishFixtureRun(pool, id);
     return id;
   }
   async function polygon(x1: number, y1: number, x2: number, y2: number) {
@@ -76,17 +85,31 @@ describe.skipIf(!db.ok)('Spatial analysis with actual PostGIS', () => {
   });
 
   it('rejects voxel arrays that cannot be read with k + 1 and incomplete solid intervals', async () => {
-    for (const literal of ['{}', '[0:3]={10,5,3,1}', '{{1,2},{3,4},{5,6},{7,8}}']) {
-      await expect(pool.query(
-        'UPDATE concentration_columns SET c_ug_m3 = $2 WHERE run_id = $1 AND i = 1 AND j = 0',
-        [baseline, literal],
-      )).rejects.toMatchObject({ code: '23514' });
+    for (const literal of [
+      '{}',
+      '[0:3]={10,5,3,1}',
+      '{{1,2},{3,4},{5,6},{7,8}}',
+    ]) {
+      await expect(
+        pool.query(
+          'UPDATE concentration_columns SET c_ug_m3 = $2 WHERE run_id = $1 AND i = 1 AND j = 0',
+          [baseline, literal],
+        ),
+      ).rejects.toMatchObject({ code: '23514' });
     }
-    for (const [from, to] of [[null, 2], [0, null]]) {
-      await expect(pool.query(
-        'UPDATE grid_cells SET solid_from_k = $2, solid_to_k = $3 WHERE study_area_id = $1 AND i = 0 AND j = 0',
-        [area, from, to],
-      )).rejects.toMatchObject({ code: '23514', constraint: 'grid_cells_solid_pair_complete' });
+    for (const [from, to] of [
+      [null, 2],
+      [0, null],
+    ]) {
+      await expect(
+        pool.query(
+          'UPDATE grid_cells SET solid_from_k = $2, solid_to_k = $3 WHERE study_area_id = $1 AND i = 0 AND j = 0',
+          [area, from, to],
+        ),
+      ).rejects.toMatchObject({
+        code: '23514',
+        constraint: 'grid_cells_solid_pair_complete',
+      });
     }
   });
 
@@ -101,52 +124,98 @@ describe.skipIf(!db.ok)('Spatial analysis with actual PostGIS', () => {
     try {
       const path = `/api/runs/${baseline}/road-corridor`;
       const query = {
-        road_ids: roadIds, distances_m: [1, 2.5],
-        z_min_m: 1, z_max_m: 3, threshold_ug_m3: 5,
+        road_ids: roadIds,
+        distances_m: [1, 2.5],
+        z_min_m: 1,
+        z_max_m: 3,
+        threshold_ug_m3: 5,
       };
       const { body } = await http().post(path).send(query).expect(201);
       // Each band spans 10 m in X. Half its footprint is solid.
       // On the air half, layers overlap by 1 m each, with values 10 and 5.
       expect(body.bands).toHaveLength(2);
       expect(body.bands[0]).toMatchObject({
-        inner_m: 0, outer_m: 1, area_m2: 20, air_volume_m3: 20,
-        valid_volume_m3: 20, coverage: 1, mean_ug_m3: 7.5, exceedance_volume_m3: 10,
+        inner_m: 0,
+        outer_m: 1,
+        area_m2: 20,
+        air_volume_m3: 20,
+        valid_volume_m3: 20,
+        coverage: 1,
+        mean_ug_m3: 7.5,
+        exceedance_volume_m3: 10,
       });
       expect(body.bands[1]).toMatchObject({
-        inner_m: 1, outer_m: 2.5, area_m2: 30, air_volume_m3: 30,
-        mean_ug_m3: 7.5, exceedance_volume_m3: 15,
+        inner_m: 1,
+        outer_m: 2.5,
+        area_m2: 30,
+        air_volume_m3: 30,
+        mean_ug_m3: 7.5,
+        exceedance_volume_m3: 15,
       });
-      const csv = await http().post(path + '/csv').send(query).expect(201);
+      const csv = await http()
+        .post(path + '/csv')
+        .send(query)
+        .expect(201);
       const rows = parse<{ mean_ug_m3: string }>(csv.text, { columns: true });
-      expect(rows.map((row: { mean_ug_m3: string }) => Number(row.mean_ug_m3))).toEqual([7.5, 7.5]);
-      await http().post(path).send({ ...query, distances_m: [2, 1] }).expect(400);
-      await http().post(path).send({ ...query, road_ids: [...roadIds, 'absent'] }).expect(400);
+      expect(
+        rows.map((row: { mean_ug_m3: string }) => Number(row.mean_ug_m3)),
+      ).toEqual([7.5, 7.5]);
+      await http()
+        .post(path)
+        .send({ ...query, distances_m: [2, 1] })
+        .expect(400);
+      await http()
+        .post(path)
+        .send({ ...query, road_ids: [...roadIds, 'absent'] })
+        .expect(400);
     } finally {
-      await pool.query('DELETE FROM road_segments WHERE study_area_id = $1 AND source_feature_id = ANY($2)', [area, roadIds]);
+      await pool.query(
+        'DELETE FROM road_segments WHERE study_area_id = $1 AND source_feature_id = ANY($2)',
+        [area, roadIds],
+      );
     }
   });
 
   it('separates missing air from zero and excludes threshold equality in a clipped corridor', async () => {
     const roadId = 'corridor-zero-coverage';
-    const id = await run(['{NULL,NULL,NULL,2}', '{0,5,NULL,1}', '{20,10,5,2}', '{NULL,NULL,NULL,NULL}']);
+    const id = await run([
+      '{NULL,NULL,NULL,2}',
+      '{0,5,NULL,1}',
+      '{20,10,5,2}',
+      '{NULL,NULL,NULL,NULL}',
+    ]);
     await pool.query(
       `INSERT INTO road_segments(study_area_id, source_feature_id, geom)
        VALUES ($1, $2, ST_GeomFromText('LINESTRING(685990 1191302.5,686020 1191302.5)',32648))`,
       [area, roadId],
     );
     try {
-      const { body } = await http().post(`/api/runs/${id}/road-corridor`).send({
-        road_ids: [roadId], distances_m: [1], z_min_m: 1, z_max_m: 5, threshold_ug_m3: 5,
-      }).expect(201);
+      const { body } = await http()
+        .post(`/api/runs/${id}/road-corridor`)
+        .send({
+          road_ids: [roadId],
+          distances_m: [1],
+          z_min_m: 1,
+          z_max_m: 5,
+          threshold_ug_m3: 5,
+        })
+        .expect(201);
       // The air column contributes 10 m² at each height. Thicknesses 1, 2,
       // 1 m and concentrations 0, 5, missing give 40 m³ of air and 30 m³ of data.
       expect(body.bands).toHaveLength(1);
       expect(body.bands[0]).toMatchObject({
-        area_m2: 20, air_volume_m3: 40, valid_volume_m3: 30,
-        coverage: 0.75, mean_ug_m3: 10 / 3, exceedance_volume_m3: 0,
+        area_m2: 20,
+        air_volume_m3: 40,
+        valid_volume_m3: 30,
+        coverage: 0.75,
+        mean_ug_m3: 10 / 3,
+        exceedance_volume_m3: 0,
       });
     } finally {
-      await pool.query('DELETE FROM road_segments WHERE study_area_id = $1 AND source_feature_id = $2', [area, roadId]);
+      await pool.query(
+        'DELETE FROM road_segments WHERE study_area_id = $1 AND source_feature_id = $2',
+        [area, roadId],
+      );
       await pool.query('DELETE FROM simulation_runs WHERE id = $1', [id]);
     }
   });
@@ -240,19 +309,19 @@ describe.skipIf(!db.ok)('Spatial analysis with actual PostGIS', () => {
   it('refuses mismatched model, solid mask and missing columns', async () => {
     const other = await run(Array(4).fill('{0,0,0,0}'), 'gaussian');
     await http().get(pair(baseline, other)).expect(409);
-    await pool.query("UPDATE simulation_runs SET model='fv' WHERE id=$1", [
-      other,
+    const mismatch = await run([
+      '{NULL,NULL,NULL,2}',
+      '{NULL,1,1,1}',
+      '{1,1,1,1}',
+      '{NULL,NULL,NULL,NULL}',
     ]);
-    await pool.query(
-      'UPDATE concentration_columns SET c_ug_m3[1]=NULL WHERE run_id=$1 AND i=1 AND j=0',
-      [other],
-    );
-    await http().get(pair(baseline, other)).expect(409);
-    await pool.query(
-      'DELETE FROM concentration_columns WHERE run_id=$1 AND i=0 AND j=0',
-      [other],
-    );
-    await http().get(pair(baseline, other)).expect(409);
+    await http().get(pair(baseline, mismatch)).expect(409);
+    await expect(
+      pool.query(
+        'DELETE FROM concentration_columns WHERE run_id=$1 AND i=0 AND j=0',
+        [mismatch],
+      ),
+    ).rejects.toMatchObject({ code: '23514' });
   });
   it('refuses a second study area even if numeric grid happens to match', async () => {
     const otherArea = randomUUID(),
@@ -265,11 +334,12 @@ describe.skipIf(!db.ok)('Spatial analysis with actual PostGIS', () => {
       `INSERT INTO scenarios(id,study_area_id,name,wind_speed_m_s,wind_from_deg,parameters) SELECT $1,$2,$1,wind_speed_m_s,wind_from_deg,parameters FROM scenarios LIMIT 1`,
       [scenario, otherArea],
     );
-    const id = await run(Array(4).fill('{0,0,0,0}'));
-    await pool.query('UPDATE simulation_runs SET scenario_id=$2 WHERE id=$1', [
-      id,
-      scenario,
-    ]);
+    await pool.query(
+      `INSERT INTO grid_cells(study_area_id,i,j,geom,solid_from_k,solid_to_k)
+      SELECT $1,i,j,geom,solid_from_k,solid_to_k FROM grid_cells WHERE study_area_id=$2`,
+      [otherArea, area],
+    );
+    const id = await run(Array(4).fill('{0,0,0,0}'), 'fv', scenario);
     await http().get(pair(baseline, id)).expect(409);
   });
   it('weights a partial cell and partial height; omits the adjacent solid cell', async () => {
@@ -369,11 +439,12 @@ describe.skipIf(!db.ok)('Spatial analysis with actual PostGIS', () => {
     }
   });
   it('excludes scene solids even if legacy/imported columns contain values there', async () => {
-    const dirty = await run(Array(4).fill('{100,100,100,100}'));
-    // Deliberately violate the artifact contract to exercise the SQL safety guard.
-    await pool.query(
-      'UPDATE concentration_columns SET c_ug_m3=ARRAY[100,100,100,100]::real[] WHERE run_id=$1',
-      [dirty],
+    // Seed legacy solid values before publication to exercise the query's independent mask guard.
+    const dirty = await run(
+      Array(4).fill('{100,100,100,100}'),
+      'fv',
+      'dry_nov_apr',
+      false,
     );
     const r = await http().get(pair(dirty, dirty)).expect(200);
     expect(r.body.stats.air_cells).toBe(2);

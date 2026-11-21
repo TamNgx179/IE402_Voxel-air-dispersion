@@ -1,4 +1,5 @@
 import { randomUUID } from 'node:crypto';
+import { publishFixtureRun } from './support/published-run.js';
 import type { INestApplication } from '@nestjs/common';
 import request from 'supertest';
 import { parse } from 'csv-parse/sync';
@@ -34,7 +35,7 @@ describe.skipIf(!db.ok)('Vertical transect with actual PostGIS', () => {
     run = randomUUID();
     await pool.query(
       `INSERT INTO simulation_runs(id,scenario_id,model,status,model_version,input_hash,finished_at)
-      VALUES($1,'dry_nov_apr','fv','succeeded','transect-fixture','sha256:fixture',now())`,
+      VALUES($1,'dry_nov_apr','fv','running','transect-fixture','sha256:fixture',now())`,
       [run],
     );
     // Scene occupancy: (0,0) k0..2 and (1,1) k0..3 solid. (0,1) has a genuine zero and missing air datum.
@@ -48,6 +49,7 @@ describe.skipIf(!db.ok)('Vertical transect with actual PostGIS', () => {
         'INSERT INTO concentration_columns(run_id,i,j,c_ug_m3) VALUES($1,$2,$3,$4)',
         [run, i, j, values],
       );
+    await publishFixtureRun(pool, run);
   });
   afterAll(async () => {
     await app?.close();
@@ -174,31 +176,25 @@ describe.skipIf(!db.ok)('Vertical transect with actual PostGIS', () => {
     expect(r.body.samples.at(-1).distance_m).toBe(r.body.length_m);
     expect(r.body.actual_step_m).toBeLessThanOrEqual(1);
   });
-  it('returns no_data for a missing concentration column instead of inventing zero', async () => {
-    await pool.query(
-      'DELETE FROM concentration_columns WHERE run_id=$1 AND i=0 AND j=1',
-      [run],
-    );
-    try {
-      const { body: r } = await query()
-        .send(
-          await body([
-            [686001, 1191307],
-            [686002, 1191307],
-          ]),
-        )
-        .expect(200);
-      expect(
-        r.samples[0].cells.every(
-          (c: any) => c.status === 'no_data' && c.concentration_ug_m3 === null,
-        ),
-      ).toBe(true);
-    } finally {
-      await pool.query(
-        "INSERT INTO concentration_columns(run_id,i,j,c_ug_m3) VALUES($1,0,1,'{0,NULL,17,23}')",
+  it('prevents removal of a published concentration column while preserving missing-air semantics', async () => {
+    await expect(
+      pool.query(
+        'DELETE FROM concentration_columns WHERE run_id=$1 AND i=0 AND j=1',
         [run],
-      );
-    }
+      ),
+    ).rejects.toMatchObject({ code: '23514' });
+    const { body: r } = await query()
+      .send(
+        await body([
+          [686001, 1191307],
+          [686002, 1191307],
+        ]),
+      )
+      .expect(200);
+    expect(r.samples[0].cells[1]).toMatchObject({
+      status: 'no_data',
+      concentration_ug_m3: null,
+    });
   });
   it('returns CSV equal to JSON and escapes provenance text without changing scientific values', async () => {
     const b = await body();
@@ -231,9 +227,10 @@ describe.skipIf(!db.ok)('Vertical transect with actual PostGIS', () => {
         .post(`/api/runs/${run}/transect/csv`)
         .send(b)
         .expect(200);
-      expect(parse<Record<string, string>>(escaped.text, { columns: true })[0].model_version).toBe(
-        '\'=formula,"quoted"',
-      );
+      expect(
+        parse<Record<string, string>>(escaped.text, { columns: true })[0]
+          .model_version,
+      ).toBe('\'=formula,"quoted"');
     } finally {
       await pool.query(
         "UPDATE simulation_runs SET model_version='transect-fixture' WHERE id=$1",
@@ -327,48 +324,24 @@ describe.skipIf(!db.ok)('Vertical transect with actual PostGIS', () => {
       .expect(400);
     expect(tooMany.body.message).toMatch(/20.000/);
   });
-  it('refuses a missing grid mask or concentration inside a solid voxel instead of hiding inconsistent data', async () => {
+  it('protects referenced grid rows and published concentration values at the database boundary', async () => {
     const area = (await pool.query('SELECT id FROM study_areas LIMIT 1'))
       .rows[0].id;
-    const old = (
-      await pool.query(
-        'SELECT ST_AsEWKT(geom) AS geom FROM grid_cells WHERE study_area_id=$1 AND i=1 AND j=0',
+    await expect(
+      pool.query(
+        'DELETE FROM grid_cells WHERE study_area_id=$1 AND i=1 AND j=0',
         [area],
-      )
-    ).rows[0];
-    await pool.query(
-      'DELETE FROM grid_cells WHERE study_area_id=$1 AND i=1 AND j=0',
-      [area],
-    );
-    try {
-      await query()
-        .send(await body())
-        .expect(409);
-    } finally {
-      await pool.query(
-        'INSERT INTO grid_cells(study_area_id,i,j,geom) VALUES($1,1,0,ST_GeomFromEWKT($2))',
-        [area, old.geom],
-      );
-    }
-    await pool.query(
-      "UPDATE concentration_columns SET c_ug_m3='{1,NULL,NULL,23}' WHERE run_id=$1 AND i=0 AND j=0",
-      [run],
-    );
-    try {
-      await query()
-        .send(
-          await body([
-            [686001, 1191302],
-            [686002, 1191302],
-          ]),
-        )
-        .expect(409);
-    } finally {
-      await pool.query(
-        "UPDATE concentration_columns SET c_ug_m3='{NULL,NULL,NULL,23}' WHERE run_id=$1 AND i=0 AND j=0",
+      ),
+    ).rejects.toMatchObject({ code: '23503' });
+    await expect(
+      pool.query(
+        "UPDATE concentration_columns SET c_ug_m3='{1,NULL,NULL,23}' WHERE run_id=$1 AND i=0 AND j=0",
         [run],
-      );
-    }
+      ),
+    ).rejects.toMatchObject({ code: '23514' });
+    await query()
+      .send(await body())
+      .expect(200);
   });
   it('queries never create runs or artifacts, including rejected requests', async () => {
     const counts = async () =>

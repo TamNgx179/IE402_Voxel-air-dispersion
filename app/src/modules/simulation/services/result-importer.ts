@@ -67,6 +67,18 @@ function validate(row: ColumnRecord, line: number): void {
       `columns.csv.gz line ${line}: invalid PostgreSQL real[] literal`,
     );
   }
+  // Check the numeric domain before batching. PostgreSQL repeats this check
+  // for every writer, including SQL that bypasses this importer.
+  for (const value of row.c_ug_m3.slice(1, -1).split(',')) {
+    if (
+      value !== 'NULL' &&
+      (!Number.isFinite(Number(value)) || Number(value) < 0)
+    ) {
+      throw new Error(
+        `columns.csv.gz line ${line}: concentrations must be finite and non-negative`,
+      );
+    }
+  }
 }
 
 async function insertBatch(
@@ -82,8 +94,7 @@ async function insertBatch(
   });
   await client.query(
     `INSERT INTO concentration_columns (run_id, i, j, c_ug_m3)
-     VALUES ${tuples.join(',')}
-     ON CONFLICT (run_id, i, j) DO UPDATE SET c_ug_m3 = EXCLUDED.c_ug_m3`,
+     VALUES ${tuples.join(',')}`,
     values,
   );
 }

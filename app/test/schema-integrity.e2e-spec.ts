@@ -1,4 +1,5 @@
 import { randomUUID } from 'node:crypto';
+import { publishFixtureRun } from './support/published-run.js';
 import type pg from 'pg';
 import { prepareTestDatabase } from './support/test-db.js';
 
@@ -63,18 +64,22 @@ describe.skipIf(!db.ok)('Schema integrity with actual PostGIS', () => {
   ) => expect(rolledBack(work)).rejects.toMatchObject(expected);
 
   describe('simulation runs', () => {
-    it('accepts a queued run and a complete succeeded run', async () => {
+    it('accepts a queued run, but rejects publication without its result children', async () => {
       await rolledBack(async (client) => {
         await insertRun(client);
-        await insertRun(client, {
-          status: 'succeeded',
-          model_version: '0.1.0',
-          input_hash: 'sha256:abc',
-          finished_at: new Date(),
-        });
       });
+      await fails(
+        (client) =>
+          insertRun(client, {
+            status: 'succeeded',
+            progress: 1,
+            model_version: '0.1.0',
+            input_hash: 'fixture',
+            finished_at: new Date(),
+          }),
+        { code: '23514' },
+      );
     });
-
     it.each([
       [{ status: 'cancelled' }, 'simulation_runs_status_check'],
       [{ model: 'rans' }, 'simulation_runs_model_check'],
@@ -295,6 +300,239 @@ describe.skipIf(!db.ok)('Schema integrity with actual PostGIS', () => {
             ),
           { code: '23514' },
         );
+    });
+  });
+
+  describe('scientific publication contract', () => {
+    /** Populate the real grid and synthetic metadata before publication. */
+    async function complete(client: pg.PoolClient) {
+      const id = await insertRun(client, { status: 'running' });
+      await client.query(
+        `INSERT INTO concentration_columns(run_id,i,j,c_ug_m3)
+        SELECT $1,i,j,array_fill(0::real,ARRAY[$2::int]) FROM grid_cells WHERE study_area_id=$3`,
+        [id, grid.nz, area],
+      );
+      await publishFixtureRun(client, id);
+      return id;
+    }
+
+    it.each(['-1', 'NaN', 'Infinity', '-Infinity'])(
+      'rejects %s in direct SQL arrays',
+      async (value) => {
+        await fails(
+          async (client) => {
+            const id = await insertRun(client);
+            await client.query(
+              `INSERT INTO concentration_columns(run_id,i,j,c_ug_m3)
+          VALUES($1,0,0,array_fill($2::real,ARRAY[$3::int]))`,
+              [id, value, grid.nz],
+            );
+          },
+          {
+            code: '23514',
+            constraint: 'concentration_columns_finite_nonnegative',
+          },
+        );
+      },
+    );
+
+    it('derives a real grid FK and rejects a column whose grid row is absent', async () => {
+      await fails(
+        async (client) => {
+          await client.query(
+            'DELETE FROM grid_cells WHERE study_area_id=$1 AND i=0 AND j=0',
+            [area],
+          );
+          const id = await insertRun(client);
+          await client.query(
+            `INSERT INTO concentration_columns(run_id,i,j,c_ug_m3)
+          VALUES($1,0,0,array_fill(0::real,ARRAY[$2::int]))`,
+            [id, grid.nz],
+          );
+        },
+        { code: '23503', constraint: 'concentration_columns_grid_fk' },
+      );
+    });
+
+    it('prevents deletion of a referenced grid row, but permits deleting its parent run', async () => {
+      await fails(
+        async (client) => {
+          await complete(client);
+          await client.query(
+            'DELETE FROM grid_cells WHERE study_area_id=$1 AND i=0 AND j=0',
+            [area],
+          );
+        },
+        { code: '23503' },
+      );
+      await rolledBack(async (client) => {
+        const id = await complete(client);
+        await client.query('DELETE FROM simulation_runs WHERE id=$1', [id]);
+        expect(
+          (
+            await client.query(
+              'SELECT 1 FROM concentration_columns WHERE run_id=$1',
+              [id],
+            )
+          ).rowCount,
+        ).toBe(0);
+      });
+    });
+
+    it.each([
+      'run_metrics',
+      'verification_checks',
+      'artifacts',
+      'concentration_columns',
+    ])('protects published %s from direct deletion', async (table) => {
+      await fails(
+        async (client) => {
+          const id = await complete(client);
+          await client.query(`DELETE FROM ${table} WHERE run_id=$1`, [id]);
+        },
+        { code: '23514' },
+      );
+    });
+
+    it('publishes all children atomically and enforces complete XY coverage', async () => {
+      await rolledBack(async (client) => {
+        const id = await complete(client);
+        const {
+          rows: [r],
+        } = await client.query(
+          'SELECT status,progress FROM simulation_runs WHERE id=$1',
+          [id],
+        );
+        expect(r).toEqual({ status: 'succeeded', progress: 1 });
+      });
+      await fails(
+        async (client) => {
+          const id = await insertRun(client, { status: 'running' });
+          await publishFixtureRun(client, id);
+        },
+        { code: '23514' },
+      );
+    });
+
+    it.each(['metrics', 'artifacts', 'checks', 'failed-check'])(
+      'rejects publication with missing or invalid %s',
+      async (missing) => {
+        await fails(
+          async (client) => {
+            const id = await insertRun(client, { status: 'running' });
+            await client.query(
+              `INSERT INTO concentration_columns(run_id,i,j,c_ug_m3)
+            SELECT $1,i,j,array_fill(0::real,ARRAY[$2::int]) FROM grid_cells WHERE study_area_id=$3`,
+              [id, grid.nz, area],
+            );
+            // Queue synthetic children, then deliberately damage the unpublished set.
+            await client.query('SAVEPOINT fixture_ready');
+            // Avoid calling the helper's publication until the incomplete set is ready.
+            await client.query('INSERT INTO run_metrics(run_id) VALUES($1)', [
+              id,
+            ]);
+            await client.query(
+              `INSERT INTO verification_checks(run_id,check_name,status)
+            SELECT $1,n,'pass' FROM unnest(ARRAY['cfl','face_divergence','positivity','wall_flux','mass_balance']) n`,
+              [id],
+            );
+            await client.query(
+              `INSERT INTO artifacts(run_id,kind,path,sha256,size_bytes)
+            SELECT $1,n,n,repeat('0',64),0 FROM unnest(ARRAY['config','wind','concentration','columns','metrics','log','manifest']) n`,
+              [id],
+            );
+            if (missing === 'metrics')
+              await client.query('DELETE FROM run_metrics WHERE run_id=$1', [
+                id,
+              ]);
+            if (missing === 'artifacts')
+              await client.query(
+                "DELETE FROM artifacts WHERE run_id=$1 AND kind='manifest'",
+                [id],
+              );
+            if (missing === 'checks')
+              await client.query(
+                "DELETE FROM verification_checks WHERE run_id=$1 AND check_name='mass_balance'",
+                [id],
+              );
+            if (missing === 'failed-check')
+              await client.query(
+                "UPDATE verification_checks SET status='fail' WHERE run_id=$1 AND check_name='mass_balance'",
+                [id],
+              );
+            await client.query(
+              `UPDATE simulation_runs SET status='succeeded',progress=1,model_version='fixture',input_hash='fixture',finished_at=now() WHERE id=$1`,
+              [id],
+            );
+          },
+          { code: '23514' },
+        );
+      },
+    );
+
+    it('rejects out-of-range grid indices and incomplete grid metadata', async () => {
+      await fails(
+        (client) =>
+          client.query(
+            `INSERT INTO grid_cells(study_area_id,i,j,geom)
+        SELECT study_area_id,$2,0,geom FROM grid_cells WHERE study_area_id=$1 LIMIT 1`,
+            [area, grid.nx],
+          ),
+        { code: '23514' },
+      );
+      await fails(
+        (client) =>
+          client.query(
+            "UPDATE study_areas SET grid=jsonb_set(grid,'{nz}','0') WHERE id=$1",
+            [area],
+          ),
+        { code: '23514' },
+      );
+    });
+
+    it('serializes a concurrent child deletion with publication', async () => {
+      const id = randomUUID();
+      await pool.query(
+        "INSERT INTO simulation_runs(id,scenario_id,status) VALUES($1,'dry_nov_apr','running')",
+        [id],
+      );
+      await pool.query(
+        `INSERT INTO concentration_columns(run_id,i,j,c_ug_m3)
+        SELECT $1,i,j,array_fill(0::real,ARRAY[$2::int]) FROM grid_cells WHERE study_area_id=$3`,
+        [id, grid.nz, area],
+      );
+      const publisher = await pool.connect();
+      const writer = await pool.connect();
+      try {
+        await publisher.query('BEGIN');
+        await publishFixtureRun(publisher, id);
+        await writer.query("SET lock_timeout='3s'");
+        const deletion = writer
+          .query(
+            'DELETE FROM concentration_columns WHERE run_id=$1 AND i=0 AND j=0',
+            [id],
+          )
+          .then(
+            () => null,
+            (error) => error as { code: string },
+          );
+        await publisher.query('COMMIT');
+        expect(await deletion).toMatchObject({ code: '23514' });
+        expect(
+          (
+            await pool.query(
+              'SELECT 1 FROM concentration_columns WHERE run_id=$1',
+              [id],
+            )
+          ).rowCount,
+        ).toBe(grid.nx * grid.ny);
+      } finally {
+        await publisher.query('ROLLBACK');
+        await writer.query('RESET lock_timeout');
+        publisher.release();
+        writer.release();
+        await pool.query('DELETE FROM simulation_runs WHERE id=$1', [id]);
+      }
     });
   });
 });

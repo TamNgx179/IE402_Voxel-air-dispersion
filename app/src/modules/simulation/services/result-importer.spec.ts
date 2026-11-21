@@ -62,4 +62,16 @@ describe('importConcentrationColumns', () => {
     ).rejects.toThrow('i and j must be non-negative integers');
     expect(query).not.toHaveBeenCalled();
   });
+
+  it.each(['-0.001', '1e999', 'NaN', 'Infinity', '-Infinity'])(
+    'rejects invalid concentration %s before sending a batch',
+    async (value) => {
+      const path = await artifact(`i,j,c_ug_m3\n0,0,"{0,NULL,${value}}"\n`);
+      const query = vi.fn();
+      await expect(
+        importConcentrationColumns({ query } as never, 'run-id', path),
+      ).rejects.toThrow();
+      expect(query).not.toHaveBeenCalled();
+    },
+  );
 });
