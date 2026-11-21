@@ -1,32 +1,23 @@
 # Kiến trúc hệ thống
 
-## Submission deployment
+## Kiến trúc triển khai
 
-![3D GIS system architecture in English](img/architecture-monolith-en.svg)
+![Kiến trúc ứng dụng GIS 3D](img/architecture-monolith-vi.svg)
 
-NestJS serves the React WebGIS and REST API, owns run state and spatial queries, and supervises the Python solver as a child process. PostgreSQL/PostGIS stores the durable queue and GIS results.
+Sơ đồ này dùng chung với báo cáo. NestJS phục vụ Web GIS React và REST API, quản lý hàng đợi trong PostgreSQL và giám sát tiến trình tính toán Python. PostgreSQL/PostGIS lưu cảnh và kết quả có thể truy vấn, còn bộ tệp giữ trường khoa học, cấu hình và mã băm để đối chiếu.
 
-```mermaid
-flowchart LR
-    Web["React WebGIS (EN / VI)"] -->|REST| Api
-    subgraph App["Single application deployment"]
-        Api["NestJS API and background executor"] -->|Subprocess| Solver["Python solver"]
-        Solver --> Files["Attempt artifacts"]
-        Files -->|Verify and import| Api
-    end
-    Api -->|SQL| DB["PostgreSQL / PostGIS"]
-```
+| Thành phần | Trách nhiệm và cách phối hợp |
+| --- | --- |
+| Web GIS React | Tổ chức bản đồ, lựa chọn độ cao, mô phỏng, phân tích và xuất dữ liệu. Facade phối hợp yêu cầu và cập nhật bản đồ qua một đầu mối. Observer thông báo thay đổi trạng thái để bản đồ và bảng điều khiển cùng phản ánh lựa chọn hiện tại. |
+| API và nghiệp vụ NestJS | DTO kiểm đầu vào, controller tiếp nhận HTTP, service kiểm điều kiện nghiệp vụ, model thực hiện SQL tham số hóa và giao dịch. Schema giữ hợp đồng dữ liệu. |
+| Điều phối và bộ thích nghi Python | Nhận một tác vụ qua giao dịch có khóa, sau đó chạy Python ngoài giao dịch. Adapter chuyển cấu hình, tiến độ và trạng thái kết thúc sang hợp đồng chung để phần điều phối không phụ thuộc trực tiếp vào cách đọc stdout. |
+| Kiểm tra và công bố | Kiểm manifest, mã băm và bộ đầu ra rồi nhập các bảng con cùng trạng thái thành công trong một giao dịch. DB kiểm đủ cột XY, bộ chỉ số, phép kiểm đạt và metadata tệp bắt buộc trước khi công bố. |
+| PostgreSQL/PostGIS | Lưu hàng đợi, hình học EPSG:32648, lưới, mảng nồng độ và thông tin truy vết. Khóa ngoại ghép bảo vệ liên hệ giữa cột nồng độ và ô lưới. |
+| Kho tệp | Lưu NetCDF, CSV, cấu hình, manifest và nhật ký. Tệp nằm ngoài giao dịch DB nên phải kiểm toàn vẹn và sao lưu đồng bộ với DB. |
 
-The executor claims one run in a short database transaction, then releases the transaction while Python computes. It verifies the manifest and imports results transactionally. See [database and solver acceptance](UPGRADE_PLAN.md#database-normalization-and-index-acceptance).
+Migration `0005_result_contract.sql` siết dữ liệu nồng độ hữu hạn, không âm, biên lưới và điều kiện công bố. Cột `study_area_id` trong `concentration_columns` là khóa vật lý suy ra từ lần chạy, được trigger kiểm và dùng cho FK `(study_area_id,i,j)` tới `grid_cells`. Đây là dư thừa có kiểm soát để DB bảo vệ tham chiếu, không phải tuyên bố toàn bộ schema vật lý đạt 3NF. Xem [thiết kế DB](DATABASE.md).
 
-| Component | Interface | Responsibility |
-| --- | --- | --- |
-| React WebGIS | HTTP to NestJS | Displays the scene, submits simulations, queries results and exports views. |
-| NestJS API | REST and parameterized SQL | Validates requests, manages run identity and serves exact spatial results. |
-| Background executor | Internal NestJS module and Python CLI | Claims a queued run, supervises the solver and verifies outputs before import. |
-| Python solver | Config file, progress stream and artifacts | Calculates diagnostic wind and finite-volume transport on the voxel grid. |
-| PostgreSQL / PostGIS | SQL | Stores the queue, scene geometry, grid and queryable concentration columns. |
-| Artifact storage | Files and download routes | Preserves NetCDF, CSV, configuration and the checksum manifest. |
+Các biểu tượng trong sơ đồ thuộc Bootstrap Icons. Thông báo giấy phép được giữ tại [LICENSE](../frontend/public/vendor/bootstrap-icons/LICENSE).
 
 > Tài liệu này được dẫn xuất từ [`spec.md`](spec.md) và [`RESEARCH.md`](RESEARCH.md).
 > Spec quy định *điều gì phải đúng*; tài liệu này mô tả *các thành phần ghép với nhau như thế
@@ -40,7 +31,7 @@ The executor claims one run in a short database transaction, then releases the t
 **Cập nhật 28/10/2026:** sơ đồ tổng quan dưới đây mô tả monolith hiện có; mục luồng phân tích/xuất kết quả ghi nhận A9.2–A9.4 đã triển khai. Đối chiếu yêu cầu giảng viên và trạng thái qua
 spec §4–6, không suy ra tính năng đã có từ một node trên sơ đồ.
 
-![Kiến trúc modular monolith GIS 3D](img/architecture-monolith-en.svg)
+Sơ đồ triển khai phía trên là hình kiến trúc dùng chung với báo cáo và README.
 
 Sơ đồ tổng quan nhóm theo người dùng, ứng dụng NestJS, lưu trữ và nguồn ngoài.
 Python nằm trong ranh giới ứng dụng dưới dạng tiến trình con; PostgreSQL/PostGIS

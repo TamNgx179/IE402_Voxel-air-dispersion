@@ -151,7 +151,7 @@ The POST returns a run ID immediately. Keep the same request ID and payload if y
 
 ## Architecture
 
-![IE402 system architecture in English](docs/img/architecture-monolith-en.svg)
+![Kiến trúc ứng dụng GIS 3D](docs/img/architecture-monolith-vi.svg)
 
 Docker Compose starts two containers. The application container serves the compiled React viewer and the NestJS REST API on the same origin. It includes the Python solver, which the NestJS executor starts as a child process. The second container runs PostgreSQL with PostGIS.
 
@@ -169,6 +169,9 @@ The main viewer uses `frontend/dist`. NestJS also serves the compatibility viewe
 
 - **Facade**: The React viewer facade coordinates map interaction, state, requests and exports behind one interface for the application shell.
 - **Adapter**: The Python solver adapter translates the process invocation, stdout progress and exit status for the executor. The executor retains responsibility for claims, timeouts and publishing.
+- **Observer**: State subscriptions notify the map and panels when the selected run, height or visible layers change, keeping the views synchronized without direct component-to-component control.
+
+The database also validates the publication boundary: complete XY columns, metrics, required passing checks and artifact metadata must exist before a run succeeds. A composite foreign key links each concentration column to its grid cell. See the [database contract](docs/DATABASE.md#hợp-đồng-db-sau-migration-0005).
 
 ### Simulation lifecycle
 
