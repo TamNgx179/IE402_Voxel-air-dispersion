@@ -1,0 +1,323 @@
+{
+  "height_study": {
+    "scope": "Three OSM-tag height alternatives, not ground truth",
+    "domain": [
+      500,
+      500,
+      250
+    ],
+    "new_solid_voxels": 11646,
+    "removed_solid_voxels": 0,
+    "rows": [
+      {
+        "z_min": 0,
+        "z_max": 2,
+        "shared_air_voxels": 7683,
+        "mean_gob": 0.20063065010523765,
+        "mean_osm_alternative": 0.20060594500674614,
+        "mean_change_pct": -0.012313720998535782,
+        "relative_l1_pct": 3.371701489517342
+      },
+      {
+        "z_min": 0,
+        "z_max": 100,
+        "shared_air_voxels": 455714,
+        "mean_gob": 0.0225454045981331,
+        "mean_osm_alternative": 0.023054592353738173,
+        "mean_change_pct": 2.258499080771603,
+        "relative_l1_pct": 6.1496415287664785
+      },
+      {
+        "z_min": 100,
+        "z_max": 200,
+        "shared_air_voxels": 491556,
+        "mean_gob": 4.834150995126815e-08,
+        "mean_osm_alternative": 7.235222417683838e-08,
+        "mean_change_pct": 49.668937213121445,
+        "relative_l1_pct": 57.01410351443905
+      },
+      {
+        "z_min": 0,
+        "z_max": 250,
+        "shared_air_voxels": 1197270,
+        "mean_gob": 0.008581422965239999,
+        "mean_osm_alternative": 0.008775243733711984,
+        "mean_change_pct": 2.258608732573575,
+        "relative_l1_pct": 6.149759169103345
+      }
+    ]
+  },
+  "height_runs": {
+    "baseline": {
+      "run_id": "f074c1ef-e9b7-4f93-be57-0f3b5ca91c30",
+      "input_hash": "sha256:42b7c7d7d5804cc4a957fb019d10fbc8d190d3d86e823a267dbbbe895397283c",
+      "model_version": "0.1.0+04a7c10",
+      "verification": {
+        "status": "pass",
+        "checks": {
+          "cfl": {
+            "status": "pass",
+            "value": 0.5,
+            "tolerance": 0.5
+          },
+          "face_divergence": {
+            "status": "pass",
+            "value": 3.1359327870572606e-07,
+            "tolerance": 0.001
+          },
+          "positivity": {
+            "status": "pass",
+            "value": 0.0,
+            "tolerance": 1e-09
+          },
+          "wall_flux": {
+            "status": "pass",
+            "value": 0.0,
+            "tolerance": 0.0
+          },
+          "mass_balance": {
+            "status": "pass",
+            "value": 9.283773508201567e-15,
+            "tolerance": 1e-06
+          },
+          "sor_convergence": {
+            "status": "pass",
+            "value": 9.893583575489742e-05,
+            "tolerance": 0.0001,
+            "detail": "Legacy gate name: cg Poisson convergence"
+          },
+          "steady_state": {
+            "status": "pass",
+            "value": 9.959028168217952e-05,
+            "tolerance": 0.001,
+            "detail": "relative L1 change over 30 s, 3 consecutive checks after 600 s"
+          }
+        }
+      },
+      "stopping": {
+        "criterion": "steady_state",
+        "simulated_s": 661.1856197478585,
+        "steps": 5368,
+        "residual": 9.959028168217952e-05
+      }
+    },
+    "alternative": {
+      "run_id": "f2787f86-53c0-4df4-b4d2-0979974d92d0",
+      "input_hash": "sha256:774160770ef2b5c90a095cf5b65476fcbb3e053ec5e15e0cf066a3cfc79ea2d6",
+      "model_version": "0.1.0+04a7c10",
+      "verification": {
+        "status": "pass",
+        "checks": {
+          "cfl": {
+            "status": "pass",
+            "value": 0.49999999999999994,
+            "tolerance": 0.5
+          },
+          "face_divergence": {
+            "status": "pass",
+            "value": 2.7943337405286795e-07,
+            "tolerance": 0.001
+          },
+          "positivity": {
+            "status": "pass",
+            "value": 0.0,
+            "tolerance": 1e-09
+          },
+          "wall_flux": {
+            "status": "pass",
+            "value": 0.0,
+            "tolerance": 0.0
+          },
+          "mass_balance": {
+            "status": "pass",
+            "value": 6.121259832274343e-14,
+            "tolerance": 1e-06
+          },
+          "sor_convergence": {
+            "status": "pass",
+            "value": 9.929303388131924e-05,
+            "tolerance": 0.0001,
+            "detail": "Legacy gate name: cg Poisson convergence"
+          },
+          "steady_state": {
+            "status": "pass",
+            "value": 0.00012228452186354932,
+            "tolerance": 0.001,
+            "detail": "relative L1 change over 30 s, 3 consecutive checks after 600 s"
+          }
+        }
+      },
+      "stopping": {
+        "criterion": "steady_state",
+        "simulated_s": 660.4538722888217,
+        "steps": 6512,
+        "residual": 0.00012228452186354932
+      }
+    }
+  },
+  "aij_case_h": {
+    "dataset": "https://zenodo.org/records/15429872",
+    "license": "CC BY 4.0",
+    "reference_ppm": 45.20562099607356,
+    "reference_height_m": 0.2,
+    "reference_speed_m_s": 3.226,
+    "normalization": "Cstar = C_ppm / (1e6 * Q_m3_s / (U_H * H**2))",
+    "wind_source": "diagnostic projection of measured approach profile; not measured 3D wind",
+    "metrics": {
+      "dt_s": 0.0004180602006688963,
+      "simulated_s": 3,
+      "steps": 7176,
+      "emitted": 1.750000000000015e-05,
+      "escaped": 1.4517444290998862e-05,
+      "remaining": 2.982555709001259e-06,
+      "relative_mass_error": 1.7424677772088313e-15
+    },
+    "mixing_comparison": {
+      "held_out_x_m": [
+        -0.15,
+        -0.11,
+        -0.075,
+        -0.025,
+        0.01,
+        0.05,
+        0.1,
+        0.2,
+        0.3
+      ],
+      "variants": {
+        "1": {
+          "vertical_factor": 1.0,
+          "transport_wall_s": 90.58118680003099,
+          "metrics": {
+            "dt_s": 0.0004180602006688963,
+            "simulated_s": 3,
+            "steps": 7176,
+            "emitted": 1.750000000000015e-05,
+            "escaped": 1.4517444290998862e-05,
+            "remaining": 2.982555709001259e-06,
+            "relative_mass_error": 1.7424677772088313e-15
+          },
+          "scores": {
+            "development": {
+              "wake": {
+                "points": 80,
+                "rmse": 10.955211710067115,
+                "mae": 6.203892406795456,
+                "bias": 0.5514964301640579
+              },
+              "outside_wake": {
+                "points": 329,
+                "rmse": 2.2934864021804775,
+                "mae": 0.8172989232213677,
+                "bias": -0.6395461942175146
+              }
+            },
+            "held_out": {
+              "wake": {
+                "points": 80,
+                "rmse": 16.289859461027536,
+                "mae": 9.015966916140748,
+                "bias": -0.31634000699178505
+              },
+              "outside_wake": {
+                "points": 319,
+                "rmse": 2.817759996743858,
+                "mae": 0.9201451441303635,
+                "bias": -0.7988042805935524
+              }
+            }
+          }
+        },
+        "0.5": {
+          "vertical_factor": 0.5,
+          "transport_wall_s": 97.05325739993714,
+          "metrics": {
+            "dt_s": 0.0004180602006688963,
+            "simulated_s": 3,
+            "steps": 7176,
+            "emitted": 1.750000000000015e-05,
+            "escaped": 1.4087084170217709e-05,
+            "remaining": 3.4129158297823405e-06,
+            "relative_mass_error": 5.808225924029438e-15
+          },
+          "scores": {
+            "development": {
+              "wake": {
+                "points": 80,
+                "rmse": 12.769443365337366,
+                "mae": 7.240320801120864,
+                "bias": 2.5061844890260105
+              },
+              "outside_wake": {
+                "points": 329,
+                "rmse": 2.2666378076182614,
+                "mae": 0.8619045821363265,
+                "bias": -0.44291833496841676
+              }
+            },
+            "held_out": {
+              "wake": {
+                "points": 80,
+                "rmse": 18.503422732509335,
+                "mae": 10.25098005442839,
+                "bias": 1.7922838562418515
+              },
+              "outside_wake": {
+                "points": 319,
+                "rmse": 2.7560762408822326,
+                "mae": 0.9572982408235875,
+                "bias": -0.614498224648564
+              }
+            }
+          }
+        },
+        "2": {
+          "vertical_factor": 2.0,
+          "transport_wall_s": 97.86571480007842,
+          "metrics": {
+            "dt_s": 0.0004180602006688963,
+            "simulated_s": 3,
+            "steps": 7176,
+            "emitted": 1.750000000000015e-05,
+            "escaped": 1.4888325773673327e-05,
+            "remaining": 2.6116742263268317e-06,
+            "relative_mass_error": 4.598178856523305e-16
+          },
+          "scores": {
+            "development": {
+              "wake": {
+                "points": 80,
+                "rmse": 10.248191495376206,
+                "mae": 5.484158831004232,
+                "bias": -1.219136233785494
+              },
+              "outside_wake": {
+                "points": 329,
+                "rmse": 2.426877032171635,
+                "mae": 0.8499713862657902,
+                "bias": -0.7955228924441088
+              }
+            },
+            "held_out": {
+              "wake": {
+                "points": 80,
+                "rmse": 14.722650265557029,
+                "mae": 8.005460834833043,
+                "bias": -2.2759371814268405
+              },
+              "outside_wake": {
+                "points": 319,
+                "rmse": 2.95727109159314,
+                "mae": 0.9765227852581939,
+                "bias": -0.9457297831727666
+              }
+            }
+          }
+        }
+      },
+      "common_target_dt_s": 0.00041818838591865424,
+      "wind_source": "diagnostic projection of measured approach profile",
+      "selected_by_development_wake_rmse": 2.0
+    }
+  }
+}

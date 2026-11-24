@@ -178,3 +178,8 @@ cao ±20% làm trung bình tầng 15 m đổi khoảng ±0,003 µg/m³. Chưa c�
 cao kiểu OSM cho ba tháp, nên ảnh hưởng của phần tháp bị thiếu lên dòng khí và nồng
 độ trên khoảng 60 m chưa được lượng hóa. Báo cáo cần ghi đây là hạn chế đã biết.
 B9.4 đóng với hạn chế này; không dùng tag OSM làm ground truth.
+
+
+## Tiếp nối ngày 24/11/2026
+
+Hai lần chạy có kiểm soát trên miền cao 250 m đã lượng hóa ba chiều cao thay thế từ bản ghi OSM ngày 19/11. Cả hai cảnh được raster hóa lại bằng cùng quy tắc xét tâm ô, giữ nguồn và cấu hình gió. Trong 0–100 m, trung bình trên cùng tập ô khí đổi +2,26% và sai khác L1 đạt 6,15%. Cảnh phát hành giữ nguyên. Đây là độ nhạy với giả định chiều cao, chưa xác nhận OSM là giá trị đo chuẩn. Các nhận định “chưa lượng hóa” ở các mốc phía trên phản ánh trạng thái lịch sử trước phép thử này. Phương pháp, hai định danh lần chạy và mã băm nằm trong [đối chiếu khoa học ngày 24/11](SCIENTIFIC_REVIEW_20261124.md).
