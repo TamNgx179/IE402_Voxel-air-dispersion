@@ -11,6 +11,20 @@ def stable_dt(wind, diffusivity, spacing):
     )
 
 
+def mixing_protocol(wind, diffusivity, spacing):
+    """Keep horizontal mixing fixed and use the strictest variant's CFL limit.
+
+    FV coefficients are ordered z, y, x. Choosing a separate step for every
+    vertical factor would confound the mixing comparison with time error.
+    """
+    if not np.isfinite(diffusivity) or diffusivity <= 0:
+        raise ValueError('diffusivity must be positive and finite')
+    variants = {factor: (factor * diffusivity, diffusivity, diffusivity)
+                for factor in (0.5, 1.0, 2.0)}
+    dt = min(stable_dt(wind, mixing, spacing) for mixing in variants.values())
+    return variants, dt
+
+
 def transport(wind, source, solid, diffusivity, spacing, seconds, dt, checkpoints=1):
     """Advance to exact checkpoint times and verify the source/escape mass budget."""
     if dt > stable_dt(wind, diffusivity, spacing) * (1 + 1e-12):

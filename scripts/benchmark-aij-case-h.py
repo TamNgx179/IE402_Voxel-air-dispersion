@@ -12,7 +12,8 @@ import numpy as np
 import pandas as pd
 from scipy.interpolate import RegularGridInterpolator
 
-from scripts.fv_study_support import stable_dt, transport
+from scripts.fv_study_support import mixing_protocol, stable_dt, transport
+from src.solver import model_version
 from src.wind import project_mass_consistent
 
 RECORD = "https://zenodo.org/records/15429872"
@@ -77,7 +78,8 @@ def main():
         raise ValueError("Tracer source overlaps the obstacle")
     spacing = (h, h, h)
     k = (diffusivity,) * 3
-    dt = stable_dt(wind, k, spacing)
+    variants, comparison_dt = mixing_protocol(wind, diffusivity, spacing)
+    dt = comparison_dt if args.compare_mixing else stable_dt(wind, k, spacing)
     fields, metrics = transport(wind, source, solid, k, spacing, seconds=3, dt=dt, checkpoints=3)
     coords = observed[coordinates].to_numpy()[:, [2, 1, 0]]
     def sample(field):
@@ -98,14 +100,16 @@ def main():
         stations = np.unique(coords[valid, 2])
         held_out = np.isin(coords[:, 2], stations[1::2])
         point_results["split"] = np.where(~valid, "excluded", np.where(held_out, "held_out", "development"))
-        comparison = {"held_out_x_m": stations[1::2].tolist(), "variants": {}}
+        comparison = {"held_out_x_m": stations[1::2].tolist(), "variants": {},
+                      "common_target_dt_s": comparison_dt,
+                      "wind_source": "diagnostic projection of measured approach profile"}
         # Run baseline again in the same timing loop as both alternatives.
         for factor in (1.0, 0.5, 2.0):
             # FV diffusivities are ordered (z, y, x). Keep horizontal mixing and wind fixed.
-            mixing = (factor * diffusivity, diffusivity, diffusivity)
+            mixing = variants[factor]
             start = perf_counter()
             samples, budget = transport(wind, source, solid, mixing, spacing, seconds=3,
-                                        dt=stable_dt(wind, mixing, spacing), checkpoints=3)
+                                        dt=comparison_dt, checkpoints=3)
             wall_s = perf_counter() - start
             estimate = sample(samples[-1])
             if not np.array_equal(np.isfinite(estimate), valid):
@@ -140,7 +144,13 @@ def main():
     fig.colorbar(dots, ax=axes, label="Normalized tracer concentration")
     fig.savefig(args.out / "centre-plane.png", dpi=160)
     summary = dict(dataset=RECORD, license="CC BY 4.0", grid_spacing_m=h,
+                   model_version=model_version(),
+                   input_sha256={name: hashlib.sha256((args.data / name).read_bytes()).hexdigest()
+                                 for name in ("AF_caseH.csv", "RS_caseH.csv")},
                    source_volume_m3_s=RELEASE, reference_ppm=REFERENCE_PPM,
+                   reference_height_m=H, reference_speed_m_s=U_H,
+                   normalization="Cstar = C_ppm / (1e6 * Q_m3_s / (U_H * H**2))",
+                   wind_source="diagnostic projection of measured approach profile; not measured 3D wind",
                    diffusivity_m2_s=diffusivity, projected_wind_residual=wind.sor_residual,
                    excluded_points=int((~valid).sum()), metrics=metrics, scores=result,
                    last_second_relative_change=float(np.linalg.norm((predicted - previous)[valid])
