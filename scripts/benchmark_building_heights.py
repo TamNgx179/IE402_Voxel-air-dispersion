@@ -22,10 +22,13 @@ def prepare_variant(config, out, heights, *, top_m):
     scene = REPO_ROOT / config['paths']['scene_package_dir']
     original = json.loads((scene / 'scene_manifest.json').read_text(encoding='utf-8'))
     grid = original['grid']
-    layers = top_m / grid['dz_m'] - grid['nz']
-    if not math.isfinite(layers) or layers < 1 or not layers.is_integer():
+    # Compare in layer units with a tolerance: e.g. 0.3 / 0.1 is not exactly 3.
+    ratio = top_m / grid['dz_m'] if math.isfinite(top_m) else math.nan
+    layers = round(ratio) - grid['nz'] if math.isfinite(ratio) else 0
+    if layers < 1 or not math.isclose(ratio, layers + grid['nz'], rel_tol=1e-9):
         raise ValueError('top_m must add whole air layers above the original top')
-    buildings = pd.read_csv(scene / 'buildings.csv')
+    # JSON keys are strings; keep numeric-looking IDs from becoming integers.
+    buildings = pd.read_csv(scene / 'buildings.csv', dtype={'source_feature_id': str})
     for feature_id, height in heights.items():
         if isinstance(height, bool) or not isinstance(height, (float, int)) or not math.isfinite(height) or not 0 < height < top_m:
             raise ValueError('Alternative height must be positive, finite and below top_m')
@@ -37,7 +40,7 @@ def prepare_variant(config, out, heights, *, top_m):
     if buildings.height_m.max() >= top_m:
         raise ValueError('All roofs must be below top_m')
 
-    extend_top(config, out, extra_layers=int(layers))
+    extend_top(config, out, extra_layers=layers)
     target = out / 'scene'
     manifest = json.loads((target / 'scene_manifest.json').read_text(encoding='utf-8'))
     buildings.to_csv(target / 'buildings.csv', index=False)
@@ -73,11 +76,15 @@ def main():
         parser.error('--heights must contain a nonempty feature-to-height mapping')
     base = yaml.safe_load(args.config.read_text(encoding='utf-8'))
     report = {'assumption': 'explicit height alternative, not ground truth', 'runs': []}
+    # Prepare (and so validate) both inputs before the first expensive solver run.
+    prepared = []
     for name, variant in [('baseline', {}), ('height_alternative', heights)]:
         prep = root / (name + '-input')
         prep.mkdir(parents=True, exist_ok=False)
         config = copy.deepcopy(base)
         prepare_variant(config, prep, variant, top_m=args.top_m)
+        prepared.append((name, config))
+    for name, config in prepared:
         result = execute(config, name, root)
         report['runs'].append(result)
         (root / 'study.json').write_text(json.dumps(report, indent=2), encoding='utf-8')

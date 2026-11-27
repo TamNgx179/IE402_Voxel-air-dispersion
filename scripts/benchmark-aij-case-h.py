@@ -42,9 +42,10 @@ def main():
     parser.add_argument("--compare-mixing", action="store_true",
                         help="Compare fixed vertical mixing factors with a spatial holdout")
     args = parser.parse_args()
-    args.out.mkdir(exist_ok=False, parents=True)
     approach = load_csv(args.data / "AF_caseH.csv", "1e5fd41fe8b5a7c7989ccfbb1c223ecb")
     points = load_csv(args.data / "RS_caseH.csv", "5eb92407a6f2b0a6aa65759081c2118a")
+    # Create the output only after inputs verify, so a bad download can be retried.
+    args.out.mkdir(exist_ok=False, parents=True)
     coordinates = ["x (m)", "y (m)", "z (m)"]
     # The shared centre-plane line occurs twice in the measurement table.
     observed = points.loc[points["<c> (ppm)"] > -999, coordinates + ["<c> (ppm)"]]
@@ -77,8 +78,8 @@ def main():
     if np.any(source[solid]):
         raise ValueError("Tracer source overlaps the obstacle")
     spacing = (h, h, h)
-    k = (diffusivity,) * 3
     variants, comparison_dt = mixing_protocol(wind, diffusivity, spacing)
+    k = variants[1.0]
     dt = comparison_dt if args.compare_mixing else stable_dt(wind, k, spacing)
     fields, metrics = transport(wind, source, solid, k, spacing, seconds=3, dt=dt, checkpoints=3)
     coords = observed[coordinates].to_numpy()[:, [2, 1, 0]]
