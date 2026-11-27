@@ -2,6 +2,7 @@ import { join, resolve } from 'node:path';
 import type { INestApplication } from '@nestjs/common';
 import { NestFactory } from '@nestjs/core';
 import pg from 'pg';
+import request from 'supertest';
 import { projectConfigPath } from '../../src/common/project-config.js';
 import { APP_ROOT } from '../../src/config/env.validation.js';
 import {
@@ -118,6 +119,29 @@ export async function createTestApp(
   configureApp(app);
   await app.init();
   return app;
+}
+
+/**
+ * Registers beforeAll/afterAll for a read-only API suite on the prepared test
+ * database: the app runs with the executor disabled and the pool is closed
+ * afterwards. Call it inside a `describe.skipIf(!db.ok)` block.
+ */
+export function useTestApp(db: TestDb) {
+  let app: INestApplication | undefined;
+  beforeAll(async () => {
+    app = await createTestApp({
+      DATABASE_URL: db.ok ? db.url : '',
+      EXECUTOR_ENABLED: 'false',
+    });
+  });
+  afterAll(async () => {
+    await app?.close();
+    if (db.ok) await db.pool.end();
+  });
+  return {
+    pool: db.ok ? db.pool : (undefined as never),
+    http: () => request(app!.getHttpServer()),
+  };
 }
 
 export async function waitFor<T>(

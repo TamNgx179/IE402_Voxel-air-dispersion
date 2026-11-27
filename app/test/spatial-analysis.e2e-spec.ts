@@ -1,82 +1,61 @@
 import { randomUUID } from 'node:crypto';
-import { publishFixtureRun } from './support/published-run.js';
-import type { INestApplication } from '@nestjs/common';
-import request from 'supertest';
 import { parse } from 'csv-parse/sync';
-import { createTestApp, prepareTestDatabase } from './support/test-db.js';
+import {
+  envelope,
+  insertPublishedRun,
+  insertRunWithStatus,
+  UNPUBLISHED_STATUSES,
+} from './support/published-run.js';
+import { prepareTestDatabase, useTestApp } from './support/test-db.js';
 
 const db = await prepareTestDatabase();
 describe.skipIf(!db.ok)('Spatial analysis with actual PostGIS', () => {
-  let app: INestApplication;
-  const pool = db.ok ? db.pool : (undefined as never);
+  const { pool, http } = useTestApp(db);
   let baseline: string, comparison: string, area: string;
-  const http = () => request(app.getHttpServer());
   const pair = (a = baseline, b = comparison, z = 1) =>
     `/api/runs/${a}/comparison?compare_run_id=${b}&z_m=${z}`;
-  async function run(
+  // Committed scene solids: cell n=0 is solid at k<=2 and cell n=3 everywhere.
+  const isSolid = (n: number, k: number) => (n === 0 && k <= 2) || n === 3;
+  /** Publishes a run, first blanking the scene's solid voxels unless told not to. */
+  function run(
     values: string[],
     model = 'fv',
     scenario = 'dry_nov_apr',
     applyMask = true,
   ) {
-    // Align every synthetic column with the committed scene's inclusive solid ranges.
     const masked = !applyMask
       ? values
-      : values.map((literal, n) => {
-          const parts = literal.slice(1, -1).split(',');
-          return (
+      : values.map(
+          (literal, n) =>
             '{' +
-            parts
-              .map((v, k) => ((n === 0 && k <= 2) || n === 3 ? 'NULL' : v))
+            literal
+              .slice(1, -1)
+              .split(',')
+              .map((v, k) => (isSolid(n, k) ? 'NULL' : v))
               .join(',') +
-            '}'
-          );
-        });
-    const id = randomUUID();
-    await pool.query(
-      `INSERT INTO simulation_runs(id,scenario_id,model,status,model_version,input_hash,finished_at)
-      VALUES($1,$4,$2,'running','analysis-test',$3,now())`,
-      [id, model, 'sha256:' + id, scenario],
-    );
-    for (let n = 0; n < 4; n++)
-      await pool.query(
-        'INSERT INTO concentration_columns(run_id,i,j,c_ug_m3) VALUES($1,$2,$3,$4)',
-        [id, n % 2, Math.floor(n / 2), masked[n]],
-      );
-    // Some cases deliberately contain missing AIR samples, independently of solids.
-    const partial = masked.some((literal, n) =>
-      literal
-        .slice(1, -1)
-        .split(',')
-        .some((v, k) => v === 'NULL' && !((n === 0 && k <= 2) || n === 3)),
-    );
-    try {
-      await publishFixtureRun(pool, id, { partial });
-    } catch (error) {
-      await pool.query('DELETE FROM simulation_runs WHERE id=$1', [id]);
-      throw error;
-    }
-    return id;
+            '}',
+        );
+    return insertPublishedRun(pool, masked, {
+      model,
+      scenario,
+      modelVersion: 'analysis-test',
+    });
   }
-  async function polygon(x1: number, y1: number, x2: number, y2: number) {
-    return (
-      await pool.query(
-        `SELECT ST_AsGeoJSON(ST_Transform(ST_MakeEnvelope($1,$2,$3,$4,32648),4326),15)::json AS p`,
-        [x1, y1, x2, y2],
-      )
-    ).rows[0].p;
-  }
+  const polygon = (x1: number, y1: number, x2: number, y2: number) =>
+    envelope(pool, x1, y1, x2, y2);
   const body = async () => ({
     polygon: await polygon(686000.5, 1191300.5, 686007.5, 1191304.5),
     z_min_m: 1,
     z_max_m: 3,
     threshold_ug_m3: 15,
   });
+  const corridor = {
+    road_ids: ['corridor-test-a'],
+    distances_m: [1],
+    z_min_m: 1,
+    z_max_m: 3,
+  };
   beforeAll(async () => {
-    app = await createTestApp({
-      DATABASE_URL: db.ok ? db.url : '',
-      EXECUTOR_ENABLED: 'false',
-    });
     area = (await pool.query('SELECT id FROM study_areas LIMIT 1')).rows[0].id;
     // Roads are part of the immutable scene and must exist BEFORE its first run.
     await pool.query(
@@ -97,10 +76,6 @@ describe.skipIf(!db.ok)('Spatial analysis with actual PostGIS', () => {
       '{18,9,4,1}',
       '{NULL,NULL,NULL,NULL}',
     ]);
-  });
-  afterAll(async () => {
-    await app?.close();
-    await pool?.end();
   });
 
   it('rejects voxel arrays that cannot be read with k + 1 and incomplete solid intervals', async () => {
@@ -183,6 +158,29 @@ describe.skipIf(!db.ok)('Spatial analysis with actual PostGIS', () => {
     }
   });
 
+  it('clips a corridor wider than the domain to the study area footprint', async () => {
+    const { body } = await http()
+      .post(`/api/runs/${baseline}/road-corridor`)
+      .send({ ...corridor, distances_m: [100] })
+      .expect(201);
+    // The whole 10 x 10 m area; only (1,0) and (0,1) hold air at z=[1,3].
+    expect(body.bands).toHaveLength(1);
+    expect(body.bands[0]).toMatchObject({
+      inner_m: 0,
+      outer_m: 100,
+      air_volume_m3: 100,
+      valid_volume_m3: 100,
+      coverage: 1,
+      mean_ug_m3: 11.25,
+      exceedance_volume_m3: 25,
+    });
+    expect(body.bands[0].area_m2).toBeCloseTo(100, 6);
+    expect(body).toMatchObject({
+      run_id: baseline,
+      input_hash: 'sha256:' + baseline,
+      threshold_ug_m3: 15,
+    });
+  });
   it('separates missing air from zero and excludes threshold equality in a clipped corridor', async () => {
     const roadId = 'corridor-zero-coverage';
     const id = await run([
@@ -237,6 +235,46 @@ describe.skipIf(!db.ok)('Spatial analysis with actual PostGIS', () => {
       .expect(200);
     expect(top.body).toMatchObject({ k: 1, requested_z_m: 2.1, z_center_m: 3 });
   });
+  it('maps z_m to layers at both grid ends, defaults to 1.5 m and reports provenance', async () => {
+    for (const [z, k] of [
+      [0, 0],
+      [7.99, 3],
+    ]) {
+      const { body } = await http()
+        .get(pair(baseline, comparison, z))
+        .expect(200);
+      expect(body).toMatchObject({
+        k,
+        requested_z_m: z,
+        z_center_m: 2 * k + 1,
+      });
+    }
+    const top = (await http().get(pair(baseline, comparison, 7.99))).body;
+    expect(
+      top.feature_collection.features.map((f: any) => f.properties),
+    ).toEqual([
+      { i: 0, j: 0, baseline_ug_m3: 2, comparison_ug_m3: 2, delta_ug_m3: 0 },
+      { i: 1, j: 0, baseline_ug_m3: 1, comparison_ug_m3: 2, delta_ug_m3: 1 },
+      { i: 0, j: 1, baseline_ug_m3: 2, comparison_ug_m3: 1, delta_ug_m3: -1 },
+    ]);
+    const { body } = await http()
+      .get(`/api/runs/${baseline}/comparison?compare_run_id=${comparison}`)
+      .expect(200);
+    expect(body).toMatchObject({
+      requested_z_m: 1.5,
+      k: 0,
+      baseline_input_hash: 'sha256:' + baseline,
+      comparison_input_hash: 'sha256:' + comparison,
+      baseline_version: 'analysis-test',
+      baseline_emission_multiplier: 1,
+      comparison_emission_multiplier: 1,
+    });
+    await http()
+      .get(
+        `/api/runs/${baseline}/comparison?compare_run_id=${comparison}&z_m=abc`,
+      )
+      .expect(400);
+  });
   it('self comparison yields exactly zero and zero concentration is valid air', async () => {
     const self = await http().get(pair(baseline, baseline)).expect(200);
     expect(self.body.stats.delta).toEqual({
@@ -268,14 +306,10 @@ describe.skipIf(!db.ok)('Spatial analysis with actual PostGIS', () => {
       delta: { mean_ug_m3: null },
     });
   });
-  it.each(['queued', 'running', 'failed', 'stale'])(
-    'refuses either side of a %s pair and its region',
+  it.each(UNPUBLISHED_STATUSES)(
+    'refuses either side of a %s pair, its region and road corridor',
     async (status) => {
-      const id = randomUUID();
-      await pool.query(
-        `INSERT INTO simulation_runs(id,scenario_id,status,error_kind) VALUES($1,'dry_nov_apr',$2,$3)`,
-        [id, status, status === 'failed' ? 'model' : null],
-      );
+      const id = await insertRunWithStatus(pool, status);
       await http().get(pair(id, comparison)).expect(409);
       await http().get(pair(baseline, id)).expect(409);
       await http()
@@ -286,8 +320,42 @@ describe.skipIf(!db.ok)('Spatial analysis with actual PostGIS', () => {
         .post(`/api/runs/${id}/region/csv`)
         .send(await body())
         .expect(409);
+      for (const path of ['road-corridor', 'road-corridor/csv'])
+        await http().post(`/api/runs/${id}/${path}`).send(corridor).expect(409);
     },
   );
+  it('rejects road corridor requests that are malformed, unknown or outside the domain', async () => {
+    const path = `/api/runs/${baseline}/road-corridor`;
+    await http()
+      .post(`/api/runs/${randomUUID()}/road-corridor`)
+      .send(corridor)
+      .expect(404);
+    await http()
+      .post('/api/runs/bad-id/road-corridor')
+      .send(corridor)
+      .expect(400);
+    for (const invalid of [
+      {},
+      { ...corridor, extra: true },
+      { ...corridor, road_ids: [] },
+      { ...corridor, road_ids: ['corridor-test-a', 'corridor-test-a'] },
+      { ...corridor, road_ids: ['absent'] },
+      { ...corridor, distances_m: [] },
+      { ...corridor, distances_m: [1, 1] },
+      { ...corridor, distances_m: [0] },
+      { ...corridor, distances_m: [101] },
+      { ...corridor, distances_m: [1, 2, 3, 4, 5, 6] },
+      { ...corridor, z_min_m: -1 },
+      { ...corridor, z_min_m: 3, z_max_m: 3 },
+      { ...corridor, z_max_m: 8.01 },
+      { ...corridor, z_max_m: '3' },
+      { ...corridor, threshold_ug_m3: -1 },
+      { ...corridor, threshold_ug_m3: null },
+    ]) {
+      await http().post(path).send(invalid).expect(400);
+      await http().post(`${path}/csv`).send(invalid).expect(400);
+    }
+  });
   it('rejects missing, malformed, unknown params, bad heights and unsupported bbox', async () => {
     await http().get(pair(randomUUID(), comparison)).expect(404);
     await http().get(pair(baseline, randomUUID())).expect(404);
@@ -466,6 +534,41 @@ describe.skipIf(!db.ok)('Spatial analysis with actual PostGIS', () => {
       .expect(201);
     // 2 air cells, each 4.9² m², minus a 3x3 hole in one air cell.
     expect(r.air_volume_m3).toBeCloseTo((2 * 4.9 * 4.9 - 9) * 2, 4);
+  });
+  it('accepts the whole domain, whose boundary touches the study area edge', async () => {
+    const q = {
+      polygon: await polygon(686000, 1191300, 686010, 1191310),
+      z_min_m: 0,
+      z_max_m: 8,
+      threshold_ug_m3: 15,
+    };
+    const { body: r } = await http()
+      .post(`/api/runs/${baseline}/region`)
+      .send(q)
+      .expect(201);
+    // Air voxels hold 50 m³ each: (0,0) k=3, (1,0) k=0..3, (0,1) k=0..3.
+    expect(r.area_m2).toBeCloseTo(100, 5);
+    expect(r.air_voxels).toBe(9);
+    expect(r.air_volume_m3).toBeCloseTo(450, 5);
+    expect(r.mean_ug_m3).toBeCloseTo(2900 / 450, 9);
+    expect(r.max_ug_m3).toBe(20);
+    expect(r.exceedance_volume_m3).toBeCloseTo(50, 5);
+    expect(r.layers.map((l: any) => [l.k, l.air_voxels])).toEqual([
+      [0, 2],
+      [1, 2],
+      [2, 2],
+      [3, 3],
+    ]);
+  });
+  it.each([
+    ['negative threshold', { threshold_ug_m3: -1 }],
+    ['non-numeric height', { z_min_m: 'low' }],
+    ['missing polygon', { polygon: undefined }],
+    ['non-object polygon', { polygon: 'POLYGON((0 0,1 0,1 1,0 0))' }],
+  ])('rejects a region with %s', async (_label, patch) => {
+    const q = { ...(await body()), ...patch };
+    await http().post(`/api/runs/${baseline}/region`).send(q).expect(400);
+    await http().post(`/api/runs/${baseline}/region/csv`).send(q).expect(400);
   });
   it('rejects self intersections, outside domain, shape/coordinate limits and unknown keys', async () => {
     const q = await body();

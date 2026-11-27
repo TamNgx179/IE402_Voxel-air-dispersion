@@ -1,41 +1,30 @@
 import { randomUUID } from 'node:crypto';
-import { publishFixtureRun } from './support/published-run.js';
 import { mkdtemp, readFile, rmdir, unlink, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import type { INestApplication } from '@nestjs/common';
-import request from 'supertest';
 import { projectConfigPath } from '../src/common/project-config.js';
 import { seed } from '../src/database/seed.js';
 import {
-  createTestApp,
+  insertPublishedRun,
+  insertRunWithStatus,
+  publishFixtureRun,
+  UNPUBLISHED_STATUSES,
+} from './support/published-run.js';
+import {
   FIXTURE_SCENE,
   prepareTestDatabase,
   REPO_ROOT,
+  useTestApp,
 } from './support/test-db.js';
 
 const db = await prepareTestDatabase();
 
 describe.skipIf(!db.ok)('API with PostGIS (e2e, executor disabled)', () => {
-  let app: INestApplication;
-  const pool = db.ok ? db.pool : (undefined as never);
-  const http = () => request(app.getHttpServer());
+  const { pool, http } = useTestApp(db);
   const runCount = async () =>
     Number(
       (await pool.query('SELECT count(*) AS n FROM simulation_runs')).rows[0].n,
     );
-
-  beforeAll(async () => {
-    app = await createTestApp({
-      DATABASE_URL: db.ok ? db.url : '',
-      EXECUTOR_ENABLED: 'false',
-    });
-  });
-
-  afterAll(async () => {
-    await app?.close();
-    await pool?.end();
-  });
 
   describe('schema (AC-14)', () => {
     it('has every table, the GiST indexes and the input_hash index', async () => {
@@ -475,23 +464,12 @@ describe.skipIf(!db.ok)('API with PostGIS (e2e, executor disabled)', () => {
   });
 
   it('serves slice, exceedance, profile, summary and compact volume (A5)', async () => {
-    const id = randomUUID();
-    await pool.query(
-      `INSERT INTO simulation_runs
-         (id, scenario_id, status, model_version, input_hash, finished_at)
-       VALUES ($1, 'dry_nov_apr', 'running', 'test', $2, now())`,
-      [id, `sha256:${'a'.repeat(64)}`],
-    );
-    await pool.query(
-      `INSERT INTO concentration_columns (run_id, i, j, c_ug_m3) VALUES
-       ($1, 0, 0, '{NULL,NULL,NULL,2}'),
-       ($1, 1, 0, '{10,5,3,1}'),
-       ($1, 0, 1, '{20,10,5,2}'),
-       ($1, 1, 1, '{NULL,NULL,NULL,NULL}')`,
-      [id],
-    );
-
-    await publishFixtureRun(pool, id);
+    const id = await insertPublishedRun(pool, [
+      '{NULL,NULL,NULL,2}',
+      '{10,5,3,1}',
+      '{20,10,5,2}',
+      '{NULL,NULL,NULL,NULL}',
+    ]);
     const slice = await http().get(`/api/runs/${id}/slices?z_m=1`).expect(200);
     expect(slice.body).toMatchObject({ k: 0, z_m: 1, units: 'ug m-3' });
     expect(slice.body.feature_collection.features).toHaveLength(2);
@@ -549,14 +527,10 @@ describe.skipIf(!db.ok)('API with PostGIS (e2e, executor disabled)', () => {
     await http().get(`/api/runs/${id}/slices?z_m=999`).expect(400);
     await http().get(`/api/runs/${id}/profile?i=9&j=0`).expect(400);
   });
-  it.each(['queued', 'running', 'failed', 'stale'])(
+  it.each(UNPUBLISHED_STATUSES)(
     'never exposes result endpoints of a %s run',
     async (status) => {
-      const id = randomUUID();
-      await pool.query(
-        `INSERT INTO simulation_runs (id, scenario_id, status, error_kind) VALUES ($1, 'dry_nov_apr', $2, $3)`,
-        [id, status, status === 'failed' ? 'input' : null],
-      );
+      const id = await insertRunWithStatus(pool, status);
       try {
         for (const endpoint of [
           'slices?z_m=1',

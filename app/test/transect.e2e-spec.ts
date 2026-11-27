@@ -1,23 +1,26 @@
 import { randomUUID } from 'node:crypto';
-import { publishFixtureRun } from './support/published-run.js';
-import type { INestApplication } from '@nestjs/common';
-import request from 'supertest';
 import { parse } from 'csv-parse/sync';
-import { createTestApp, prepareTestDatabase } from './support/test-db.js';
+import {
+  insertPublishedRun,
+  insertRunWithStatus,
+  toWgs84,
+  UNPUBLISHED_STATUSES,
+} from './support/published-run.js';
+import { prepareTestDatabase, useTestApp } from './support/test-db.js';
 
 const db = await prepareTestDatabase();
 describe.skipIf(!db.ok)('Vertical transect with actual PostGIS', () => {
-  let app: INestApplication, run: string;
-  const pool = db.ok ? db.pool : (undefined as never);
-  const http = () => request(app.getHttpServer());
-  async function line(points: number[][]) {
-    return (
-      await pool.query(
-        `SELECT ST_AsGeoJSON(ST_Transform(ST_SetSRID(ST_GeomFromGeoJSON($1),32648),4326),15)::json AS line`,
-        [JSON.stringify({ type: 'LineString', coordinates: points })],
-      )
-    ).rows[0].line;
-  }
+  const { pool, http } = useTestApp(db);
+  let run: string;
+  // Scene occupancy: (0,0) k0..2 and (1,1) k0..3 solid. (0,1) has a genuine zero and missing air datum.
+  const COLUMNS = [
+    '{NULL,NULL,NULL,23}',
+    '{5,11,0,23}',
+    '{0,NULL,17,23}',
+    '{NULL,NULL,NULL,NULL}',
+  ];
+  const line = (points: number[][]) =>
+    toWgs84(pool, { type: 'LineString', coordinates: points });
   async function body(
     points = [
       [686006, 1191302.5],
@@ -28,32 +31,9 @@ describe.skipIf(!db.ok)('Vertical transect with actual PostGIS', () => {
   }
   const query = (id = run) => http().post(`/api/runs/${id}/transect`);
   beforeAll(async () => {
-    app = await createTestApp({
-      DATABASE_URL: db.ok ? db.url : '',
-      EXECUTOR_ENABLED: 'false',
+    run = await insertPublishedRun(pool, COLUMNS, {
+      modelVersion: 'transect-fixture',
     });
-    run = randomUUID();
-    await pool.query(
-      `INSERT INTO simulation_runs(id,scenario_id,model,status,model_version,input_hash,finished_at)
-      VALUES($1,'dry_nov_apr','fv','running','transect-fixture','sha256:fixture',now())`,
-      [run],
-    );
-    // Scene occupancy: (0,0) k0..2 and (1,1) k0..3 solid. (0,1) has a genuine zero and missing air datum.
-    for (const [i, j, values] of [
-      [0, 0, '{NULL,NULL,NULL,23}'],
-      [1, 0, '{5,11,0,23}'],
-      [0, 1, '{0,NULL,17,23}'],
-      [1, 1, '{NULL,NULL,NULL,NULL}'],
-    ])
-      await pool.query(
-        'INSERT INTO concentration_columns(run_id,i,j,c_ug_m3) VALUES($1,$2,$3,$4)',
-        [run, i, j, values],
-      );
-    await publishFixtureRun(pool, run, { partial: true });
-  });
-  afterAll(async () => {
-    await app?.close();
-    await pool?.end();
   });
 
   it('reads C=2+3z at centres and preserves partial-layer overlap, identity and requested coordinates', async () => {
@@ -130,6 +110,79 @@ describe.skipIf(!db.ok)('Vertical transect with actual PostGIS', () => {
         ]),
       )
       .expect(400);
+  });
+  it('accepts routes on the west and south domain edges but not the north or east edge', async () => {
+    for (const [points, cells] of [
+      [
+        [
+          [686000, 1191301],
+          [686000, 1191309],
+        ],
+        // Samples at 0, 4 and 8 m; the internal boundary belongs to the upper cell.
+        [
+          [0, 0],
+          [0, 1],
+          [0, 1],
+        ],
+      ],
+      [
+        [
+          [686001, 1191300],
+          [686009, 1191300],
+        ],
+        [
+          [0, 0],
+          [1, 0],
+          [1, 0],
+        ],
+      ],
+    ]) {
+      const { body: r } = await query()
+        .send(await body(points))
+        .expect(200);
+      expect(r.samples.map((s: any) => [s.i, s.j])).toEqual(cells);
+      expect(r.length_m).toBeCloseTo(8, 6);
+    }
+    for (const points of [
+      [
+        [686001, 1191310],
+        [686009, 1191310],
+      ],
+      [
+        [686010, 1191301],
+        [686010, 1191309],
+      ],
+      [
+        [686001, 1191299.9],
+        [686009, 1191299.9],
+      ],
+    ])
+      await query()
+        .send(await body(points))
+        .expect(400);
+  });
+  it('covers the full domain height and the maximum sampling step exactly', async () => {
+    const { body: r } = await query()
+      .send({ ...(await body()), z_min_m: 0, z_max_m: 8, step_m: 5 })
+      .expect(200);
+    expect(r.layers.map((l: any) => l.k)).toEqual([0, 1, 2, 3]);
+    expect(r.layers.at(-1)).toMatchObject({
+      overlap_min_m: 6,
+      overlap_max_m: 8,
+    });
+    expect(r.requested_step_m).toBe(5);
+    expect(r.samples).toHaveLength(2);
+    expect(r.samples[0].cells.map((c: any) => c.concentration_ug_m3)).toEqual([
+      5, 11, 0, 23,
+    ]);
+    // A layer selected only by a partial overlap still reports its own centre.
+    const { body: thin } = await query()
+      .send({ ...(await body()), z_min_m: 5.5, z_max_m: 6.5 })
+      .expect(200);
+    expect(thin.layers).toEqual([
+      { k: 2, z_center_m: 5, overlap_min_m: 5.5, overlap_max_m: 6 },
+      { k: 3, z_center_m: 7, overlap_min_m: 6, overlap_max_m: 6.5 },
+    ]);
   });
   it('reverses the same sample positions/values on a bent route and accumulates projected metres', async () => {
     const points = [
@@ -224,19 +277,9 @@ describe.skipIf(!db.ok)('Vertical transect with actual PostGIS', () => {
       z_center_m: '3',
       overlap_max_m: '3',
     });
-    // Create a separate unpublished fixture, set provenance, then publish once.
-    const escapedRun = randomUUID();
-    await pool.query(
-      `INSERT INTO simulation_runs(id,scenario_id,status,model_version,input_hash)
-      SELECT $1,scenario_id,'running',$2,input_hash FROM simulation_runs WHERE id=$3`,
-      [escapedRun, '=formula,"quoted"', run],
-    );
-    await pool.query(
-      `INSERT INTO concentration_columns(run_id,i,j,c_ug_m3)
-      SELECT $1,i,j,c_ug_m3 FROM concentration_columns WHERE run_id=$2`,
-      [escapedRun, run],
-    );
-    await publishFixtureRun(pool, escapedRun, { partial: true });
+    const escapedRun = await insertPublishedRun(pool, COLUMNS, {
+      modelVersion: '=formula,"quoted"',
+    });
     try {
       const escaped = await http()
         .post(`/api/runs/${escapedRun}/transect/csv`)
@@ -250,14 +293,10 @@ describe.skipIf(!db.ok)('Vertical transect with actual PostGIS', () => {
       await pool.query('DELETE FROM simulation_runs WHERE id=$1', [escapedRun]);
     }
   });
-  it.each(['queued', 'running', 'failed', 'stale'])(
+  it.each(UNPUBLISHED_STATUSES)(
     'refuses %s runs on both JSON and CSV',
     async (status) => {
-      const id = randomUUID();
-      await pool.query(
-        `INSERT INTO simulation_runs(id,scenario_id,status,error_kind) VALUES($1,'dry_nov_apr',$2,$3)`,
-        [id, status, status === 'failed' ? 'model' : null],
-      );
+      const id = await insertRunWithStatus(pool, status);
       const b = await body();
       await query(id).send(b).expect(409);
       await http().post(`/api/runs/${id}/transect/csv`).send(b).expect(409);
@@ -267,6 +306,11 @@ describe.skipIf(!db.ok)('Vertical transect with actual PostGIS', () => {
     const b = await body();
     await query(randomUUID()).send(b).expect(404);
     await query('bad-id').send(b).expect(400);
+    await http()
+      .post(`/api/runs/${randomUUID()}/transect/csv`)
+      .send(b)
+      .expect(404);
+    await http().post('/api/runs/bad-id/transect/csv').send(b).expect(400);
     for (const invalid of [
       {},
       { ...b, extra: true },
@@ -277,6 +321,10 @@ describe.skipIf(!db.ok)('Vertical transect with actual PostGIS', () => {
       { ...b, step_m: -1 },
       { ...b, step_m: 6 },
       { ...b, step_m: null },
+      { ...b, step_m: 'wide' },
+      { ...b, z_min_m: 3, z_max_m: 3 },
+      { ...b, z_min_m: 4, z_max_m: 2 },
+      { ...b, line: 'LINESTRING(0 0,1 1)' },
     ])
       await query().send(invalid).expect(400);
   });
