@@ -58,13 +58,16 @@ export class TransectModel {
   }
 }
 
+// Một tuyến vẽ đúng trên biên Tây/Nam lệch khỏi miền ~1e-13 độ / ~1e-9 m sau round-trip CRS.
+// Nới biên 1e-9 độ (~0,1 mm, chỉ để chặn tọa độ xa) và 1e-7 m (bằng BOUNDARY_EPS_M của service);
+// service vẫn kiểm từng mẫu bằng lưới nửa kín nên không có điểm nào ngoài miền được nhận.
 export const TRANSECT_PROJECT_SQL = `WITH l AS (SELECT ST_SetSRID(ST_GeomFromGeoJSON($1),4326) AS geom),
        checked AS (
-         SELECT l.geom,a.geom AS area,ST_CoveredBy(l.geom,ST_Transform(a.geom,4326)) AS in_area
+         SELECT l.geom,a.geom AS area,ST_CoveredBy(l.geom,ST_Buffer(ST_Transform(a.geom,4326),1e-9)) AS in_area
          FROM l JOIN study_areas a ON a.id=$2
        ), projected AS (
          SELECT CASE WHEN in_area THEN ST_Transform(geom,$3::int) END AS geom,area FROM checked
-       ) SELECT geom IS NOT NULL AND ST_CoveredBy(geom,ST_Transform(area,$3::int)) AS covered,
+       ) SELECT geom IS NOT NULL AND ST_CoveredBy(geom,ST_Buffer(ST_Transform(area,$3::int),1e-7)) AS covered,
          CASE WHEN geom IS NOT NULL THEN ST_AsGeoJSON(geom,15)::json->'coordinates' END AS coordinates
        FROM projected`;
 
