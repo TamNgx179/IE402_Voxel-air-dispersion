@@ -243,26 +243,36 @@ export class SimulationRunsModel {
     });
   }
 
-  updateSnapshot(id: string, snapshot: Record<string, unknown>) {
+  // The writes below come from one claimed attempt. Each matches `attempt`
+  // so a solver whose run was recovered and re-claimed cannot touch the new
+  // attempt's row.
+
+  updateSnapshot(
+    id: string,
+    attempt: number,
+    snapshot: Record<string, unknown>,
+  ) {
     return this.db.query(
-      'UPDATE simulation_runs SET config_snapshot = $2 WHERE id = $1',
-      [id, snapshot],
+      `UPDATE simulation_runs SET config_snapshot = $3
+       WHERE id = $1 AND attempt = $2 AND status = 'running'`,
+      [id, attempt, snapshot],
     );
   }
 
-  updateProgress(id: string, progress: number) {
+  updateProgress(id: string, attempt: number, progress: number) {
     return this.db.query(
-      `UPDATE simulation_runs SET progress = $2 WHERE id = $1 AND status = 'running'`,
-      [id, progress],
+      `UPDATE simulation_runs SET progress = $3
+       WHERE id = $1 AND attempt = $2 AND status = 'running'`,
+      [id, attempt, progress],
     );
   }
 
-  markStaleAfterShutdown(id: string) {
+  markStaleAfterShutdown(id: string, attempt: number) {
     return this.db.query(
       `UPDATE simulation_runs SET status = 'stale', finished_at = now(),
          error_message = 'interrupted: the monolith shut down during this run; retry it'
-       WHERE id = $1 AND status = 'running'`,
-      [id],
+       WHERE id = $1 AND attempt = $2 AND status = 'running'`,
+      [id, attempt],
     );
   }
 }

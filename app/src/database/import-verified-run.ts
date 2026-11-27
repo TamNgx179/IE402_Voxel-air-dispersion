@@ -89,6 +89,7 @@ try {
   try {
     await new SimulationExecutionModel(db).persistSuccess({
       runId: output.manifest.run_id,
+      attempt: 1,
       runDir: target,
       manifest: copied.manifest,
       artifacts: copied.artifacts,
@@ -97,6 +98,7 @@ try {
   } catch (error) {
     await new SimulationExecutionModel(db).persistFailure(
       output.manifest.run_id,
+      1,
       'system',
       String(error),
     );

@@ -3,7 +3,11 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import type { INestApplication } from '@nestjs/common';
 import request from 'supertest';
-import { SimulationExecutionModel } from '../src/modules/simulation/models/simulation-execution.model.js';
+import {
+  SimulationExecutionModel,
+  StaleAttemptError,
+} from '../src/modules/simulation/models/simulation-execution.model.js';
+import { SimulationRunsModel } from '../src/modules/simulation/models/simulation-runs.model.js';
 import {
   createTestApp,
   FAKE_SOLVER,
@@ -192,10 +196,78 @@ describe.skipIf(!db.ok)('SimulationExecutor (e2e, fake solver)', () => {
   it('preserves a published success if failure is recorded after the commit', async () => {
     const { id, run } = await runToEnd('ok');
     expect(run.status).toBe('succeeded');
-    await app.get(SimulationExecutionModel).persistFailure(id, 'system', 'commit response lost');
+    await app.get(SimulationExecutionModel).persistFailure(id, run.attempt, 'system', 'commit response lost');
     expect(await getRun(id)).toEqual(run);
     const columns = await pool.query('SELECT i, j FROM concentration_columns WHERE run_id = $1', [id]);
     expect(columns.rowCount).toBe(4);
+  });
+
+  it('an older attempt cannot write into a run that was re-claimed', async () => {
+    // A finished run supplies a real manifest for the stale writer to publish.
+    const { id: doneId } = await runToEnd('ok');
+    const manifest = JSON.parse(
+      readFileSync(join(artifactDir, doneId, 'manifest.json'), 'utf8'),
+    );
+    // The run was recovered as stale and claimed again: attempt 2 owns it now.
+    const id = (
+      await pool.query(
+        `INSERT INTO simulation_runs (scenario_id, status, attempt, started_at, progress)
+         VALUES ('dry_nov_apr', 'running', 2, now(), 0) RETURNING id`,
+      )
+    ).rows[0].id as string;
+    const state = async () =>
+      (
+        await pool.query(
+          'SELECT status, attempt, progress, error_kind FROM simulation_runs WHERE id = $1',
+          [id],
+        )
+      ).rows[0];
+    const execution = app.get(SimulationExecutionModel);
+    const runs = app.get(SimulationRunsModel);
+    try {
+      await expect(
+        execution.persistSuccess({
+          runId: id,
+          attempt: 1,
+          runDir: join(artifactDir, doneId),
+          metrics: {},
+          manifest,
+          artifacts: [],
+        }),
+      ).rejects.toBeInstanceOf(StaleAttemptError);
+      await execution.persistFailure(id, 1, 'system', 'old solver failed');
+      await runs.updateProgress(id, 1, 0.5);
+      await runs.markStaleAfterShutdown(id, 1);
+      await runs.updateSnapshot(id, 1, { stale: true });
+      expect(await state()).toMatchObject({
+        status: 'running',
+        attempt: 2,
+        progress: 0,
+        error_kind: null,
+      });
+      const snapshot = await pool.query(
+        'SELECT config_snapshot FROM simulation_runs WHERE id = $1',
+        [id],
+      );
+      expect(snapshot.rows[0].config_snapshot).toBeNull();
+      for (const table of ['concentration_columns', 'artifacts', 'run_metrics', 'verification_checks']) {
+        expect(await pool.query(`SELECT 1 FROM ${table} WHERE run_id = $1`, [id])).toMatchObject({
+          rowCount: 0,
+        });
+      }
+      // The owning attempt still controls the run.
+      await runs.updateProgress(id, 2, 0.5);
+      await execution.persistFailure(id, 2, 'system', 'current attempt failed');
+      expect(await state()).toMatchObject({
+        status: 'failed',
+        attempt: 2,
+        progress: 0.5,
+        error_kind: 'system',
+      });
+    } finally {
+      // A leftover running row would block the executor's single slot.
+      await pool.query('DELETE FROM simulation_runs WHERE id = $1', [id]);
+    }
   });
 
   it('keeps results unpublished when a checksummed artifact fails the database import', async () => {

@@ -19,16 +19,30 @@ export class SimulationExecutionModel {
     return this.db.configured;
   }
 
+  /**
+   * Publishes a verified run. `attempt` identifies the claim that produced the
+   * files: if the run was marked stale and claimed again meanwhile, this older
+   * attempt no longer owns the row and must not publish into the new one.
+   */
   async persistSuccess(input: {
     runId: string;
+    attempt: number;
     runDir: string;
     metrics: unknown;
     manifest: RunManifest;
     artifacts: ManifestArtifact[];
   }): Promise<void> {
-    const { runId, runDir, metrics, manifest, artifacts } = input;
+    const { runId, attempt, runDir, metrics, manifest, artifacts } = input;
     const metric = metricsRow(metrics, manifest);
     await this.db.transaction(async (client) => {
+      // Lock and check ownership before touching any result rows.
+      const owned = await client.query(
+        `SELECT 1 FROM simulation_runs
+         WHERE id = $1 AND status = 'running' AND attempt = $2
+         FOR UPDATE`,
+        [runId, attempt],
+      );
+      if (owned.rowCount !== 1) throw new StaleAttemptError(runId, attempt);
       await clearResults(client, runId);
       await client.query(
         `INSERT INTO run_metrics (run_id, dt_s, courant, steps, simulated_s, wall_clock_s,
@@ -57,15 +71,23 @@ export class SimulationExecutionModel {
         `UPDATE simulation_runs
          SET status = 'succeeded', progress = 1, model_version = $2, input_hash = $3,
              warnings = $4, finished_at = now(), error_kind = NULL, error_message = NULL
-         WHERE id = $1 AND status = 'running'`,
-        [runId, manifest.model_version, manifest.input_hash, manifest.warnings],
+         WHERE id = $1 AND status = 'running' AND attempt = $5`,
+        [
+          runId,
+          manifest.model_version,
+          manifest.input_hash,
+          manifest.warnings,
+          attempt,
+        ],
       );
-      if (done.rowCount !== 1) throw new Error('run is no longer running');
+      if (done.rowCount !== 1) throw new StaleAttemptError(runId, attempt);
     });
   }
 
+  /** Marks this attempt failed; a no-op once another attempt owns the run. */
   async persistFailure(
     runId: string,
+    attempt: number,
     kind: ErrorKind,
     message: string,
     manifest?: RunManifest,
@@ -74,15 +96,24 @@ export class SimulationExecutionModel {
       const failed = await client.query(
         `UPDATE simulation_runs
          SET status = 'failed', error_kind = $2, error_message = $3, finished_at = now()
-         WHERE id = $1 AND status = 'running'`,
-        [runId, kind, message.slice(0, 8192)],
+         WHERE id = $1 AND status = 'running' AND attempt = $4`,
+        [runId, kind, message.slice(0, 8192), attempt],
       );
-      // A lost commit response can leave the previous success committed.
-      // Preserve all published results unless this transaction owns the transition.
+      // A lost commit response can leave the previous success committed, and a
+      // newer attempt may own the run. Preserve all results unless this
+      // transaction owns the transition.
       if (failed.rowCount !== 1) return;
       await clearResults(client, runId);
       if (manifest) await insertChecks(client, runId, manifest);
     });
+  }
+}
+
+/** The run was retried (or recovered) after this attempt claimed it. */
+export class StaleAttemptError extends Error {
+  constructor(runId: string, attempt: number) {
+    super(`run ${runId} attempt ${attempt} no longer owns the run`);
+    this.name = 'StaleAttemptError';
   }
 }
 

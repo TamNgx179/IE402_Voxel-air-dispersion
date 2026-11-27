@@ -178,7 +178,7 @@ export class SimulationExecutorService
           scenario_id: run.scenario_id,
           model: run.model,
         });
-        await this.runs.updateSnapshot(run.id, snapshot);
+        await this.runs.updateSnapshot(run.id, run.attempt, snapshot);
       }
       // A fresh directory per attempt: files of a failed attempt never verify.
       await rm(runDir, { recursive: true, force: true });
@@ -199,7 +199,7 @@ export class SimulationExecutorService
       configSha = sha256Hex(Buffer.from(yamlText, 'utf8'));
     } catch (err) {
       await this.fail(
-        run.id,
+        run,
         'system',
         `cannot prepare ${runDir}: ${errorMessage(err)}`,
       );
@@ -208,7 +208,7 @@ export class SimulationExecutorService
 
     const exit = await this.spawnSolver(run, configPath, runDir);
     if (this.killedForShutdown) {
-      await this.runs.markStaleAfterShutdown(run.id);
+      await this.runs.markStaleAfterShutdown(run.id, run.attempt);
       return;
     }
 
@@ -233,7 +233,7 @@ export class SimulationExecutorService
       }).catch(() => undefined);
       if (read?.ok) checks = read.manifest;
     }
-    await this.fail(run.id, kind, message, checks);
+    await this.fail(run, kind, message, checks);
   }
 
   private spawnSolver(
@@ -278,7 +278,7 @@ export class SimulationExecutorService
           const value = progress;
           updates = updates.then(() =>
             this.runs
-              .updateProgress(run.id, value)
+              .updateProgress(run.id, run.attempt, value)
               .catch((err) =>
                 this.logger.warn(
                   `progress update failed: ${errorMessage(err)}`,
@@ -337,7 +337,7 @@ export class SimulationExecutorService
     });
     if (!result.ok) {
       await this.fail(
-        run.id,
+        run,
         result.kind,
         `solver exited 0 but the run was rejected: ${result.message}`,
         result.manifest,
@@ -362,6 +362,7 @@ export class SimulationExecutorService
     try {
       await this.execution.persistSuccess({
         runId: run.id,
+        attempt: run.attempt,
         runDir,
         metrics,
         manifest,
@@ -373,7 +374,7 @@ export class SimulationExecutorService
       this.logger.log(`run ${run.id} → succeeded${warn}`);
     } catch (err) {
       await this.fail(
-        run.id,
+        run,
         'system',
         `could not persist results: ${errorMessage(err)}`,
       );
@@ -381,15 +382,15 @@ export class SimulationExecutorService
   }
 
   private async fail(
-    runId: string,
+    run: ClaimedRun,
     kind: ErrorKind,
     message: string,
     manifest?: RunManifest,
   ): Promise<void> {
     this.logger.warn(
-      `run ${runId} → failed/${kind}: ${message.split('\n')[0]}`,
+      `run ${run.id} → failed/${kind}: ${message.split('\n')[0]}`,
     );
-    this.pendingFailure = [runId, kind, message, manifest];
+    this.pendingFailure = [run.id, run.attempt, kind, message, manifest];
     await this.execution.persistFailure(...this.pendingFailure);
     this.pendingFailure = undefined;
   }
