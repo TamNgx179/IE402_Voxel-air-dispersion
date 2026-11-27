@@ -14,7 +14,11 @@ import type { AppConfig } from '../../../config/env.validation.js';
 import type { CreateRunDto } from '../dto/create-run.dto.js';
 import type { ListRunsQueryDto } from '../dto/list-runs-query.dto.js';
 import { SimulationRunsModel } from '../models/simulation-runs.model.js';
-import type { RunAccepted, RunView } from '../schemas/simulation-run.schema.js';
+import type {
+  RunAccepted,
+  RunListItem,
+  RunView,
+} from '../schemas/simulation-run.schema.js';
 
 /** Application rules for create/list/read/retry. SQL belongs to the model. */
 @Injectable()
@@ -59,7 +63,7 @@ export class SimulationRunsService {
     return accepted;
   }
 
-  async list(query: ListRunsQueryDto) {
+  async list(query: ListRunsQueryDto): Promise<RunListItem[]> {
     const rows = await this.runs.list(query);
     return rows.map((row) => ({
       ...row,

@@ -4,10 +4,18 @@ import type { RunModel } from '../dto/create-run.dto.js';
 import type { ListRunsQueryDto } from '../dto/list-runs-query.dto.js';
 import type {
   ClaimedRun,
+  CoveragePolicy,
   RunAccepted,
+  RunListItem,
   RunStatus,
   VerificationCheckView,
 } from '../schemas/simulation-run.schema.js';
+
+/** Raw list row: timestamps are pg Dates until the service serialises them. */
+export type RunListRow = Omit<RunListItem, 'created_at' | 'finished_at'> & {
+  created_at: unknown;
+  finished_at: unknown;
+};
 
 export interface RunDetailRow {
   id: string;
@@ -15,7 +23,7 @@ export interface RunDetailRow {
   progress: number;
   attempt: number;
   model: RunModel;
-  coverage_policy: 'complete' | 'partial';
+  coverage_policy: CoveragePolicy;
   emission_multiplier: number;
   error_kind: string | null;
   error_message: string | null;
@@ -90,7 +98,7 @@ export class SimulationRunsModel {
       : null;
   }
 
-  async list(query: ListRunsQueryDto) {
+  async list(query: ListRunsQueryDto): Promise<RunListRow[]> {
     const conditions: string[] = [];
     const values: unknown[] = [];
     const add = (sql: string, value: unknown) => {
@@ -102,8 +110,8 @@ export class SimulationRunsModel {
     if (query.scenario_id) add('r.scenario_id = ?', query.scenario_id);
     values.push(query.limit ?? 20);
     const where = conditions.length ? `WHERE ${conditions.join(' AND ')}` : '';
-    const { rows } = await this.db.query(
-      `SELECT r.id AS run_id, r.status, r.progress, r.attempt, r.model,
+    const { rows } = await this.db.query<RunListRow>(
+      `SELECT r.id AS run_id, r.status, r.progress, r.attempt, r.model, r.coverage_policy,
               r.scenario_id, s.name AS scenario_name, s.wind_from_deg, s.wind_speed_m_s,
               r.model_version, r.warnings, r.created_at, r.finished_at,
               COALESCE((r.config_snapshot->'run'->>'emission_multiplier')::double precision,1) AS emission_multiplier

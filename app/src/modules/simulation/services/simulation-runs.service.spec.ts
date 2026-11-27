@@ -132,11 +132,13 @@ describe('SimulationRunsService.list and get', () => {
   it('converts PostgreSQL numerics and timestamps in the run list', async () => {
     const { service, runs } = setup();
     runs.list.mockResolvedValueOnce([
-      { ...detail, emission_multiplier: null },
+      { ...detail, emission_multiplier: null, coverage_policy: 'partial' },
     ] as never);
     const [row] = await service.list({ limit: 5 });
     expect(runs.list).toHaveBeenCalledWith({ limit: 5 });
     expect(row).toMatchObject({
+      // The list exposes the same coverage contract as the run detail.
+      coverage_policy: 'partial',
       progress: 1,
       attempt: 2,
       wind_from_deg: 112,

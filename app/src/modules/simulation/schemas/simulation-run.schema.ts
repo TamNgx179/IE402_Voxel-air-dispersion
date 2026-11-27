@@ -23,9 +23,30 @@ export interface VerificationCheckView {
   tolerance: number | null;
 }
 
+export type CoveragePolicy = 'complete' | 'partial';
+
+/** One row of GET /api/runs; it carries the same coverage contract as detail. */
+export interface RunListItem {
+  run_id: string;
+  coverage_policy: CoveragePolicy;
+  status: RunStatus;
+  progress: number;
+  attempt: number;
+  model: RunModel;
+  emission_multiplier: number;
+  scenario_id: string;
+  scenario_name: string;
+  wind_from_deg: number;
+  wind_speed_m_s: number;
+  model_version: string | null;
+  warnings: string[];
+  created_at: string | null;
+  finished_at: string | null;
+}
+
 export interface RunView {
   run_id: string;
-  coverage_policy: 'complete' | 'partial';
+  coverage_policy: CoveragePolicy;
   emission_multiplier: number;
   status: RunStatus;
   progress: number;
