@@ -105,10 +105,30 @@ describe.skipIf(!db.ok)(
         (await service.query('SELECT value FROM sql_budget_probe')).rows,
       ).toEqual([{ value: 0 }]);
     });
+    it('survives the server dropping a connection mid-transaction', async () => {
+      if (!db.ok) throw Error('DB required');
+      const admin = db.pool;
+      // Between statements no query is active, so pg emits 'error' on the
+      // checked-out client itself; unhandled, that would crash the process.
+      await expect(
+        service.transaction(async (c) => {
+          const {
+            rows: [{ pid }],
+          } = await c.query('SELECT pg_backend_pid() AS pid');
+          await admin.query('SELECT pg_terminate_backend($1)', [pid]);
+          await new Promise((r) => setTimeout(r, 200));
+          await c.query('SELECT 1');
+        }),
+      ).rejects.toThrow();
+      await expect(service.query('SELECT 1 AS value')).resolves.toMatchObject({
+        rows: [{ value: 1 }],
+      });
+    });
     it('returns a safe retryable HTTP response and serves the next request', async () => {
       const response = await request(app.getHttpServer())
         .get('/api/database-probe/slow')
-        .expect(503);
+        .expect(503)
+        .expect('Retry-After', '1');
       expect(response.body).toEqual({
         statusCode: 503,
         error: 'Service Unavailable',

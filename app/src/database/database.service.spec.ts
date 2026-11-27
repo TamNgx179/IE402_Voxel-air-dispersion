@@ -1,4 +1,5 @@
-import { ServiceUnavailableException } from '@nestjs/common';
+import { EventEmitter } from 'node:events';
+import { Logger, ServiceUnavailableException } from '@nestjs/common';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 // Replace pg.Pool so the service can be exercised without a PostgreSQL server.
@@ -6,10 +7,10 @@ const pools: FakePool[] = [];
 class FakePool {
   options: unknown;
   handlers: Record<string, (err: Error) => void> = {};
-  client = {
+  client = Object.assign(new EventEmitter(), {
     query: vi.fn(async (_text: string) => ({ rows: [] })),
     release: vi.fn(),
-  };
+  });
   query = vi.fn(async (_text: string, _values?: unknown[]) => ({
     rows: [{ postgres: '16.4', postgis: '3.4.2' }],
   }));
@@ -26,15 +27,18 @@ class FakePool {
 }
 vi.mock('pg', () => ({ default: { Pool: FakePool } }));
 
-const { DatabaseService, createPool } = await import('./database.service.js');
+const { DatabaseService, createPool, maintenanceLimits } =
+  await import('./database.service.js');
 
-function service(url?: string) {
-  const config = { get: () => url };
+function service(url?: string, limits: Record<string, number> = {}) {
+  const values: Record<string, unknown> = { DATABASE_URL: url, ...limits };
+  const config = { get: (key: string) => values[key] };
   return new DatabaseService(config as never);
 }
 
 beforeEach(() => {
   pools.length = 0;
+  vi.spyOn(Logger.prototype, 'warn').mockImplementation(() => undefined);
 });
 
 describe('DatabaseService', () => {
@@ -63,6 +67,17 @@ describe('DatabaseService', () => {
     expect(() =>
       pools[0].handlers.error(new Error('terminating connection')),
     ).not.toThrow();
+  });
+
+  it('applies the configured server-side budgets to every pooled connection', () => {
+    service('postgres://localhost/db', {
+      DB_STATEMENT_TIMEOUT_MS: 400,
+      DB_LOCK_TIMEOUT_MS: 50,
+    });
+    expect(pools[0].options).toMatchObject({
+      statement_timeout: 400,
+      lock_timeout: 50,
+    });
   });
 
   it('passes parameters through to pg unchanged', async () => {
@@ -105,7 +120,27 @@ describe('DatabaseService', () => {
       'BEGIN',
       'ROLLBACK',
     ]);
-    expect(client.release).toHaveBeenCalledTimes(1);
+    expect(client.release).toHaveBeenCalledWith(true);
+  });
+
+  it('survives a connection dropped while the client is checked out', async () => {
+    const db = service('postgres://localhost/db');
+    const { client } = pools[0];
+    // Without a listener this 'error' event would be thrown by EventEmitter.
+    const result = db.transaction(async () => {
+      client.emit('error', new Error('terminating connection'));
+      return 'ignored';
+    });
+    await expect(result).resolves.toBe('ignored');
+    expect(client.release).toHaveBeenCalledWith(true);
+    expect(client.listenerCount('error')).toBe(0);
+  });
+
+  it('returns a healthy client to the pool', async () => {
+    const db = service('postgres://localhost/db');
+    await db.transaction(async () => undefined);
+    expect(pools[0].client.release).toHaveBeenCalledWith(false);
+    expect(pools[0].client.listenerCount('error')).toBe(0);
   });
 
   it('reports PostgreSQL and PostGIS versions when the database is up', async () => {
@@ -152,6 +187,21 @@ describe('DatabaseService', () => {
     const db = service('postgres://localhost/db');
     await db.onApplicationShutdown();
     expect(pools[0].end).toHaveBeenCalledTimes(1);
+  });
+
+  it('gives db:* maintenance longer budgets without lowering configured ones', () => {
+    expect(
+      maintenanceLimits({
+        DB_STATEMENT_TIMEOUT_MS: 15_000,
+        DB_LOCK_TIMEOUT_MS: 3_000,
+      }),
+    ).toEqual({ statementTimeoutMs: 120_000, lockTimeoutMs: 10_000 });
+    expect(
+      maintenanceLimits({
+        DB_STATEMENT_TIMEOUT_MS: 300_000,
+        DB_LOCK_TIMEOUT_MS: 60_000,
+      }),
+    ).toEqual({ statementTimeoutMs: 300_000, lockTimeoutMs: 60_000 });
   });
 
   it('createPool is shared with the db:* CLI', () => {

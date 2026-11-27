@@ -7,7 +7,7 @@ import {
   ConfigValidationError,
   validate,
 } from '../config/env.validation.js';
-import { createPool } from './database.service.js';
+import { createPool, maintenanceLimits } from './database.service.js';
 import { migrate, migrationsDir, resetSchema } from './migrate.js';
 import { defaultSceneDir, seed } from './seed.js';
 
@@ -55,11 +55,8 @@ async function main(): Promise<number> {
   }
 
   const log = (msg: string) => console.log(`[db:${command}] ${msg}`);
-  // Offline maintenance may scan all historical voxels; it is not an interactive request.
-  const pool = createPool(cfg.DATABASE_URL, {
-    statementTimeoutMs: 120_000,
-    lockTimeoutMs: 10_000,
-  });
+  // Offline maintenance is not an interactive request: use the longer budgets.
+  const pool = createPool(cfg.DATABASE_URL, maintenanceLimits(cfg));
   try {
     if (command === 'reset') {
       log('dropping schema public (all data)');

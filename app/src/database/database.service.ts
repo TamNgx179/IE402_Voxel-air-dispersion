@@ -37,6 +37,19 @@ export function createPool(
 }
 
 /**
+ * Budgets for offline `db:*` maintenance, which may scan all historical voxels:
+ * at least 120 s / 10 s, but never below what the operator configured.
+ */
+export function maintenanceLimits(
+  cfg: Pick<AppConfig, 'DB_STATEMENT_TIMEOUT_MS' | 'DB_LOCK_TIMEOUT_MS'>,
+): DatabaseLimits {
+  return {
+    statementTimeoutMs: Math.max(cfg.DB_STATEMENT_TIMEOUT_MS, 120_000),
+    lockTimeoutMs: Math.max(cfg.DB_LOCK_TIMEOUT_MS, 10_000),
+  };
+}
+
+/**
  * Owns the PostgreSQL/PostGIS connection pool (raw SQL through `pg`, no ORM,
  * so every query can be EXPLAINed as written, BR-27).
  */
@@ -85,6 +98,17 @@ export class DatabaseService implements OnApplicationShutdown {
   /** Runs `fn` inside BEGIN/COMMIT, rolling back on any error. */
   async transaction<T>(fn: (client: pg.PoolClient) => Promise<T>): Promise<T> {
     const client = await this.getPool().connect();
+    // pg-pool detaches its own listener while a client is checked out, so a
+    // connection dropped between statements would otherwise be an unhandled
+    // 'error' event and crash the process.
+    let lost: Error | undefined;
+    const onError = (err: Error) => {
+      lost ??= err;
+      this.logger.warn(
+        `PostgreSQL connection lost in transaction: ${err.message}`,
+      );
+    };
+    client.on('error', onError);
     let discard = false;
     try {
       await client.query('BEGIN');
@@ -100,7 +124,8 @@ export class DatabaseService implements OnApplicationShutdown {
       }
       throw err;
     } finally {
-      client.release(discard);
+      client.removeListener('error', onError);
+      client.release(discard || lost !== undefined);
     }
   }
 
@@ -111,19 +136,24 @@ export class DatabaseService implements OnApplicationShutdown {
         `SELECT current_setting('server_version') AS postgres,
                 postgis_lib_version() AS postgis`,
       );
-      const timeout = new Promise<never>((_, reject) =>
-        setTimeout(
+      let timer: NodeJS.Timeout | undefined;
+      const timeout = new Promise<never>((_, reject) => {
+        timer = setTimeout(
           () => reject(new Error(`timed out after ${HEALTH_TIMEOUT_MS} ms`)),
           HEALTH_TIMEOUT_MS,
-        ).unref(),
-      );
-      const { rows } = await Promise.race([probe, timeout]);
-      return {
-        configured: true,
-        status: 'up',
-        postgres: rows[0].postgres,
-        postgis: rows[0].postgis,
-      };
+        ).unref();
+      });
+      try {
+        const { rows } = await Promise.race([probe, timeout]);
+        return {
+          configured: true,
+          status: 'up',
+          postgres: rows[0].postgres,
+          postgis: rows[0].postgis,
+        };
+      } finally {
+        clearTimeout(timer);
+      }
     } catch (err) {
       return {
         configured: true,
