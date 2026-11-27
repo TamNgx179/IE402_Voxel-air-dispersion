@@ -135,6 +135,39 @@ describe.skipIf(!db.ok)(
       ).rejects.toMatchObject({ code: '23514' });
     });
     it.each([
+      'TRUNCATE concentration_columns',
+      'TRUNCATE run_metrics',
+      'TRUNCATE verification_checks',
+      'TRUNCATE artifacts',
+      'TRUNCATE simulation_runs CASCADE',
+    ])('refuses %s while a published run exists', async (sql) => {
+      await expect(
+        rollback(async (c) => {
+          const s = await scene(c);
+          await publishFixtureRun(c, await run(c, s.scenario));
+          await c.query(sql);
+        }),
+      ).rejects.toMatchObject({ code: '23514' });
+    });
+    it('permits result truncation and re-publication while no run is published', async () => {
+      await rollback(async (c) => {
+        // Whole-run DELETE is the supported cleanup; it leaves nothing published.
+        await c.query('DELETE FROM simulation_runs');
+        const s = await scene(c);
+        const id = await run(c, s.scenario);
+        await c.query('TRUNCATE concentration_columns');
+        await c.query(
+          'INSERT INTO concentration_columns(run_id,i,j,c_ug_m3) VALUES($1,0,0,$2)',
+          [id, [null, 0]],
+        );
+        await publishFixtureRun(c, id);
+        expect(
+          (await c.query('SELECT count(*)::int n FROM concentration_columns'))
+            .rows[0].n,
+        ).toBe(1);
+      });
+    });
+    it.each([
       ['complete', [null, 0], true],
       ['complete', [null, null], false],
       ['partial', [null, 3], true],
