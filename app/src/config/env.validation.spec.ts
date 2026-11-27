@@ -37,13 +37,48 @@ describe('validate (env config)', () => {
     );
   });
 
-  it.each(['0', '-1', '1.5', 'NaN', 'Infinity', '300001'])(
-    'refuses unsafe SQL budgets %s',
-    (value) => {
-      for (const key of ['DB_STATEMENT_TIMEOUT_MS', 'DB_LOCK_TIMEOUT_MS'])
-        expect(() => validate({ [key]: value }, { appRoot })).toThrow(key);
-    },
-  );
+  it.each([
+    '0',
+    '-1',
+    '1.5',
+    'NaN',
+    'Infinity',
+    '300001',
+    '1e3',
+    '0x10',
+    '15s',
+  ])('refuses unsafe SQL budgets %s', (value) => {
+    for (const key of ['DB_STATEMENT_TIMEOUT_MS', 'DB_LOCK_TIMEOUT_MS'])
+      expect(() => validate({ [key]: value }, { appRoot })).toThrow(key);
+  });
+  it('reports an invalid SQL budget once, without a misleading comparison', () => {
+    try {
+      validate(
+        { DB_STATEMENT_TIMEOUT_MS: 'abc', DB_LOCK_TIMEOUT_MS: '20000' },
+        { appRoot },
+      );
+      expect.unreachable('validate should have thrown');
+    } catch (err) {
+      expect((err as ConfigValidationError).problems).toEqual([
+        'DB_STATEMENT_TIMEOUT_MS must be an integer from 1 to 300000 (got "abc")',
+      ]);
+    }
+  });
+
+  it('compares the lock timeout with the default statement budget', () => {
+    expect(() =>
+      validate({ DB_LOCK_TIMEOUT_MS: '15000' }, { appRoot }),
+    ).toThrow('DB_LOCK_TIMEOUT_MS (15000) must be less than');
+    const cfg = validate(
+      { DB_STATEMENT_TIMEOUT_MS: ' 300000 ', DB_LOCK_TIMEOUT_MS: '1' },
+      { appRoot },
+    );
+    expect(cfg).toMatchObject({
+      DB_STATEMENT_TIMEOUT_MS: 300_000,
+      DB_LOCK_TIMEOUT_MS: 1,
+    });
+  });
+
   it('requires lock timeout below the statement budget', () => {
     expect(() =>
       validate(

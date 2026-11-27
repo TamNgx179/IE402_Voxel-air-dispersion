@@ -254,26 +254,30 @@ export function validate(
     }
   }
 
+  // DB_STATEMENT_TIMEOUT_MS / DB_LOCK_TIMEOUT_MS: 0 would disable the
+  // server-side limit in PostgreSQL, so it is refused like any non-integer.
   const databaseLimit = (key: string, fallback: number) => {
     const raw = readString(env, key);
     if (raw === undefined) return fallback;
     const n = Number(raw);
-    if (
-      !/^\d+$/.test(raw) ||
-      !Number.isSafeInteger(n) ||
-      n < 1 ||
-      n > 300_000
-    ) {
-      problems.push(`${key} must be an integer from 1 to 300000`);
-      return fallback;
+    if (!/^\d+$/.test(raw) || n < 1 || n > 300_000) {
+      problems.push(
+        `${key} must be an integer from 1 to 300000 (got "${raw}")`,
+      );
+      return undefined;
     }
     return n;
   };
   const statementTimeoutMs = databaseLimit('DB_STATEMENT_TIMEOUT_MS', 15_000);
   const lockTimeoutMs = databaseLimit('DB_LOCK_TIMEOUT_MS', 3_000);
-  if (lockTimeoutMs >= statementTimeoutMs)
+  // Only compare two valid values; a fallback would make the message misleading.
+  if (
+    statementTimeoutMs !== undefined &&
+    lockTimeoutMs !== undefined &&
+    lockTimeoutMs >= statementTimeoutMs
+  )
     problems.push(
-      'DB_LOCK_TIMEOUT_MS must be less than DB_STATEMENT_TIMEOUT_MS',
+      `DB_LOCK_TIMEOUT_MS (${lockTimeoutMs}) must be less than DB_STATEMENT_TIMEOUT_MS (${statementTimeoutMs})`,
     );
   if (problems.length > 0) throw new ConfigValidationError(problems);
 
@@ -284,8 +288,8 @@ export function validate(
     ARTIFACT_DIR: artifactDir,
     PYTHON_BIN: pythonBin,
     ...(databaseUrl !== undefined ? { DATABASE_URL: databaseUrl } : {}),
-    DB_STATEMENT_TIMEOUT_MS: statementTimeoutMs,
-    DB_LOCK_TIMEOUT_MS: lockTimeoutMs,
+    DB_STATEMENT_TIMEOUT_MS: statementTimeoutMs!,
+    DB_LOCK_TIMEOUT_MS: lockTimeoutMs!,
     SOLVER_MODE: solverMode,
     ...(mockFail !== undefined ? { SOLVER_MOCK_FAIL: mockFail } : {}),
     SOLVER_TIMEOUT_S: timeoutS,
