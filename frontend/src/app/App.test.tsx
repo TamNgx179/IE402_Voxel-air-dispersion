@@ -47,6 +47,7 @@ describe('viewer shell', () => {
       'buildings',
       'building-roofs',
       'facade-bands',
+      'facade-trims',
       'concentration',
       'voxel-grid',
       'wind-trails',

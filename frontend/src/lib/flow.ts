@@ -107,6 +107,9 @@ export interface Particle {
   history: Vec3[];
 }
 
+/** Seconds a streak lives before respawning at its seed (initial ages are staggered 0-18 s). */
+export const PARTICLE_LIFETIME_S = 20;
+
 export function createParticles(field: FlowField | null, k: number): Particle[] {
   const layer = field?.layers?.get(k);
   if (!field || !layer) return [];
@@ -146,7 +149,13 @@ export function advance(field: FlowField | null, particles: Particle[], seconds:
       }
       [p.x, p.y, p.z] = next;
       p.age += dt;
-      p.fade = Math.min(1, p.fade + dt / 3);
+      // Finite lifetime keeps streaks spread over the domain: without it, particles
+      // in open squares drift for minutes and pile up downwind, emptying the upwind side.
+      if (p.age >= PARTICLE_LIFETIME_S) {
+        reset(p);
+        break;
+      }
+      p.fade = Math.min(1, p.fade + dt / 3, (PARTICLE_LIFETIME_S - p.age) / 2);
     }
   }
 }

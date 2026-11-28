@@ -17,6 +17,9 @@ const MATERIALS: RGB[] = [
 
 /** Storey spacing used for illustrative window rows and floor bands. */
 const STOREY_M = 3.6;
+/** Top of the illustrative ground-floor shopfront; the first floor band sits at 4.6-5.0 m. */
+const GROUND_FLOOR_TOP = 4.2;
+const SHOPFRONT: RGB = [92, 116, 130];
 
 function shade(color: RGB, factor: number): RGB {
   return color.map((c) => Math.round(c * factor)) as RGB;
@@ -137,6 +140,8 @@ export interface Appearance {
   frames: FacadePolygon[];
   /** One thin darker strip per storey between window rows; drawn at every zoom. */
   bands: FacadePolygon[];
+  /** Ground-floor shopfront glazing and a light cornice under the roof edge; every zoom. */
+  trims: FacadePolygon[];
   roofs: RoofPolygon[];
   features: Map<string, BuildingInfo>;
 }
@@ -145,6 +150,7 @@ export function build(scene: Pick<FeatureCollection<BuildingProperties>, 'featur
   const windows: FacadePolygon[] = [],
     frames: FacadePolygon[] = [],
     bands: FacadePolygon[] = [],
+    trims: FacadePolygon[] = [],
     roofs: RoofPolygon[] = [],
     features = new Map<string, BuildingInfo>();
   for (const feature of scene.features) {
@@ -164,8 +170,14 @@ export function build(scene: Pick<FeatureCollection<BuildingProperties>, 'featur
         color: roof,
       });
     const bandColor = shade(material(feature), 0.8);
+    const cornice = material(feature).map((c) => Math.min(255, Math.round(c * 1.07))) as RGB;
     for (const wall of walls(feature)) {
       info.illustrativeWalls++;
+      const quad = (lo: number, hi: number, color: RGB) =>
+        trims.push({ id, polygon: [wall.point(0, lo), wall.point(0, hi), wall.point(1, hi), wall.point(1, lo)], color });
+      // Shopfront glazing replaces the first window row (2.2-3.8 m), ending below the first band.
+      if (wall.height > GROUND_FLOOR_TOP + 1.5) quad(0.3, GROUND_FLOOR_TOP, SHOPFRONT);
+      if (wall.height > 3) quad(wall.height - 0.5, wall.height - 0.02, cornice);
       // Bands sit in the gap between window rows (windows span 2.2-3.8 m per storey).
       for (let z = STOREY_M + 1.2; z + 0.2 < wall.height - 0.6; z += STOREY_M)
         bands.push({
@@ -174,7 +186,7 @@ export function build(scene: Pick<FeatureCollection<BuildingProperties>, 'featur
           color: bandColor,
         });
       const columns = Math.min(20, Math.floor(wall.length / 4.2));
-      for (let bottom = 2.2, row = 0; bottom + 1.6 < wall.height - 0.6; bottom += STOREY_M, row++) {
+      for (let bottom = 2.2 + STOREY_M, row = 1; bottom + 1.6 < wall.height - 0.6; bottom += STOREY_M, row++) {
         for (let column = 0; column < columns; column++) {
           const centre = (column + 0.5) / columns,
             half = Math.min(1.1 / wall.length, 0.32 / columns);
@@ -204,5 +216,5 @@ export function build(scene: Pick<FeatureCollection<BuildingProperties>, 'featur
       }
     }
   }
-  return { windows, frames, bands, roofs, features };
+  return { windows, frames, bands, trims, roofs, features };
 }

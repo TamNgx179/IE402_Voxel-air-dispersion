@@ -1,6 +1,6 @@
 // Ported from the flow tests in web/tests/viewer.test.cjs.
 import { describe, expect, test } from 'vitest';
-import { advance, compass, createField, createParticles, layerWind, rasterStyle, streamlet, type FlowField } from './flow';
+import { PARTICLE_LIFETIME_S, advance, compass, createField, createParticles, layerWind, rasterStyle, streamlet, type FlowField } from './flow';
 
 const grid = { nx: 10, ny: 10, nz: 2, dx_m: 5, dy_m: 5, dz_m: 2 };
 
@@ -45,12 +45,22 @@ describe('wind flow', () => {
     expect(createParticles(f, 9).length).toBe(0);
   });
 
-  test('steady wind does not reset particles at an arbitrary 18-second lifetime', () => {
+  test('streaks follow the wind, fade out, then respawn at their seed so open areas never empty', () => {
     const f = field(0.01, 0),
       p = createParticles(f, 0);
-    const x = p[0].x;
-    for (let n = 0; n < 200; n++) advance(f, p, 0.1);
-    expect(Math.abs(p[0].x - x - 0.2)).toBeLessThan(1e-8);
+    const seedX = p[0].seed.x;
+    p[0].age = 0;
+    // 15 s of steady drift: still moving with the wind, fully visible.
+    for (let n = 0; n < 150; n++) advance(f, p, 0.1);
+    expect(Math.abs(p[0].x - seedX - 0.15)).toBeLessThan(1e-8);
+    expect(p[0].fade).toBe(1);
+    // Last 2 s fade out before the lifetime ends.
+    for (let n = 0; n < 40; n++) advance(f, p, 0.1);
+    expect(p[0].fade).toBeLessThan(1);
+    // Past the lifetime the streak restarts at its seed.
+    for (let n = 0; n < 20; n++) advance(f, p, 0.1);
+    expect(p[0].age).toBeLessThan(PARTICLE_LIFETIME_S);
+    expect(p[0].x).toBeLessThan(seedX + 0.02);
   });
 
   test('raster fallback covers whole map, includes attribution, not study-area bounds', () => {

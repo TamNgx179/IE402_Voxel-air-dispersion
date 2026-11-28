@@ -10,6 +10,7 @@ import type { LodController, LodCamera } from '../lib/lod';
 import type { BootstrapData, RunData, ViewerState } from '../store/types';
 
 const EMPTY: FeatureCollection = { type: 'FeatureCollection', features: [] };
+const SOLID_CELL: [number, number, number, number] = [92, 100, 106, 90];
 
 export interface CoreContext {
   state: ViewerState;
@@ -48,7 +49,12 @@ export function concentrationLayer(ctx: CoreContext): Layer | null {
       [...ctx.node(cell.i + 1, cell.j + 1), z],
       [...ctx.node(cell.i, cell.j + 1), z],
     ],
-    getFillColor: (cell) => cellColour(valueAt(run.volume, grid, state.display, k, cell.j, cell.i), scale),
+    getFillColor: (cell) => {
+      const value = valueAt(run.volume, grid, state.display, k, cell.j, cell.i);
+      // Solid (in-building) cells: a soft footprint shade instead of a white
+      // staircase of basemap showing around every building base.
+      return Number.isNaN(value) ? SOLID_CELL : cellColour(value, scale);
+    },
     updateTriggers: { getPolygon: [z], getFillColor: key },
     onClick: (info: PickingInfo<Cell>) => {
       if (state.mapMode !== 'cell' || ctx.drawing) return;
@@ -83,7 +89,7 @@ export function buildingLayer(ctx: CoreContext): Layer {
 export function facadeLayers(ctx: CoreContext): Layer[] {
   const { state } = ctx;
   if (!state.layers.buildings || !state.layers.facades) return [];
-  const { bands, roofs } = ctx.appearance;
+  const { bands, trims, roofs } = ctx.appearance;
   const out: Layer[] = [
     new SolidPolygonLayer<(typeof roofs)[number]>({
       id: 'building-roofs',
@@ -95,6 +101,14 @@ export function facadeLayers(ctx: CoreContext): Layer[] {
     new SolidPolygonLayer<FacadePolygon>({
       id: 'facade-bands',
       data: bands,
+      _full3d: true,
+      getPolygon: (d) => d.polygon,
+      getFillColor: (d) => d.color,
+      material: false,
+    }),
+    new SolidPolygonLayer<FacadePolygon>({
+      id: 'facade-trims',
+      data: trims,
       _full3d: true,
       getPolygon: (d) => d.polygon,
       getFillColor: (d) => d.color,
