@@ -358,8 +358,13 @@ export function CorridorPanel({ active }: CorridorPanelProps) {
         data: roadPaths,
         getPath: (d) => d.path.map((p) => [p[0], p[1], z + 0.25]) as never,
         getColor: (d) => (chosen.has(d.id) ? [214, 92, 38, 255] : [107, 126, 116, picking ? 200 : 110]),
-        getWidth: (d) => (chosen.has(d.id) ? 5 : 2),
-        widthUnits: 'pixels',
+        // Metres so a chosen street reads like a carriageway when zoomed in;
+        // the pixel floor keeps it visible from the overview.
+        getWidth: (d) => (chosen.has(d.id) ? 9 : 3),
+        widthUnits: 'meters',
+        widthMinPixels: 3,
+        capRounded: true,
+        jointRounded: true,
         pickable: false,
         parameters: { depthWriteEnabled: false } as never,
         updateTriggers: { getColor: [selected.join(), picking], getWidth: [selected.join()], getPath: [z] },

@@ -39,6 +39,8 @@ export function concentrationLayer(ctx: CoreContext): Layer | null {
     id: 'concentration',
     data: ctx.cells,
     extruded: false,
+    // Above the ground layer the slice is translucent so buildings beneath it stay readable.
+    opacity: k === 0 ? 1 : 0.78,
     pickable: state.mapMode === 'cell' && !ctx.drawing,
     getPolygon: (cell) => [
       [...ctx.node(cell.i, cell.j), z],
@@ -81,10 +83,27 @@ export function buildingLayer(ctx: CoreContext): Layer {
 export function facadeLayers(ctx: CoreContext): Layer[] {
   const { state } = ctx;
   if (!state.layers.buildings || !state.layers.facades) return [];
+  const { bands, roofs } = ctx.appearance;
+  const out: Layer[] = [
+    new SolidPolygonLayer<(typeof roofs)[number]>({
+      id: 'building-roofs',
+      data: roofs,
+      getPolygon: (d) => d.polygon,
+      getFillColor: (d) => d.color,
+      material: false,
+    }),
+    new SolidPolygonLayer<FacadePolygon>({
+      id: 'facade-bands',
+      data: bands,
+      _full3d: true,
+      getPolygon: (d) => d.polygon,
+      getFillColor: (d) => d.color,
+      material: false,
+    }),
+  ];
   const plan = ctx.lod(ctx.camera);
-  if (!plan.polygons) return [];
+  if (!plan.polygons) return out;
   const opacity = detailOpacity(ctx.camera.getZoom());
-  const out: Layer[] = [];
   if (plan.frames.length)
     out.push(
       new SolidPolygonLayer<FacadePolygon>({
@@ -236,7 +255,7 @@ function windSegments(wind: WindState, bootstrap: BootstrapData): WindSegment[] 
       const t = (index + 0.5) / (path.length - 1);
       // Fade both ends, brighter toward the moving head, without arrowheads.
       const envelope = Math.pow(Math.sin(Math.PI * t), 0.7) * (0.3 + 0.7 * t);
-      return { path: [path[index], point], alpha: Math.round(220 * particle.fade * envelope), width: 0.6 + 1.1 * envelope };
+      return { path: [path[index], point], alpha: Math.round(255 * particle.fade * envelope), width: 1.2 + 1.8 * envelope };
     });
   });
 }
@@ -249,8 +268,9 @@ export function windLayers(wind: WindState, bootstrap: BootstrapData, visible: b
       data,
       visible,
       getPath: (item) => item.path as never,
-      getColor: (item) => [112, 156, 170, Math.round(item.alpha * 0.3)],
-      getWidth: (item) => item.width + 2,
+      // Dark casing so the white streak reads on both pale and dark concentration colours.
+      getColor: (item) => [18, 44, 60, Math.round(item.alpha * 0.55)],
+      getWidth: (item) => item.width + 2.5,
       widthUnits: 'pixels',
       jointRounded: true,
       capRounded: true,

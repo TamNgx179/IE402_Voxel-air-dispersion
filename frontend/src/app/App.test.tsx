@@ -43,10 +43,12 @@ describe('viewer shell', () => {
     expect(layerIds(fake.overlays[0])).toEqual([
       'water',
       'green',
-      'concentration',
       'roads',
-      'voxel-grid',
       'buildings',
+      'building-roofs',
+      'facade-bands',
+      'concentration',
+      'voxel-grid',
       'wind-trails',
       'wind-streamlets',
     ]);

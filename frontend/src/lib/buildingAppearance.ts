@@ -4,18 +4,29 @@ import type { BuildingProperties, Feature, FeatureCollection } from '../api/type
 export type RGB = [number, number, number];
 type BuildingFeature = Pick<Feature<BuildingProperties>, 'properties' | 'geometry'>;
 
+// Muted plaster / glass tones so neighbouring blocks read apart without
+// competing with the concentration colour scale on the ground.
 const MATERIALS: RGB[] = [
-  [232, 228, 218],
-  [228, 232, 228],
-  [231, 229, 223],
-  [225, 230, 234],
+  [236, 229, 214], // cream plaster
+  [218, 225, 232], // light steel
+  [228, 219, 207], // warm taupe
+  [212, 222, 217], // sage grey
+  [232, 227, 219], // pale stone
+  [206, 218, 230], // grey-blue glass
 ];
+
+/** Storey spacing used for illustrative window rows and floor bands. */
+const STOREY_M = 3.6;
+
+function shade(color: RGB, factor: number): RGB {
+  return color.map((c) => Math.round(c * factor)) as RGB;
+}
 
 // Cartographic daylight, not a simulated sun/time or energy model.
 // Explicit lights avoid the default pair overexposing near-white buildings.
 export const WALL_MATERIAL = Object.freeze({
-  ambient: 0.88,
-  diffuse: 0.24,
+  ambient: 0.68,
+  diffuse: 0.5,
   shininess: 16,
   specularColor: [0, 0, 0] as RGB,
 });
@@ -54,6 +65,11 @@ function hash(id: unknown): number {
 
 export function material(feature: { properties: { source_feature_id: unknown } }): RGB {
   return MATERIALS[hash(feature.properties.source_feature_id) % MATERIALS.length];
+}
+
+/** Roof caps read darker than walls, as flat roofs do from above. */
+export function roofColor(feature: { properties: { source_feature_id: unknown } }): RGB {
+  return shade(material(feature), 0.82);
 }
 
 export interface Wall {
@@ -104,6 +120,12 @@ export interface FacadePolygon {
   color: RGB;
 }
 
+export interface RoofPolygon {
+  id: string;
+  polygon: Array<Array<[number, number, number]>>;
+  color: RGB;
+}
+
 export interface BuildingInfo {
   id: string;
   height: number;
@@ -113,21 +135,46 @@ export interface BuildingInfo {
 export interface Appearance {
   windows: FacadePolygon[];
   frames: FacadePolygon[];
+  /** One thin darker strip per storey between window rows; drawn at every zoom. */
+  bands: FacadePolygon[];
+  roofs: RoofPolygon[];
   features: Map<string, BuildingInfo>;
 }
 
 export function build(scene: Pick<FeatureCollection<BuildingProperties>, 'features'>, _legacyPhotos?: unknown): Appearance {
   const windows: FacadePolygon[] = [],
     frames: FacadePolygon[] = [],
+    bands: FacadePolygon[] = [],
+    roofs: RoofPolygon[] = [],
     features = new Map<string, BuildingInfo>();
   for (const feature of scene.features) {
     const id = feature.properties.source_feature_id;
-    const info: BuildingInfo = { id, height: feature.properties.height_m, illustrativeWalls: 0 };
+    const height = feature.properties.height_m;
+    const info: BuildingInfo = { id, height, illustrativeWalls: 0 };
     features.set(id, info);
+    const geometry = feature.geometry;
+    const parts: number[][][][] =
+      geometry.type === 'Polygon' ? [geometry.coordinates] : geometry.type === 'MultiPolygon' ? geometry.coordinates : [];
+    const roof = roofColor(feature);
+    for (const rings of parts)
+      roofs.push({
+        id,
+        // 5 cm above the extruded top so the cap never z-fights with it.
+        polygon: rings.map((ring) => ring.map((p) => [p[0], p[1], height + 0.05] as [number, number, number])),
+        color: roof,
+      });
+    const bandColor = shade(material(feature), 0.8);
     for (const wall of walls(feature)) {
       info.illustrativeWalls++;
+      // Bands sit in the gap between window rows (windows span 2.2-3.8 m per storey).
+      for (let z = STOREY_M + 1.2; z + 0.2 < wall.height - 0.6; z += STOREY_M)
+        bands.push({
+          id,
+          polygon: [wall.point(0, z - 0.2), wall.point(0, z + 0.2), wall.point(1, z + 0.2), wall.point(1, z - 0.2)],
+          color: bandColor,
+        });
       const columns = Math.min(20, Math.floor(wall.length / 4.2));
-      for (let bottom = 2.2, row = 0; bottom + 1.6 < wall.height - 0.6; bottom += 3.6, row++) {
+      for (let bottom = 2.2, row = 0; bottom + 1.6 < wall.height - 0.6; bottom += STOREY_M, row++) {
         for (let column = 0; column < columns; column++) {
           const centre = (column + 0.5) / columns,
             half = Math.min(1.1 / wall.length, 0.32 / columns);
@@ -151,11 +198,11 @@ export function build(scene: Pick<FeatureCollection<BuildingProperties>, 'featur
               wall.point(centre + half, bottom + 1.6),
               wall.point(centre + half, bottom),
             ],
-            color: variation === 0 ? [160, 184, 196] : variation === 1 ? [153, 177, 190] : [165, 188, 200],
+            color: variation === 0 ? [118, 148, 168] : variation === 1 ? [108, 138, 160] : [128, 156, 174],
           });
         }
       }
     }
   }
-  return { windows, frames, features };
+  return { windows, frames, bands, roofs, features };
 }

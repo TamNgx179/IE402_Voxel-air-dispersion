@@ -110,7 +110,7 @@ export interface Particle {
 export function createParticles(field: FlowField | null, k: number): Particle[] {
   const layer = field?.layers?.get(k);
   if (!field || !layer) return [];
-  const stride = Math.max(1, Math.ceil(layer.vectors.length / 140));
+  const stride = Math.max(1, Math.ceil(layer.vectors.length / 220));
   return layer.vectors
     .filter((_, n) => n % stride === 0)
     .map((row, n) => {
@@ -160,7 +160,7 @@ export function streamlet(field: FlowField | null, particle: { x: number; y: num
   let point: Vec3 = [particle.x, particle.y, particle.z];
   const velocity = field.sample(...point);
   if (!velocity || Math.hypot(...velocity) < 1e-6) return [];
-  const length = Math.min(24, 10 + Math.hypot(...velocity) * 8);
+  const length = Math.min(34, 14 + Math.hypot(...velocity) * 10);
   const step = Math.min(1, field.grid.dx_m * 0.25, field.grid.dy_m * 0.25, field.grid.dz_m * 0.25);
   const points: Vec3[] = [point];
   // Bound rendering work even for very fine grids.

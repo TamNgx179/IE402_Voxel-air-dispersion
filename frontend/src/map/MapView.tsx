@@ -224,13 +224,16 @@ export function MapView({ bootstrap, factory = createMapLibre, onBasemapUnavaila
       return [
         waterLayer(ctx),
         greenLayer(ctx),
+        roadLayer(ctx),
+        // Buildings draw before the height slice so the depth test can place the
+        // slice correctly: parts below it show through the tinted plane, parts
+        // above it pierce the plane instead of appearing to stand on it.
+        buildingLayer(ctx),
+        ...facadeLayers(ctx),
         ...registry.layers('below-concentration'),
         concentrationLayer(ctx),
         ...registry.layers('above-concentration'),
-        roadLayer(ctx),
         voxelGridLayer(ctx),
-        buildingLayer(ctx),
-        ...facadeLayers(ctx),
         selectionLayer(ctx),
         ...registry.layers('top'),
       ].filter((layer): layer is NonNullable<typeof layer> => Boolean(layer));

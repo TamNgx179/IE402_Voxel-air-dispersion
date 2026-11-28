@@ -1,7 +1,7 @@
 // Ported from web/tests/building-appearance.test.cjs.
 import { describe, expect, test } from 'vitest';
 import type { BuildingProperties, Feature } from '../api/types';
-import { LIGHTS, WALL_MATERIAL, build, detailOpacity, lighting, material } from './buildingAppearance';
+import { LIGHTS, WALL_MATERIAL, build, detailOpacity, lighting, material, roofColor } from './buildingAppearance';
 
 const feature: Feature<BuildingProperties> = {
   type: 'Feature',
@@ -33,13 +33,17 @@ describe('building appearance', () => {
     expect(appearance.features.get('way/test')!.illustrativeWalls).toBe(4);
   });
 
-  test('pearl materials stay between dull gray and pure white and stable across render/reload', () => {
+  test('muted materials vary between buildings and stay stable across render/reload', () => {
     const color = material(feature);
     expect(material(structuredClone(feature))).toEqual(color);
+    const seen = new Set<string>();
     for (let id = 0; id < 16; id++) {
       const sample = material({ properties: { source_feature_id: `way/${id}` } });
-      expect(sample.every((channel) => channel >= 218 && channel <= 234)).toBe(true);
+      // Never pure white (the old flat look) and never dark enough to fight the concentration scale.
+      expect(sample.every((channel) => channel >= 200 && channel <= 240)).toBe(true);
+      seen.add(sample.join());
     }
+    expect(seen.size).toBeGreaterThan(2);
     const scene = { features: [feature] };
     expect(build(scene).windows).toEqual(build(scene).windows);
     expect(build(scene).windows.every((w) => w.color.every((c) => c <= 200))).toBe(true);
@@ -71,6 +75,22 @@ describe('building appearance', () => {
     expect(detailOpacity(14)).toBe(0.2);
     expect(detailOpacity(16.5)).toBeLessThan(detailOpacity(17));
     expect(Math.abs(detailOpacity(19) - 0.9)).toBeLessThan(1e-10);
+  });
+
+  test('floor bands and roof caps are darker than walls and do not overlap window rows', () => {
+    const appearance = build({ features: [feature] });
+    const wall = material(feature);
+    // 16 m tall: bands at 4.8, 8.4 and 12.0 m (15.6 m would touch the roof) on each of 4 walls.
+    expect(appearance.bands.length).toBe(12);
+    expect(appearance.bands.every((b) => b.color.every((c, i) => c < wall[i]))).toBe(true);
+    for (const band of appearance.bands) {
+      const zs = band.polygon.map((p) => p[2]);
+      const [lo, hi] = [Math.min(...zs), Math.max(...zs)];
+      expect(appearance.windows.some((w) => w.polygon.some((p) => p[2] > lo && p[2] < hi))).toBe(false);
+    }
+    expect(appearance.roofs).toHaveLength(1);
+    expect(appearance.roofs[0].color).toEqual(roofColor(feature));
+    expect(appearance.roofs[0].polygon[0].every((p) => p[2] > 16 && p[2] < 16.1)).toBe(true);
   });
 
   test('photo registry cannot replace procedural faces anymore', () => {
